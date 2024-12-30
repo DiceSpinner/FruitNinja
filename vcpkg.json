@@ -1,7 +1,10 @@
 {
   "dependencies": [
-    "glad",
+    {
+      "name": "glad"
+    },
     "glfw3",
-    "glm"
+    "glm",
+    "assimp"
   ]
 }

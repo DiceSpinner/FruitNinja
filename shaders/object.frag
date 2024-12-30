@@ -59,11 +59,11 @@ void main()
 	vec3 lightDir = normalize(light.position - position.xyz);
 	vec3 viewDir = normalize(cameraPosition - position.xyz);
 	float agree = dot(lightDir, normal);
-	bool isFront = dot(viewDir, normal) > 0;
-	vec4 diffuse = float(isFront) * clamp(agree, 0, 1) * diffuse1 * light.diffuse;
+	bool visible = (agree * dot(viewDir, normal)) > 0;
+	vec4 diffuse = float(visible) * abs(agree) * diffuse1 * light.diffuse;
 
 	vec4 specular = vec4(0, 0, 0, 0);
-	if(shininess > 0 && isFront && agree > 0){
+	if(shininess > 0 && visible){
 		vec3 reflectDir = normalize(reflect(-lightDir, normal));
 		float spec = pow(clamp(dot(viewDir, reflectDir), 0, 1), shininess);
 		specular = spec * specular1 * light.specular;

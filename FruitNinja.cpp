@@ -8,9 +8,10 @@
 #include <fstream>
 #include <vector>
 #include "state/time.hpp"
-#include "shader.hpp"
+#include "rendering/shader.hpp"
 #include "libraries/stb_image.h"
-#include "object.hpp"
+#include "core/object.hpp"
+#include "components/rigidbody.hpp"
 #include "fruit.hpp"
 
 using namespace std;
@@ -187,11 +188,14 @@ int main() {
     Shader objectShader(objVertexPath, objFragPath);
     Shader unlitShader(objVertexPath, unlitFrag);
 
-    Model melonModel(watermelon);
-    Model backpackModel(backpack);
+    std::shared_ptr<Model> melonModel = std::make_shared<Model>(watermelon);
+    std::shared_ptr<Model> backpackModel = std::make_shared<Model>(backpack);
     shared_ptr<Fruit> melon = make_shared<Fruit>(melonModel);
+    melon->transform.SetScale(glm::vec3(3, 3, 3));
+
     shared_ptr<Object> bp = make_shared<Object>(backpackModel);
-    bp->setUp(glm::vec3(0, 0, 1));
+    bp->AddComponent<Rigidbody>();
+    bp->transform.SetPosition(glm::vec3(0, 20, 0));
     
     glm::vec3 lightPosition = glm::vec3(0, 0, 0);
     glm::vec4 lightDiffuse(1, 1, 1, 1);
@@ -202,7 +206,7 @@ int main() {
     glEnable(GL_DEPTH_TEST);
     glBindVertexArray(0);
 
-    vector<shared_ptr<Object>> objects = {melon, bp};
+    vector<shared_ptr<Object>> objects = {bp, melon};
 
     while (!glfwWindowShouldClose(window))
     {
@@ -228,7 +232,7 @@ int main() {
         glm::mat4 lightTransform = glm::translate(glm::mat4(1), glm::vec3(rotatedForward));
         glm::vec3 lightPos = glm::vec3(0, 0, 10);
 
-        unlitShader.use();
+        unlitShader.Use();
         glUniformMatrix4fv(glGetUniformLocation(unlitShader.ID, "view"), 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(glGetUniformLocation(unlitShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
         glUniform3fv(glGetUniformLocation(unlitShader.ID, "light.position"), 1, glm::value_ptr(lightPos));
@@ -239,9 +243,9 @@ int main() {
 
         for (auto i = objects.begin(); i != objects.end();) {
             auto& obj = *i;
-            obj->update();
+            obj->Update();
             if (obj->isAlive()) {
-                obj->draw(unlitShader);
+                obj->Draw(unlitShader);
                 i++;
             }
             else {

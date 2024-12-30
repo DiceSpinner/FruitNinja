@@ -1,11 +1,11 @@
 #ifndef FRUIT_H
 #define FRUIT_H
-#include "object.hpp"
+#include "core/object.hpp"
 
 class Fruit : public Object {
 public:
-	Fruit(Model& model);
-	void update() override;
+	Fruit(std::shared_ptr<Model>& model);
+	void Update() override;
 };
 
 #endif

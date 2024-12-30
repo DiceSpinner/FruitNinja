@@ -33,30 +33,30 @@ void Mesh::Draw(Shader& shader) {
 	for (unsigned int i = 0; i < material.diffuse.size(); i++)
 	{
 		glActiveTexture(GL_TEXTURE0 + textureIndex); 
-		shader.setInt(("material.diffuse[" + to_string(i) + "]").c_str(), textureIndex++);
+		shader.SetInt(("material.diffuse[" + to_string(i) + "]").c_str(), textureIndex++);
 		glBindTexture(GL_TEXTURE_2D, material.diffuse[i].id);
 	}
-	shader.setVec4("material.diffuseColor", material.diffuseColor);
-	shader.setInt("material.dArraySize", material.diffuse.size());
+	shader.SetVec4("material.diffuseColor", material.diffuseColor);
+	shader.SetInt("material.dArraySize", material.diffuse.size());
 
 	for (unsigned int i = 0; i < material.specular.size(); i++)
 	{
 		glActiveTexture(GL_TEXTURE0 + textureIndex);
-		shader.setInt(("material.specular[" + to_string(i) + "]").c_str(), textureIndex++);
+		shader.SetInt(("material.specular[" + to_string(i) + "]").c_str(), textureIndex++);
 		glBindTexture(GL_TEXTURE_2D, material.diffuse[i].id);
 	}
-	shader.setVec4("material.specularColor", material.specularColor);
-	shader.setInt("material.sArraySize", material.specular.size());
-	shader.setFloat("material.shininess", material.shininess);
+	shader.SetVec4("material.specularColor", material.specularColor);
+	shader.SetInt("material.sArraySize", material.specular.size());
+	shader.SetFloat("material.shininess", material.shininess);
 
 	for (unsigned int i = 0; i < material.ambient.size(); i++)
 	{
 		glActiveTexture(GL_TEXTURE0 + textureIndex);
-		shader.setInt(("material.ambient[" + to_string(i) + "]").c_str(), textureIndex++);
+		shader.SetInt(("material.ambient[" + to_string(i) + "]").c_str(), textureIndex++);
 		glBindTexture(GL_TEXTURE_2D, material.ambient[i].id);
 	}
-	shader.setVec4("material.ambientColor", material.ambientColor);
-	shader.setInt("material.aArraySize", material.ambient.size());
+	shader.SetVec4("material.ambientColor", material.ambientColor);
+	shader.SetInt("material.aArraySize", material.ambient.size());
 	glActiveTexture(GL_TEXTURE0);
 
 	// draw mesh

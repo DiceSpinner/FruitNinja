@@ -45,4 +45,5 @@ public:
 	void Draw(Shader& shader);
 };
 
+Texture textureFromFile(const char* path, std::string directory);
 #endif

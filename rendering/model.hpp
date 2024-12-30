@@ -14,7 +14,6 @@ private:
     // model data
     std::vector<Mesh> meshes;
     std::string directory;
-    std::vector<Texture> loadedTextures;
 
     void loadModel(std::string path);
     void processNode(aiNode* node, const aiScene* scene);

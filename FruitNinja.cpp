@@ -9,10 +9,10 @@
 #include <vector>
 #include "state/time.hpp"
 #include "rendering/shader.hpp"
-#include "libraries/stb_image.h"
 #include "core/object.hpp"
 #include "components/rigidbody.hpp"
 #include "fruit.hpp"
+#include "core/ui.hpp"
 
 using namespace std;
 
@@ -23,6 +23,8 @@ const unsigned int SCR_HEIGHT = 600;
 const char* objVertexPath = "shaders/object.vert";
 const char* objFragPath = "shaders/object.frag";
 const char* unlitFrag = "shaders/object_unlit.frag";
+const char* uiVertPath = "shaders/ui.vert";
+const char* uiFragPath = "shaders/ui.frag";
 
 double pitch = 0;
 double yaw = 0;
@@ -77,7 +79,7 @@ static void cursorAim(GLFWwindow* window, double xpos, double ypos) {
     pitch -= offsetY;
     yaw += offsetX;
     
-    pitch = glm::clamp(pitch, -80.0, 80.0);
+    pitch = glm::clamp(pitch, -85.0, 85.0);
 }
 
 static void onWindowResize(GLFWwindow* window, int width, int height)
@@ -187,21 +189,25 @@ int main() {
     GLFWwindow* window = initializeContext();
     Shader objectShader(objVertexPath, objFragPath);
     Shader unlitShader(objVertexPath, unlitFrag);
+    Shader uiShader(uiVertPath, uiFragPath);
 
     std::shared_ptr<Model> melonModel = std::make_shared<Model>(watermelon);
     std::shared_ptr<Model> backpackModel = std::make_shared<Model>(backpack);
     shared_ptr<Fruit> melon = make_shared<Fruit>(melonModel);
-    melon->transform.SetScale(glm::vec3(3, 3, 3));
+    melon->transform.SetScale(glm::vec3(1, 1, 1));
 
     shared_ptr<Object> bp = make_shared<Object>(backpackModel);
     bp->AddComponent<Rigidbody>();
     bp->transform.SetPosition(glm::vec3(0, 20, 0));
+
+    Texture image = textureFromFile("wood1.jpg", "images");
+    UI background(image);
     
     glm::vec3 lightPosition = glm::vec3(0, 0, 0);
     glm::vec4 lightDiffuse(1, 1, 1, 1);
     glm::vec4 lightSpecular(0.5, 0.5, 0.5, 1);
     glm::vec4 lightAmbient(.1, 0.1, 0.1, 1);
-    glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+    glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 300.0f);
 
     glEnable(GL_DEPTH_TEST);
     glBindVertexArray(0);
@@ -215,6 +221,10 @@ int main() {
         // std::cout << yaw << ", " << pitch << "\n";
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        uiShader.Use();
+        background.Draw(uiShader);
+        glClear(GL_DEPTH_BUFFER_BIT);
 
         cameraFront.x = glm::cos(glm::radians(pitch)) * glm::sin(glm::radians(yaw));
         cameraFront.y = glm::sin(glm::radians(pitch));

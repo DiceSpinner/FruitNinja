@@ -3,51 +3,11 @@
 #include "model.hpp"
 #define GLM_ENABLE_EXPERIMENTAL
 #include "glm/ext.hpp"
-#include "stb_image.h"
 
 using namespace std;
 
 static glm::vec3 toVec3(const aiVector3D vector) {
 	return glm::vec3(vector.x, vector.y, vector.z);
-}
-
-static GLuint textureFromFile(const char* path, string directory) {
-	string filename = string(path);
-	filename = directory + '/' + filename;
-
-	unsigned int textureID;
-	glGenTextures(1, &textureID);
-	stbi_set_flip_vertically_on_load(true);
-	int width, height, nrComponents;
-	unsigned char* data = stbi_load(filename.c_str(), &width, &height, &nrComponents, 0);
-	if (data)
-	{
-		GLenum format = GL_RED;
-		if (nrComponents == 1)
-			format = GL_RED;
-		else if (nrComponents == 3)
-			format = GL_RGB;
-		else if (nrComponents == 4)
-			format = GL_RGBA;
-
-		glBindTexture(GL_TEXTURE_2D, textureID);
-		glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
-		glGenerateMipmap(GL_TEXTURE_2D);
-
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-		stbi_image_free(data);
-	}
-	else
-	{
-		std::cout << "Texture failed to load at path: " << path << std::endl;
-		stbi_image_free(data);
-	}
-
-	return textureID;
 }
 
 Model::Model(const char* path) {
@@ -153,21 +113,10 @@ vector<Texture> Model::loadMaterialTextures(aiMaterial* material, aiTextureType 
 	{
 		aiString str;
 		material->GetTexture(type, i, &str);
-		bool skipLoading = false;
 		string path = str.C_Str();
-		for (auto& item : loadedTextures) {
-			if (path == item.path) {
-				skipLoading = true;
-				textures.push_back(item);
-				break;
-			}
-		}
-		if (!skipLoading) {
-			Texture texture;
-			texture.id = textureFromFile(path.c_str(), directory);
-			texture.path = str.C_Str();
+		Texture texture = textureFromFile(path.c_str(), directory);
+		if (texture.id != -1) {
 			textures.push_back(texture);
-			loadedTextures.push_back(texture);
 		}
 	}
 	if (material->GetTextureCount(type) == 0) {

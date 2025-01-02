@@ -6,6 +6,7 @@ out vec2 uv;
 
 void main()
 {
-	uv = tex;
-	gl_Position = transform * vec4(uv, 0, 1);
+	vec2 temp = (tex - vec2(0.5, 0.5)) * 2;
+	 uv = tex;
+	gl_Position = transform * vec4(temp, 0, 1);
 }

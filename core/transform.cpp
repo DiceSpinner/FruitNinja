@@ -1,3 +1,4 @@
+#include <iostream>
 #include "transform.hpp"
 #include "glm/ext.hpp"
 
@@ -10,15 +11,15 @@ glm::vec3 Transform::position() const {
 }
 
 glm::vec3 Transform::forward() const {
-	return glm::normalize(glm::vec3(matrix * glm::vec4(0, 0, 1, 1)));
+	return glm::normalize(glm::vec3(matrix * glm::vec4(0, 0, 1, 0)));
 }
 
 glm::vec3 Transform::right() const {
-	return glm::normalize(glm::vec3(matrix * glm::vec4(1, 0, 0, 1)));
+	return glm::normalize(glm::vec3(matrix * glm::vec4(1, 0, 0, 0)));
 }
 
 glm::vec3 Transform::up() const {
-	return glm::normalize(glm::vec3(matrix * glm::vec4(0, 1, 0, 1)));
+	return glm::normalize(glm::vec3(matrix * glm::vec4(0, 1, 0, 0)));
 }
 
 glm::vec3 Transform::scale() const {
@@ -38,6 +39,12 @@ glm::mat4 Transform::rotation() const {
 	return result;
 }
 
+void Transform::LookAt(glm::vec3 position, glm::vec3 up) {
+	glm::vec3 direction = position - this->position();
+	SetForward(direction);
+	SetRight(glm::cross(up, direction));
+}
+
 void Transform::SetPosition(glm::vec3 position) {
 	matrix[3] = glm::vec4(position, 1);
 }
@@ -51,12 +58,13 @@ void Transform::SetForward(glm::vec3 direction) {
 		return;
 	}
 
-	glm::vec3 axis = glm::normalize(glm::cross(currForward, newDirection));
-
-	if (glm::abs(dot + 1.0f) < 1e-6f) {
-		matrix = glm::rotate(matrix, glm::pi<float>(), axis);
+	if (glm::abs(dot + 1.0f) < 1e-6f) { // Opposite
+		matrix = glm::rotate(matrix, glm::pi<float>(), up());
 		return;
 	}
+
+	glm::vec3 axis = glm::normalize(glm::cross(currForward, newDirection));
+
 	float angle = glm::acos(dot);
 	matrix = glm::rotate(matrix, angle, axis);
 }

@@ -17,16 +17,22 @@ public:
 
 	Object(std::shared_ptr<Model>& model);
 
-	template<typename T>
-	void AddComponent() {
+	template<typename T, typename... Args>
+	T* AddComponent(Args&&... args) {
 		auto item = components.find(std::type_index(typeid(T)));
 		if (item == components.end()) {
-			components.emplace(std::type_index(typeid(T)), std::make_unique<T>(components, transform));
+			auto ptr = std::make_unique<T>(components, transform, this, std::forward<Args>(args)...);
+			auto handle = ptr.get();
+			components.emplace(std::type_index(typeid(T)), std::move(ptr));
+			return handle;
 		}
+		return nullptr;
 	}
 	void Draw(Shader& shader) const;
 	bool isAlive() const;
 	virtual void Update();
 	void Destroy();
+
+	~Object();
 };
 #endif

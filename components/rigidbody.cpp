@@ -7,9 +7,10 @@
 
 using namespace std;
 
-const glm::vec3 Rigidbody::Gravity(0, -2, 0);
-Rigidbody::Rigidbody(std::unordered_map<std::type_index, std::unique_ptr<Component>>& collection, Transform& transform) :
-	Component(collection, transform), velocity(0) {}
+const glm::vec3 Rigidbody::Gravity(0, -4, 0);
+Rigidbody::Rigidbody(unordered_map<type_index, unique_ptr<Component>>& collection, 
+	Transform& transform, Object* object) :
+	Component(collection, transform, object), velocity(0) {}
 
 void Rigidbody::AddForce(glm::vec3 force, ForceMode forcemode) {
 	if (forcemode == ForceMode::Force) {
@@ -21,6 +22,8 @@ void Rigidbody::AddForce(glm::vec3 force, ForceMode forcemode) {
 }
 
 void Rigidbody::Update() {
-	transform.matrix = glm::translate(transform.matrix, velocity * deltaTime());
+	glm::vec3 translation = transform.position();
+	translation += velocity * deltaTime();
+	transform.matrix[3] = glm::vec4(translation, 1);
 	velocity += (Gravity * deltaTime());
 }

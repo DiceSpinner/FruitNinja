@@ -6,12 +6,15 @@
 #include <unordered_map>
 #include "transform.hpp"
 
+class Object;
+
 class Component {
 private:
 	std::unordered_map<std::type_index, std::unique_ptr<Component>>& componentMap;
 public:
+	Object* object;
 	Transform& transform;
-	Component(std::unordered_map<std::type_index, std::unique_ptr<Component>>& collection, Transform& transform);
+	Component(std::unordered_map<std::type_index, std::unique_ptr<Component>>& collection, Transform& transform, Object* object);
 	void virtual Update();
 	void virtual Initialize();
 

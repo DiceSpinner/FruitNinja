@@ -8,33 +8,47 @@
 #include <fstream>
 #include <vector>
 #include "state/time.hpp"
+#include "state/cursor.hpp"
+#include "state/camera.hpp"
+#include "state/new_objects.hpp"
 #include "rendering/shader.hpp"
 #include "core/object.hpp"
 #include "components/rigidbody.hpp"
-#include "fruit.hpp"
+#include "components/fruit.hpp"
 #include "core/ui.hpp"
+#include "core/ui3D.hpp"
+#include "settings/fruitsize.hpp"
 
 using namespace std;
+using namespace GameState;
 
 // settings
-const unsigned int SCR_WIDTH = 800;
-const unsigned int SCR_HEIGHT = 600;
+static unsigned int SCR_WIDTH = 800;
+static unsigned int SCR_HEIGHT = 600;
 
 const char* objVertexPath = "shaders/object.vert";
 const char* objFragPath = "shaders/object.frag";
 const char* unlitFrag = "shaders/object_unlit.frag";
+const char* ui3DVertPath = "shaders/ui3D.vert";
 const char* uiVertPath = "shaders/ui.vert";
 const char* uiFragPath = "shaders/ui.frag";
 
 double pitch = 0;
 double yaw = 0;
 float cameraSpeed = 2;
-glm::vec3 cameraPos(0, 0, 3);
-glm::vec3 cameraFront(0, 0, -1);
-glm::vec3 cameraUp(0, 1, 0);
+
+bool lockedCamera = false;
 
 static void processInput(GLFWwindow* window)
 {
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+        mouseClicked = true;
+    }
+    else {
+        mouseClicked = false;
+    }
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+        cameraPos += cameraSpeed * deltaTime() * cameraFront;
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
         cameraPos += cameraSpeed * deltaTime() * cameraFront;
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
@@ -49,24 +63,41 @@ static void processInput(GLFWwindow* window)
         cameraPos -= cameraSpeed * deltaTime() * cameraUp;
 }
 
-static void terminate(GLFWwindow* window, int key, int scancode, int action, int mods)
+static void onKeyPressed(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
     if (key == GLFW_KEY_ESCAPE && action == GLFW_RELEASE) {
         glfwSetWindowShouldClose(window, true);
+    }
+    if (key == GLFW_KEY_R && action == GLFW_RELEASE) {
+        lockedCamera = !lockedCamera;
+        if (lockedCamera) {
+            GameState::cameraPos = glm::vec3(0, 0, 30);
+            GameState::cameraFront = glm::vec3(0, 0, -1);
+            GameState::cameraUp = glm::vec3(0, 1, 0);
+            pitch = 0;
+            yaw = 0;
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+        }
+        else {
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        }
     }
 }
 
 const double mouseSensitivity = 0.1;
 
+static double lastCursorX = 0;
+static double lastCursorY = 0;
 static void cursorAim(GLFWwindow* window, double xpos, double ypos) {
-    static double lastCursorX = 0;
-    static double lastCursorY = 0;
     static bool init = true;
-
     double offsetX = xpos - lastCursorX;
     double offsetY = ypos - lastCursorY;
     lastCursorX = xpos;
     lastCursorY = ypos;
+
+    if (lockedCamera) {
+        return;
+    }
 
     if (init) {
         init = false;
@@ -87,6 +118,8 @@ static void onWindowResize(GLFWwindow* window, int width, int height)
     // make sure the viewport matches the new window dimensions; note that width and 
     // height will be significantly larger than specified on retina displays.
     glViewport(0, 0, width, height);
+    SCR_WIDTH = width;
+    SCR_HEIGHT = height;
 }
 
 static void APIENTRY glDebugOutput(GLenum source,
@@ -164,7 +197,7 @@ static GLFWwindow* initializeContext() {
     glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
 
     glfwSetFramebufferSizeCallback(window, onWindowResize);
-    glfwSetKeyCallback(window, terminate);
+    glfwSetKeyCallback(window, onKeyPressed);
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glfwSetCursorPosCallback(window, cursorAim);
     std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << std::endl;
@@ -184,24 +217,45 @@ static GLFWwindow* initializeContext() {
 const char* backpack = "models/backpack/backpack.obj";
 const char* watermelon = "models/fruits/watermelon.obj";
 const char* pineapple = "models/fruits/pineapple.obj";
+const char* unitCube = "models/unit_cube.obj";
+const char* unitSphere = "models/unit_sphere.obj";
+
+const char* apple = "models/fruits/apple.obj";
+const char* appleSlice1 = "models/fruits/apple_top.obj";
+const char* appleSlice2 = "models/fruits/apple_bottom.obj";
 
 int main() {
     GLFWwindow* window = initializeContext();
     Shader objectShader(objVertexPath, objFragPath);
     Shader unlitShader(objVertexPath, unlitFrag);
     Shader uiShader(uiVertPath, uiFragPath);
+    Shader rayTracerShader(ui3DVertPath, uiFragPath);
 
     std::shared_ptr<Model> melonModel = std::make_shared<Model>(watermelon);
+    std::shared_ptr<Model> pineappleModel = std::make_shared<Model>(pineapple);
     std::shared_ptr<Model> backpackModel = std::make_shared<Model>(backpack);
-    shared_ptr<Fruit> melon = make_shared<Fruit>(melonModel);
-    melon->transform.SetScale(glm::vec3(1, 1, 1));
+    std::shared_ptr<Model> unitSphereModel = std::make_shared<Model>(unitSphere);
 
-    shared_ptr<Object> bp = make_shared<Object>(backpackModel);
+    std::shared_ptr<Model> appleModel = std::make_shared<Model>(apple);
+    std::shared_ptr<Model> appleSlice1Model = std::make_shared<Model>(appleSlice1);
+    std::shared_ptr<Model> appleSlice2Model = std::make_shared<Model>(appleSlice2);
+
+    shared_ptr<Object> appleObject = make_shared<Object>(appleModel);
+    appleObject->transform.SetScale(glm::vec3(1, 1, 1));
+    appleObject->AddComponent<Fruit>(APPLE_SIZE, 1, appleSlice1Model, appleSlice2Model);
+
+    shared_ptr<Object> bp = make_shared<Object>(pineappleModel);
     bp->AddComponent<Rigidbody>();
     bp->transform.SetPosition(glm::vec3(0, 20, 0));
 
+    shared_ptr<Object> sphere = make_shared<Object>(unitSphereModel);
+    sphere->transform.SetScale(glm::vec3(APPLE_SIZE, APPLE_SIZE, APPLE_SIZE));
+
     Texture image = textureFromFile("wood1.jpg", "images");
+    Texture smileFace = textureFromFile("awesomeface.png", "images");
     UI background(image);
+    UI3D rayIndicator(smileFace);
+    rayIndicator.transform.SetScale(glm::vec3(1, 1, 1));
     
     glm::vec3 lightPosition = glm::vec3(0, 0, 0);
     glm::vec4 lightDiffuse(1, 1, 1, 1);
@@ -212,19 +266,13 @@ int main() {
     glEnable(GL_DEPTH_TEST);
     glBindVertexArray(0);
 
-    vector<shared_ptr<Object>> objects = {bp, melon};
+    vector<shared_ptr<Object>> objects = {bp, appleObject};
 
     while (!glfwWindowShouldClose(window))
     {
+        glfwPollEvents();
         updateTime();
         processInput(window);
-        // std::cout << yaw << ", " << pitch << "\n";
-        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-        uiShader.Use();
-        background.Draw(uiShader);
-        glClear(GL_DEPTH_BUFFER_BIT);
 
         cameraFront.x = glm::cos(glm::radians(pitch)) * glm::sin(glm::radians(yaw));
         cameraFront.y = glm::sin(glm::radians(pitch));
@@ -237,9 +285,15 @@ int main() {
             cameraUp
         );
 
-        glm::mat4 rotation = glm::rotate(glm::mat4(1), (float)glfwGetTime() / 2, glm::vec3(0, 1, 0));
-        glm::vec4 rotatedForward = rotation * glm::vec4(0, 0, 500, 1);
-        glm::mat4 lightTransform = glm::translate(glm::mat4(1), glm::vec3(rotatedForward));
+        updateCursorPosition(glm::vec2(lastCursorX, lastCursorY), SCR_WIDTH, SCR_HEIGHT);
+        setViewProjection(view, projection);
+        
+        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        uiShader.Use();
+        background.Draw(uiShader);
+        glClear(GL_DEPTH_BUFFER_BIT);
         glm::vec3 lightPos = glm::vec3(0, 0, 10);
 
         unlitShader.Use();
@@ -250,6 +304,11 @@ int main() {
         glUniform4fv(glGetUniformLocation(unlitShader.ID, "light.ambient"), 1, glm::value_ptr(lightAmbient));
         glUniform4fv(glGetUniformLocation(unlitShader.ID, "light.specular"), 1, glm::value_ptr(lightSpecular));
         glUniform3fv(glGetUniformLocation(unlitShader.ID, "cameraPosition"), 1, glm::value_ptr(cameraPos));
+
+        while (!newObjects.empty()) {
+            objects.push_back(newObjects.front());
+            newObjects.pop();
+        }
 
         for (auto i = objects.begin(); i != objects.end();) {
             auto& obj = *i;
@@ -263,14 +322,19 @@ int main() {
             }
         }
 
-        glfwSwapBuffers(window);
-        glfwPollEvents();
-
-        auto error = glGetError();
-        if (error) {
-            std::cout << "Error: " << error << "\n";
-            return -1;
+        glClear(GL_DEPTH_BUFFER_BIT);
+        if (lockedCamera) {
+            // sphere->Draw(unlitShader);
         }
+
+        glClear(GL_DEPTH_BUFFER_BIT);
+        rayTracerShader.Use();
+        glUniformMatrix4fv(glGetUniformLocation(rayTracerShader.ID, "view"), 1, GL_FALSE, glm::value_ptr(view));
+        glUniformMatrix4fv(glGetUniformLocation(rayTracerShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+        rayIndicator.transform.SetPosition(cameraPos + 50.0f * getCursorRay());
+        rayIndicator.transform.LookAt(cameraPos);
+        // rayIndicator.Draw(rayTracerShader);
+        glfwSwapBuffers(window);
     }
 
     glfwTerminate();

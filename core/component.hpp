@@ -19,10 +19,10 @@ public:
 	void virtual Initialize();
 
 	template<typename T>
-	T* GetComponent(T componentType) {
+	T* GetComponent() {
 		auto item = componentMap.find(std::type_index(typeid(T)));
 		if (item != componentMap.end()) {
-			return item->second.get();
+			return (T*)item->second.get();
 		}
 		return nullptr;
 	}

@@ -32,7 +32,5 @@ public:
 	bool isAlive() const;
 	virtual void Update();
 	void Destroy();
-
-	~Object();
 };
 #endif

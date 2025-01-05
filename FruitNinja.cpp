@@ -18,13 +18,14 @@
 #include "core/ui.hpp"
 #include "core/ui3D.hpp"
 #include "settings/fruitsize.hpp"
+#include "scripts/game.hpp"
 
 using namespace std;
 using namespace GameState;
 
 // settings
-static unsigned int SCR_WIDTH = 800;
-static unsigned int SCR_HEIGHT = 600;
+static unsigned int SCR_WIDTH = 1920;
+static unsigned int SCR_HEIGHT = 1080;
 
 const char* objVertexPath = "shaders/object.vert";
 const char* objFragPath = "shaders/object.frag";
@@ -37,7 +38,7 @@ double pitch = 0;
 double yaw = 0;
 float cameraSpeed = 2;
 
-bool lockedCamera = false;
+bool lockedCamera = true;
 
 static void processInput(GLFWwindow* window)
 {
@@ -180,7 +181,7 @@ static GLFWwindow* initializeContext() {
 #endif
     //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
-    GLFWwindow* window = glfwCreateWindow(800, 600, "Fruit Ninja", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Fruit Ninja", NULL, NULL);
     if (window == NULL)
     {
         std::cout << "Failed to create GLFW window" << std::endl;
@@ -198,7 +199,6 @@ static GLFWwindow* initializeContext() {
 
     glfwSetFramebufferSizeCallback(window, onWindowResize);
     glfwSetKeyCallback(window, onKeyPressed);
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glfwSetCursorPosCallback(window, cursorAim);
     std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << std::endl;
     int flags; glGetIntegerv(GL_CONTEXT_FLAGS, &flags);
@@ -214,15 +214,8 @@ static GLFWwindow* initializeContext() {
     return window;
 }
 
-const char* backpack = "models/backpack/backpack.obj";
-const char* watermelon = "models/fruits/watermelon.obj";
-const char* pineapple = "models/fruits/pineapple.obj";
 const char* unitCube = "models/unit_cube.obj";
 const char* unitSphere = "models/unit_sphere.obj";
-
-const char* apple = "models/fruits/apple.obj";
-const char* appleSlice1 = "models/fruits/apple_top.obj";
-const char* appleSlice2 = "models/fruits/apple_bottom.obj";
 
 int main() {
     GLFWwindow* window = initializeContext();
@@ -231,25 +224,9 @@ int main() {
     Shader uiShader(uiVertPath, uiFragPath);
     Shader rayTracerShader(ui3DVertPath, uiFragPath);
 
-    std::shared_ptr<Model> melonModel = std::make_shared<Model>(watermelon);
-    std::shared_ptr<Model> pineappleModel = std::make_shared<Model>(pineapple);
-    std::shared_ptr<Model> backpackModel = std::make_shared<Model>(backpack);
     std::shared_ptr<Model> unitSphereModel = std::make_shared<Model>(unitSphere);
-
-    std::shared_ptr<Model> appleModel = std::make_shared<Model>(apple);
-    std::shared_ptr<Model> appleSlice1Model = std::make_shared<Model>(appleSlice1);
-    std::shared_ptr<Model> appleSlice2Model = std::make_shared<Model>(appleSlice2);
-
-    shared_ptr<Object> appleObject = make_shared<Object>(appleModel);
-    appleObject->transform.SetScale(glm::vec3(1, 1, 1));
-    appleObject->AddComponent<Fruit>(APPLE_SIZE, 1, appleSlice1Model, appleSlice2Model);
-
-    shared_ptr<Object> bp = make_shared<Object>(pineappleModel);
-    bp->AddComponent<Rigidbody>();
-    bp->transform.SetPosition(glm::vec3(0, 20, 0));
-
     shared_ptr<Object> sphere = make_shared<Object>(unitSphereModel);
-    sphere->transform.SetScale(glm::vec3(APPLE_SIZE, APPLE_SIZE, APPLE_SIZE));
+    sphere->transform.SetScale(glm::vec3(WATERMELON_SIZE, WATERMELON_SIZE, WATERMELON_SIZE));
 
     Texture image = textureFromFile("wood1.jpg", "images");
     Texture smileFace = textureFromFile("awesomeface.png", "images");
@@ -266,13 +243,14 @@ int main() {
     glEnable(GL_DEPTH_TEST);
     glBindVertexArray(0);
 
-    vector<shared_ptr<Object>> objects = {bp, appleObject};
-
+    initGame();
+    vector<shared_ptr<Object>> objects = {};
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
         updateTime();
         processInput(window);
+        step();
 
         cameraFront.x = glm::cos(glm::radians(pitch)) * glm::sin(glm::radians(yaw));
         cameraFront.y = glm::sin(glm::radians(pitch));
@@ -331,7 +309,7 @@ int main() {
         rayTracerShader.Use();
         glUniformMatrix4fv(glGetUniformLocation(rayTracerShader.ID, "view"), 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(glGetUniformLocation(rayTracerShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-        rayIndicator.transform.SetPosition(cameraPos + 50.0f * getCursorRay());
+        rayIndicator.transform.SetPosition(cameraPos + 3.0f * getCursorRay());
         rayIndicator.transform.LookAt(cameraPos);
         // rayIndicator.Draw(rayTracerShader);
         glfwSwapBuffers(window);

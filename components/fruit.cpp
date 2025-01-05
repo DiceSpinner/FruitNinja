@@ -1,5 +1,6 @@
 #include <iostream>
 #include "fruit.hpp"
+#include "../settings/fruitplane.hpp"
 #include "../state/cursor.hpp"
 #include "../state/camera.hpp"
 #include "../state/score.hpp"
@@ -32,14 +33,18 @@ bool Fruit::CursorInContact() { // Sphere collision check
 void Fruit::Update() {
 	
 	glm::vec2 cursorDirection = getCursorPosDelta();
-
+	if (transform.position().y <= FRUIT_KILL_HEIGHT) {
+		cout << "Missed\n";
+		object->Destroy();
+		return;
+	}
 	if (!GameState::mouseClicked || glm::length(cursorDirection) == 0) { return; }
 
 	if (CursorInContact()) {
 		cout << "Fruit Sliced\n";
 		GameState::score += this->score;
 		cout << "Score " << GameState::score << "\n";
-		// object->Destroy();
+		object->Destroy();
 
 		shared_ptr<Object> slice1 = make_shared<Object>(this->slice1);
 		shared_ptr<Object> slice2 = make_shared<Object>(this->slice2);
@@ -49,11 +54,32 @@ void Fruit::Update() {
 		auto r2 = slice2->AddComponent<Rigidbody>();
 
 		glm::vec3 sliceDirection = glm::vec3(cursorDirection, 0);
-		glm::vec3 up = glm::cross(glm::vec3(0, 0, 1), sliceDirection);
+		glm::vec3 up = glm::normalize(glm::cross(glm::vec3(0, 0, 1), sliceDirection));
+		
+		if (glm::dot(up, glm::vec3(0, 1, 0)) < 0) {
+			up = -up;
+		}
+
+		float d = 180;
+		if (glm::dot(transform.forward(), glm::vec3(0, 0, -1)) < 0) {
+			d = -d;
+		}
+
+		Rigidbody* rb = GetComponent<Rigidbody>();
+		slice1->transform.SetPosition(transform.position());
+		slice1->transform.SetForward(transform.forward());
 		slice1->transform.SetUp(up);
-		r1->AddForce(300.0f * up, ForceMode::Impulse);
+		r1->velocity = rb->velocity;
+		r1->AddForce(FRUIT_SLICE_FORCE * up, ForceMode::Impulse);
+		r1->AddRelativeTorque(d * glm::vec3(1, 0, 0), ForceMode::Impulse);
+
+		slice2->transform.SetPosition(transform.position());
+		slice2->transform.SetForward(transform.forward());
 		slice2->transform.SetUp(up);
-		r2->AddForce(-300.0f * up, ForceMode::Impulse);
+		r2->velocity = rb->velocity;
+		r2->AddForce(-FRUIT_SLICE_FORCE * up, ForceMode::Impulse);
+		r2->AddRelativeTorque(-d * glm::vec3(1, 0, 0), ForceMode::Impulse);
+		
 		GameState::newObjects.push(slice1);
 		GameState::newObjects.push(slice2);
 	}

@@ -59,14 +59,16 @@ void Transform::SetForward(glm::vec3 direction) {
 	}
 
 	if (glm::abs(dot + 1.0f) < 1e-6f) { // Opposite
-		matrix = glm::rotate(matrix, glm::pi<float>(), up());
+		matrix = glm::rotate(matrix, glm::pi<float>(), glm::vec3(0, 1, 0));
 		return;
 	}
 
-	glm::vec3 axis = glm::normalize(glm::cross(currForward, newDirection));
+	glm::vec4 axis(glm::cross(currForward, newDirection), 0);
+	axis = glm::inverse(matrix) * axis;
+	glm::vec3 localAxis(axis);
 
 	float angle = glm::acos(dot);
-	matrix = glm::rotate(matrix, angle, axis);
+	matrix = glm::rotate(matrix, angle, glm::vec3(localAxis));
 }
 
 void Transform::SetRight(glm::vec3 direction) {
@@ -78,14 +80,16 @@ void Transform::SetRight(glm::vec3 direction) {
 		return;
 	}
 
-	glm::vec3 axis = glm::normalize(glm::cross(currRight, newDirection));
-
 	if (glm::abs(dot + 1.0f) < 1e-6f) {
-		matrix = glm::rotate(matrix, glm::pi<float>(), axis);
+		matrix = glm::rotate(matrix, glm::pi<float>(), glm::vec3(0, 1, 0));
 		return;
 	}
+	glm::vec4 axis(glm::cross(currRight, newDirection), 0);
+	axis = glm::inverse(matrix) * axis;
+	glm::vec3 localAxis(axis);
+
 	float angle = glm::acos(dot);
-	matrix = glm::rotate(matrix, angle, axis);
+	matrix = glm::rotate(matrix, angle, localAxis);
 }
 
 void Transform::SetUp(glm::vec3 direction) {
@@ -97,14 +101,15 @@ void Transform::SetUp(glm::vec3 direction) {
 		return;
 	}
 
-	glm::vec3 axis = glm::normalize(glm::cross(currUp, newDirection));
-
 	if (glm::abs(dot + 1.0f) < 1e-6f) {
-		matrix = glm::rotate(matrix, glm::pi<float>(), axis);
+		matrix = glm::rotate(matrix, glm::pi<float>(), glm::vec3(0, 0, 1));
 		return;
 	}
+	glm::vec4 axis(glm::cross(currUp, newDirection), 0);
+	axis = glm::inverse(matrix) * axis;
+	glm::vec3 localAxis(axis);
 	float angle = glm::acos(dot);
-	matrix = glm::rotate(matrix, angle, axis);
+	matrix = glm::rotate(matrix, angle, localAxis);
 }
 
 void Transform::SetScale(glm::vec3 scaling) {

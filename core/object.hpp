@@ -13,6 +13,7 @@ private:
 	std::unordered_map<std::type_index, std::unique_ptr<Component>> components;
 	bool alive;
 public:
+	bool drawOverlay;
 	Transform transform;
 
 	Object(std::shared_ptr<Model>& model);

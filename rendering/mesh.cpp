@@ -6,8 +6,8 @@
 
 using namespace std;
 
-Texture textureFromFile(const char* path, string directory) {
-	static unordered_map<string, Texture> loadedTextures;
+GLuint textureFromFile(const char* path, string directory) {
+	static unordered_map<string, GLuint> loadedTextures;
 	string filename = string(path);
 	filename = directory + '/' + filename;
 
@@ -16,9 +16,8 @@ Texture textureFromFile(const char* path, string directory) {
 		return item->second;
 	}
 
-	Texture texture;
-	texture.path = filename;
-	glGenTextures(1, &texture.id);
+	GLuint texture;
+	glGenTextures(1, &texture);
 	stbi_set_flip_vertically_on_load(true);
 	int width, height, nrComponents;
 	unsigned char* data = stbi_load(filename.c_str(), &width, &height, &nrComponents, 0);
@@ -32,7 +31,7 @@ Texture textureFromFile(const char* path, string directory) {
 		else if (nrComponents == 4)
 			format = GL_RGBA;
 
-		glBindTexture(GL_TEXTURE_2D, texture.id);
+		glBindTexture(GL_TEXTURE_2D, texture);
 		glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
 		glGenerateMipmap(GL_TEXTURE_2D);
 
@@ -48,7 +47,7 @@ Texture textureFromFile(const char* path, string directory) {
 	{
 		std::cout << "Texture failed to load at path: " << path << std::endl;
 		stbi_image_free(data);
-		texture.id = -1;
+		texture = -1;
 	}
 	return texture;
 }
@@ -85,7 +84,7 @@ void Mesh::Draw(Shader& shader) {
 	{
 		glActiveTexture(GL_TEXTURE0 + textureIndex); 
 		shader.SetInt(("material.diffuse[" + to_string(i) + "]").c_str(), textureIndex++);
-		glBindTexture(GL_TEXTURE_2D, material.diffuse[i].id);
+		glBindTexture(GL_TEXTURE_2D, material.diffuse[i]);
 	}
 	shader.SetVec4("material.diffuseColor", material.diffuseColor);
 	shader.SetInt("material.dArraySize", material.diffuse.size());
@@ -94,7 +93,7 @@ void Mesh::Draw(Shader& shader) {
 	{
 		glActiveTexture(GL_TEXTURE0 + textureIndex);
 		shader.SetInt(("material.specular[" + to_string(i) + "]").c_str(), textureIndex++);
-		glBindTexture(GL_TEXTURE_2D, material.diffuse[i].id);
+		glBindTexture(GL_TEXTURE_2D, material.diffuse[i]);
 	}
 	shader.SetVec4("material.specularColor", material.specularColor);
 	shader.SetInt("material.sArraySize", material.specular.size());
@@ -104,7 +103,7 @@ void Mesh::Draw(Shader& shader) {
 	{
 		glActiveTexture(GL_TEXTURE0 + textureIndex);
 		shader.SetInt(("material.ambient[" + to_string(i) + "]").c_str(), textureIndex++);
-		glBindTexture(GL_TEXTURE_2D, material.ambient[i].id);
+		glBindTexture(GL_TEXTURE_2D, material.ambient[i]);
 	}
 	shader.SetVec4("material.ambientColor", material.ambientColor);
 	shader.SetInt("material.aArraySize", material.ambient.size());

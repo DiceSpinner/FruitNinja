@@ -210,6 +210,9 @@ static GLFWwindow* initializeContext() {
         glDebugMessageCallback(glDebugOutput, nullptr);
         glDebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, nullptr, GL_TRUE);
     }
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glEnable(GL_DEPTH_TEST);
     glfwSwapInterval(0);
     return window;
 }
@@ -228,8 +231,8 @@ int main() {
     shared_ptr<Object> sphere = make_shared<Object>(unitSphereModel);
     sphere->transform.SetScale(glm::vec3(WATERMELON_SIZE, WATERMELON_SIZE, WATERMELON_SIZE));
 
-    Texture image = textureFromFile("wood1.jpg", "images");
-    Texture smileFace = textureFromFile("awesomeface.png", "images");
+    GLuint image = textureFromFile("wood1.jpg", "images");
+    GLuint smileFace = textureFromFile("awesomeface.png", "images");
     UI background(image);
     UI3D rayIndicator(smileFace);
     rayIndicator.transform.SetScale(glm::vec3(1, 1, 1));
@@ -240,7 +243,6 @@ int main() {
     glm::vec4 lightAmbient(.1, 0.1, 0.1, 1);
     glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 300.0f);
 
-    glEnable(GL_DEPTH_TEST);
     glBindVertexArray(0);
 
     initGame();

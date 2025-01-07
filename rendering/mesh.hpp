@@ -12,18 +12,13 @@ enum TextureType {
 	Specular
 };
 
-struct Texture {
-	GLuint id;
-	std::string path;
-};
-
 struct Material {
 	glm::vec4 diffuseColor;
 	glm::vec4 specularColor;
 	glm::vec4 ambientColor;
-	std::vector<Texture> diffuse;
-	std::vector<Texture> specular;
-	std::vector<Texture> ambient;
+	std::vector<GLuint> diffuse;
+	std::vector<GLuint> specular;
+	std::vector<GLuint> ambient;
 	float shininess;
 };
 
@@ -45,5 +40,5 @@ public:
 	void Draw(Shader& shader);
 };
 
-Texture textureFromFile(const char* path, std::string directory);
+GLuint textureFromFile(const char* path, std::string directory);
 #endif

@@ -107,15 +107,15 @@ Mesh Model::processMesh(aiMesh* mesh, const aiScene* scene) {
 	return Mesh(move(vertices), move(indices), mt);
 }
 
-vector<Texture> Model::loadMaterialTextures(aiMaterial* material, aiTextureType type) {
-	vector<Texture> textures;
+vector<GLuint> Model::loadMaterialTextures(aiMaterial* material, aiTextureType type) {
+	vector<GLuint> textures;
 	for (unsigned int i = 0; i < material->GetTextureCount(type); i++)
 	{
 		aiString str;
 		material->GetTexture(type, i, &str);
 		string path = str.C_Str();
-		Texture texture = textureFromFile(path.c_str(), directory);
-		if (texture.id != -1) {
+		GLuint texture = textureFromFile(path.c_str(), directory);
+		if (texture != -1) {
 			textures.push_back(texture);
 		}
 	}

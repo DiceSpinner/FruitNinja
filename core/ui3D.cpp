@@ -1,7 +1,7 @@
 #include "ui3D.hpp"
 #include "glm/ext.hpp"
 
-UI3D::UI3D(Texture texture) : texture(texture), transform() {
+UI3D::UI3D(GLuint texture) : texture(texture), transform() {
 	glGenVertexArrays(1, &VAO);
 	glGenBuffers(1, &VBO);
 	glGenBuffers(1, &EBO);
@@ -33,7 +33,7 @@ UI3D::UI3D(Texture texture) : texture(texture), transform() {
 void UI3D::Draw(Shader& shader) {
 	glActiveTexture(GL_TEXTURE0);
 	shader.SetInt("image", 0);
-	glBindTexture(GL_TEXTURE_2D, texture.id);
+	glBindTexture(GL_TEXTURE_2D, texture);
 	glUniformMatrix4fv(glGetUniformLocation(shader.ID, "transform"), 1, GL_FALSE, glm::value_ptr(transform.matrix));
 	glBindVertexArray(VAO);
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);

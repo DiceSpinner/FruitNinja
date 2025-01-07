@@ -3,11 +3,13 @@
 
 using namespace std;
 
-Object::Object(shared_ptr<Model>& model) : model(model), transform(), components(), alive(true) {}
+Object::Object(shared_ptr<Model>& model) : model(model), transform(), components(), drawOverlay(false), alive(true) {}
 
 void Object::Draw(Shader& shader) const {
 	glUniformMatrix4fv(glGetUniformLocation(shader.ID, "transform"), 1, GL_FALSE, glm::value_ptr(transform.matrix));
-	glClear(GL_DEPTH_BUFFER_BIT);
+	if (drawOverlay) {
+		glClear(GL_DEPTH_BUFFER_BIT);
+	}
 	model->Draw(shader);
 }
 

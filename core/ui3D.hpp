@@ -6,10 +6,10 @@
 
 class UI3D {
 private:
-	Texture texture;
+	GLuint texture;
 	GLuint VAO, VBO, EBO;
 public:
-	UI3D(Texture texture);
+	UI3D(GLuint texture);
 	Transform transform;
 
 	void Draw(Shader& shader);

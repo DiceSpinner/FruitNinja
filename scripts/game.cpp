@@ -48,6 +48,7 @@ static float randFloat(float min, float max) {
 
 static void spawnFruit(shared_ptr<Model>& fruitModel, shared_ptr<Model>& slice1Model, shared_ptr<Model>& slice2Model, float radius=1, int score = 1) {
 	shared_ptr<Object> fruit = make_shared<Object>(fruitModel);
+	fruit->drawOverlay = true;
 	fruit->AddComponent<Fruit>(radius, score, slice1Model, slice2Model);
 	Rigidbody* rb = fruit->AddComponent<Rigidbody>();
 	float upForce = randFloat(FRUIT_UP_MIN, FRUIT_UP_MAX);

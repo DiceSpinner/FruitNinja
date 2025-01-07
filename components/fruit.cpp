@@ -60,25 +60,20 @@ void Fruit::Update() {
 			up = -up;
 		}
 
-		float d = 180;
-		if (glm::dot(transform.forward(), glm::vec3(0, 0, -1)) < 0) {
-			d = -d;
-		}
-
 		Rigidbody* rb = GetComponent<Rigidbody>();
 		slice1->transform.SetPosition(transform.position());
-		slice1->transform.SetForward(transform.forward());
+		// slice1->transform.SetForward(transform.forward());
 		slice1->transform.SetUp(up);
 		r1->velocity = rb->velocity;
 		r1->AddForce(FRUIT_SLICE_FORCE * up, ForceMode::Impulse);
-		r1->AddRelativeTorque(d * glm::vec3(1, 0, 0), ForceMode::Impulse);
+		r1->AddRelativeTorque(-180.0f * glm::vec3(1, 0, 0), ForceMode::Impulse);
 
 		slice2->transform.SetPosition(transform.position());
-		slice2->transform.SetForward(transform.forward());
+		// slice2->transform.SetForward(transform.forward());
 		slice2->transform.SetUp(up);
 		r2->velocity = rb->velocity;
 		r2->AddForce(-FRUIT_SLICE_FORCE * up, ForceMode::Impulse);
-		r2->AddRelativeTorque(-d * glm::vec3(1, 0, 0), ForceMode::Impulse);
+		r2->AddRelativeTorque(180.0f * glm::vec3(1, 0, 0), ForceMode::Impulse);
 		
 		GameState::newObjects.push(slice1);
 		GameState::newObjects.push(slice2);

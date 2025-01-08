@@ -39,29 +39,29 @@ UI::UI(GLuint texture, string text, int textSize) : texture(texture), transform(
 		vertices.push_back(left);
 		vertices.push_back(1);
 		vertices.push_back(1);
-		vertices.push_back(c.uv.x);
-		vertices.push_back(c.uv.y + c.size.y);
+		vertices.push_back(c.uvBottomLeft.x);
+		vertices.push_back(c.uvBottomLeft.y + c.size.y);
 
 		// Top Right
 		vertices.push_back(right);
 		vertices.push_back(1);
 		vertices.push_back(1);
-		vertices.push_back(c.uv.x + c.size.x);
-		vertices.push_back(c.uv.y + c.size.y);
+		vertices.push_back(c.uvBottomLeft.x + c.size.x);
+		vertices.push_back(c.uvBottomLeft.y + c.size.y);
 
 		// Bottom Left
 		vertices.push_back(left);
 		vertices.push_back(-1);
 		vertices.push_back(1);
-		vertices.push_back(c.uv.x);
-		vertices.push_back(c.uv.y);
+		vertices.push_back(c.uvBottomLeft.x);
+		vertices.push_back(c.uvBottomLeft.y);
 
 		// Bottom Right
 		vertices.push_back(right);
 		vertices.push_back(-1);
 		vertices.push_back(1);
-		vertices.push_back(c.uv.x + c.size.x);
-		vertices.push_back(c.uv.y);
+		vertices.push_back(c.uvBottomLeft.x + c.size.x);
+		vertices.push_back(c.uvBottomLeft.y);
 
 		indices.push_back(beginSize);
 		indices.push_back(beginSize + 1);

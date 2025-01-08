@@ -47,7 +47,7 @@ UI::UI(GLuint texture, string text, int textSize) : texture(texture), transform(
 
 		// 
 
-		begin += right;
+		begin = right;
 	}
 
 	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * vertices.size(), vertices.data(), GL_STATIC_DRAW);

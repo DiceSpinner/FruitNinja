@@ -36,8 +36,8 @@ Character getChar(int size, char c) {
     unsigned int atlas;
     glGenTextures(1, &atlas);
     glBindTexture(GL_TEXTURE_2D, atlas);
-    int atlasWidth = 1024;
-    int atlasHeight = 1024;
+    int atlasWidth = 128;
+    int atlasHeight = 128;
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -48,8 +48,8 @@ Character getChar(int size, char c) {
         GL_TEXTURE_2D,
         0,
         GL_R8,
-        1024,
-        1024,
+        atlasWidth,
+        atlasHeight,
         0,
         GL_RED,
         GL_UNSIGNED_BYTE,
@@ -61,16 +61,30 @@ Character getChar(int size, char c) {
     int offsetX = 0;
     int offsetY = 0;
     int maxY = 0;
-    for (unsigned char i = 48; i <= 126;i++) {
+    for (unsigned char i = 48; i <= 49;i++) {
         if (FT_Load_Char(face, i, FT_LOAD_RENDER))
         {
             std::cout << "Failed to load Glyph for char " << i << std::endl;
             continue;
         }
+        if (face->glyph->bitmap.rows > maxY) {
+            maxY = face->glyph->bitmap.rows;
+        }
+
+        unsigned char* buffer = new unsigned char[face->glyph->bitmap.rows * face->glyph->bitmap.width];
+
+        for (auto k = 0; k < face->glyph->bitmap.rows;k++) {
+            memcpy(
+                &(buffer[(face->glyph->bitmap.rows - 1 - k) * face->glyph->bitmap.width]), 
+                &(face->glyph->bitmap.buffer[k * face->glyph->bitmap.width]), 
+                face->glyph->bitmap.width
+            );
+        }
 
         if (face->glyph->bitmap.width + offsetX >= atlasWidth) {
             offsetX = 0;
-            offsetY += face->glyph->bitmap.rows;
+            offsetY += maxY;
+            maxY = 0;
         }
 
         glTexSubImage2D(
@@ -82,17 +96,28 @@ Character getChar(int size, char c) {
             face->glyph->bitmap.rows,
             GL_RED,
             GL_UNSIGNED_BYTE,
-            face->glyph->bitmap.buffer
+            buffer
         );
+        delete[] buffer;
+
+        glm::vec2 uv(offsetX / (float)atlasWidth, offsetY / (float)atlasHeight);
+        glm::vec2 offset(face->glyph->bitmap.width / (float)atlasWidth, face->glyph->bitmap.rows / (float)atlasHeight);
+        uv.x = round(uv.x * atlasWidth) / atlasWidth;
+        uv.y = round(uv.y * atlasHeight) / atlasHeight;
+        offset.x = round(offset.x * atlasWidth) / atlasWidth;
+        offset.y = round(offset.y * atlasHeight) / atlasHeight;
+
         characters.emplace(i,
             Character{
                 atlas,
-                glm::vec2(offsetX / atlasWidth, offsetY / atlasHeight),
+                uv,
+                offset,
                 glm::ivec2(face->glyph->bitmap.width, face->glyph->bitmap.rows),
                 glm::ivec2(face->glyph->bitmap_left, face->glyph->bitmap_top),
-                face->glyph->advance.x
+                face->glyph->advance.x >> 6
             }
         );
+        offsetX += (face->glyph->advance.x >> 6);
     }
     loadedFonts[size] = characters;
     return characters[c];

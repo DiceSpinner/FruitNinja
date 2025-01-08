@@ -11,6 +11,7 @@
 #include "state/cursor.hpp"
 #include "state/camera.hpp"
 #include "state/new_objects.hpp"
+#include "state/screen.hpp"
 #include "rendering/shader.hpp"
 #include "core/object.hpp"
 #include "components/rigidbody.hpp"
@@ -22,10 +23,6 @@
 
 using namespace std;
 using namespace GameState;
-
-// settings
-static unsigned int SCR_WIDTH = 1920;
-static unsigned int SCR_HEIGHT = 1080;
 
 const char* objVertexPath = "shaders/object.vert";
 const char* objFragPath = "shaders/object.frag";
@@ -234,7 +231,7 @@ int main() {
 
     GLuint image = textureFromFile("wood1.jpg", "images");
     GLuint smileFace = textureFromFile("awesomeface.png", "images");
-    UI background(image, "OpenGL");
+    UI background(image, "01");
     UI3D rayIndicator(smileFace);
     rayIndicator.transform.SetScale(glm::vec3(1, 1, 1));
     
@@ -271,12 +268,13 @@ int main() {
         
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
+        glDisable(GL_DEPTH_TEST);
         uiShader.Use();
         background.Draw(uiShader);
         glClear(GL_DEPTH_BUFFER_BIT);
         glm::vec3 lightPos = glm::vec3(0, 0, 10);
 
+        glEnable(GL_DEPTH_TEST);
         unlitShader.Use();
         glUniformMatrix4fv(glGetUniformLocation(unlitShader.ID, "view"), 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(glGetUniformLocation(unlitShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));

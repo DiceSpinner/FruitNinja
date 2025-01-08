@@ -29,25 +29,26 @@ UI::UI(GLuint texture, string text, int textSize) : texture(texture), transform(
 	}
 
 	float begin = -1;
-	int beginSize = 4;
+
 	for (auto& c : characters) { 
-		float width = c.advance;
+		int vSize = vertices.size() / 5;
+		float width = c.size.x;
 		float left = begin;
-		float right = left + 2 * c.advance / totalWidth;
+		float right = left + 2 * c.size.x / totalWidth;
 
 		// Top Left
 		vertices.push_back(left);
 		vertices.push_back(1);
 		vertices.push_back(1);
 		vertices.push_back(c.uvBottomLeft.x);
-		vertices.push_back(c.uvBottomLeft.y + c.size.y);
+		vertices.push_back(c.uvBottomLeft.y + c.uvOffset.y);
 
 		// Top Right
 		vertices.push_back(right);
 		vertices.push_back(1);
 		vertices.push_back(1);
-		vertices.push_back(c.uvBottomLeft.x + c.size.x);
-		vertices.push_back(c.uvBottomLeft.y + c.size.y);
+		vertices.push_back(c.uvBottomLeft.x + c.uvOffset.x);
+		vertices.push_back(c.uvBottomLeft.y + c.uvOffset.y);
 
 		// Bottom Left
 		vertices.push_back(left);
@@ -60,18 +61,17 @@ UI::UI(GLuint texture, string text, int textSize) : texture(texture), transform(
 		vertices.push_back(right);
 		vertices.push_back(-1);
 		vertices.push_back(1);
-		vertices.push_back(c.uvBottomLeft.x + c.size.x);
+		vertices.push_back(c.uvBottomLeft.x + c.uvOffset.x);
 		vertices.push_back(c.uvBottomLeft.y);
 
-		indices.push_back(beginSize);
-		indices.push_back(beginSize + 1);
-		indices.push_back(beginSize + 2);
-		indices.push_back(beginSize + 3);
-		indices.push_back(beginSize + 2);
-		indices.push_back(beginSize + 1);
+		indices.push_back(vSize);
+		indices.push_back(vSize + 1);
+		indices.push_back(vSize + 2);
+		indices.push_back(vSize + 3);
+		indices.push_back(vSize + 2);
+		indices.push_back(vSize + 1);
 
-		beginSize += 4;
-		begin = right;
+		begin += 2 * c.advance / totalWidth + 0.05;
 	}
 
 	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * vertices.size(), vertices.data(), GL_STATIC_DRAW);
@@ -89,6 +89,12 @@ void UI::Draw(Shader& shader) {
 	glActiveTexture(GL_TEXTURE0);
 	shader.SetInt("image", 0);
 	glBindTexture(GL_TEXTURE_2D, texture);
+
+	if (characters.size() > 0) {
+		glActiveTexture(GL_TEXTURE0 + 1);
+		shader.SetInt("textAtlas", 1);
+		glBindTexture(GL_TEXTURE_2D, characters[0].texture);
+	}
 	glUniformMatrix4fv(glGetUniformLocation(shader.ID, "transform"), 1, GL_FALSE, glm::value_ptr(transform.matrix));
 	glBindVertexArray(VAO);
 	glDrawElements(GL_TRIANGLES, 6 + 6 * characters.size(), GL_UNSIGNED_INT, 0);

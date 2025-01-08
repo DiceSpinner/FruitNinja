@@ -6,6 +6,7 @@
 struct Character {
 	GLuint texture;
 	glm::vec2 uvBottomLeft;
+	glm::vec2 uvOffset;
 	glm::ivec2 size;
 	glm::ivec2 bearing;
 	long advance;

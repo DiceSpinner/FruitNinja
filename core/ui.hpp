@@ -13,7 +13,7 @@ private:
 	GLuint VAO, VBO, EBO;
 	std::vector<Character> characters;
 public:
-	UI(GLuint texture, std::string text="", int textSize = 15);
+	UI(GLuint texture, std::string text="", int textSize = 30);
 	Transform transform;
 
 	void Draw(Shader& shader);

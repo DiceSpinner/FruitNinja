@@ -5,12 +5,11 @@
 
 struct Character {
 	GLuint texture;
-	glm::vec2 uv;
+	glm::vec2 uvBottomLeft;
 	glm::ivec2 size;
 	glm::ivec2 bearing;
-	unsigned int advance;
+	long advance;
 };
 
 void initFont();
-void loadFont(int size);
 Character getChar(int size, char c);

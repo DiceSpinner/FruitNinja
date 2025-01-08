@@ -214,6 +214,7 @@ static GLFWwindow* initializeContext() {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_DEPTH_TEST);
     glfwSwapInterval(0);
+    initFont();
     return window;
 }
 
@@ -225,7 +226,7 @@ int main() {
     Shader objectShader(objVertexPath, objFragPath);
     Shader unlitShader(objVertexPath, unlitFrag);
     Shader uiShader(uiVertPath, uiFragPath);
-    Shader rayTracerShader(ui3DVertPath, uiFragPath);
+    // Shader rayTracerShader(ui3DVertPath, uiFragPath);
 
     std::shared_ptr<Model> unitSphereModel = std::make_shared<Model>(unitSphere);
     shared_ptr<Object> sphere = make_shared<Object>(unitSphereModel);
@@ -233,7 +234,7 @@ int main() {
 
     GLuint image = textureFromFile("wood1.jpg", "images");
     GLuint smileFace = textureFromFile("awesomeface.png", "images");
-    UI background(image);
+    UI background(image, "OpenGL");
     UI3D rayIndicator(smileFace);
     rayIndicator.transform.SetScale(glm::vec3(1, 1, 1));
     
@@ -308,11 +309,11 @@ int main() {
         }
 
         glClear(GL_DEPTH_BUFFER_BIT);
-        rayTracerShader.Use();
+        /*rayTracerShader.Use();
         glUniformMatrix4fv(glGetUniformLocation(rayTracerShader.ID, "view"), 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(glGetUniformLocation(rayTracerShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
         rayIndicator.transform.SetPosition(cameraPos + 3.0f * getCursorRay());
-        rayIndicator.transform.LookAt(cameraPos);
+        rayIndicator.transform.LookAt(cameraPos);*/
         // rayIndicator.Draw(rayTracerShader);
         glfwSwapBuffers(window);
     }

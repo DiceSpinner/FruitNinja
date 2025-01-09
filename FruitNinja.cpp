@@ -12,6 +12,7 @@
 #include "state/camera.hpp"
 #include "state/new_objects.hpp"
 #include "state/screen.hpp"
+#include "state/score.hpp"
 #include "rendering/shader.hpp"
 #include "core/object.hpp"
 #include "components/rigidbody.hpp"
@@ -20,6 +21,7 @@
 #include "core/ui3D.hpp"
 #include "settings/fruitsize.hpp"
 #include "scripts/game.hpp"
+#include "scripts/frontUI.hpp"
 
 using namespace std;
 using namespace GameState;
@@ -34,8 +36,10 @@ const char* uiFragPath = "shaders/ui.frag";
 double pitch = 0;
 double yaw = 0;
 float cameraSpeed = 2;
-
 bool lockedCamera = true;
+
+glm::mat4 perspective;
+glm::mat4 ortho;
 
 static void processInput(GLFWwindow* window)
 {
@@ -118,6 +122,10 @@ static void onWindowResize(GLFWwindow* window, int width, int height)
     glViewport(0, 0, width, height);
     SCR_WIDTH = width;
     SCR_HEIGHT = height;
+    float halfWidth = SCR_WIDTH / 2.0f;
+    float halfHeight = SCR_HEIGHT / 2.0f;
+    ortho = glm::ortho(-halfWidth, halfWidth, -halfHeight, halfHeight);
+    perspective = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 300.0f);
 }
 
 static void APIENTRY glDebugOutput(GLenum source,
@@ -229,9 +237,9 @@ int main() {
     shared_ptr<Object> sphere = make_shared<Object>(unitSphereModel);
     sphere->transform.SetScale(glm::vec3(WATERMELON_SIZE, WATERMELON_SIZE, WATERMELON_SIZE));
 
-    GLuint image = textureFromFile("wood1.jpg", "images");
+    GLuint image = textureFromFile("fruit_ninja_clean.png", "images");
     GLuint smileFace = textureFromFile("awesomeface.png", "images");
-    UI background(image, "01");
+    UI background(image, "Fruit Ninja");
     UI3D rayIndicator(smileFace);
     rayIndicator.transform.SetScale(glm::vec3(1, 1, 1));
     
@@ -239,11 +247,17 @@ int main() {
     glm::vec4 lightDiffuse(1, 1, 1, 1);
     glm::vec4 lightSpecular(0.5, 0.5, 0.5, 1);
     glm::vec4 lightAmbient(.1, 0.1, 0.1, 1);
-    glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 300.0f);
+
+    perspective = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 300.0f);
+
+    float halfWidth = SCR_WIDTH / 2.0f;
+    float halfHeight = SCR_HEIGHT / 2.0f;
+    ortho = glm::ortho(-halfWidth, halfWidth, -halfHeight, halfHeight);
 
     glBindVertexArray(0);
 
     initGame();
+    initGameUI();
     vector<shared_ptr<Object>> objects = {};
     while (!glfwWindowShouldClose(window))
     {
@@ -264,12 +278,13 @@ int main() {
         );
 
         updateCursorPosition(glm::vec2(lastCursorX, lastCursorY), SCR_WIDTH, SCR_HEIGHT);
-        setViewProjection(view, projection);
+        setViewProjection(view, perspective);
         
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glDisable(GL_DEPTH_TEST);
         uiShader.Use();
+        glUniformMatrix4fv(glGetUniformLocation(uiShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(ortho));
         background.Draw(uiShader);
         glClear(GL_DEPTH_BUFFER_BIT);
         glm::vec3 lightPos = glm::vec3(0, 0, 10);
@@ -277,7 +292,7 @@ int main() {
         glEnable(GL_DEPTH_TEST);
         unlitShader.Use();
         glUniformMatrix4fv(glGetUniformLocation(unlitShader.ID, "view"), 1, GL_FALSE, glm::value_ptr(view));
-        glUniformMatrix4fv(glGetUniformLocation(unlitShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
+        glUniformMatrix4fv(glGetUniformLocation(unlitShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(perspective));
         glUniform3fv(glGetUniformLocation(unlitShader.ID, "light.position"), 1, glm::value_ptr(lightPos));
         glUniform4fv(glGetUniformLocation(unlitShader.ID, "light.diffuse"), 1, glm::value_ptr(lightDiffuse));
         glUniform4fv(glGetUniformLocation(unlitShader.ID, "light.ambient"), 1, glm::value_ptr(lightAmbient));
@@ -307,6 +322,9 @@ int main() {
         }
 
         glClear(GL_DEPTH_BUFFER_BIT);
+        uiShader.Use();
+        drawGameUI(uiShader);
+
         /*rayTracerShader.Use();
         glUniformMatrix4fv(glGetUniformLocation(rayTracerShader.ID, "view"), 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(glGetUniformLocation(rayTracerShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));

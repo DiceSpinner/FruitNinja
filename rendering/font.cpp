@@ -36,8 +36,8 @@ Character getChar(int size, char c) {
     unsigned int atlas;
     glGenTextures(1, &atlas);
     glBindTexture(GL_TEXTURE_2D, atlas);
-    int atlasWidth = 128;
-    int atlasHeight = 128;
+    int atlasWidth = 1024;
+    int atlasHeight = 1024;
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -61,7 +61,7 @@ Character getChar(int size, char c) {
     int offsetX = 0;
     int offsetY = 0;
     int maxY = 0;
-    for (unsigned char i = 48; i <= 49;i++) {
+    for (unsigned char i = 48; i <= 200;i++) {
         if (FT_Load_Char(face, i, FT_LOAD_RENDER))
         {
             std::cout << "Failed to load Glyph for char " << i << std::endl;
@@ -102,10 +102,10 @@ Character getChar(int size, char c) {
 
         glm::vec2 uv(offsetX / (float)atlasWidth, offsetY / (float)atlasHeight);
         glm::vec2 offset(face->glyph->bitmap.width / (float)atlasWidth, face->glyph->bitmap.rows / (float)atlasHeight);
-        uv.x = round(uv.x * atlasWidth) / atlasWidth;
-        uv.y = round(uv.y * atlasHeight) / atlasHeight;
-        offset.x = round(offset.x * atlasWidth) / atlasWidth;
-        offset.y = round(offset.y * atlasHeight) / atlasHeight;
+        uv.x += 0.5 / atlasWidth;
+        uv.y += 0.5 / atlasHeight;
+        offset.x -= 1 / (float)atlasWidth;
+        offset.y -= 1 / (float)atlasHeight;
 
         characters.emplace(i,
             Character{

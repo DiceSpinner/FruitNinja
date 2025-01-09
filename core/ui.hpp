@@ -9,14 +9,20 @@
 
 class UI {
 private:
-	GLuint texture;
-	GLuint VAO, VBO, EBO;
+	GLuint texture = -1;
+	GLuint VAO = -1, VBO = -1, EBO = -1;
 	std::vector<Character> characters;
+	std::string displayText;
+	int textSize = 0;
+	glm::ivec2 textureSize{0, 0};
 public:
-	UI(GLuint texture, std::string text="", int textSize = 30);
+	UI(GLuint texture, std::string text="", int textSize = 50);
+	UI() = default;
 	Transform transform;
 
-	void Draw(Shader& shader);
+	void Draw(Shader& shader) const;
+	void UpdateText(std::string newText);
+	std::string text() const;
 };
 
 #endif

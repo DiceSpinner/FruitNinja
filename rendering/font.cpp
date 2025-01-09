@@ -87,6 +87,10 @@ Character getChar(int size, char c) {
             maxY = 0;
         }
 
+        if (i == 'j') {
+            cout << (face->glyph->advance.x >> 6) << "\n";
+        }
+
         glTexSubImage2D(
             GL_TEXTURE_2D,
             0,
@@ -117,7 +121,7 @@ Character getChar(int size, char c) {
                 face->glyph->advance.x >> 6
             }
         );
-        offsetX += (face->glyph->advance.x >> 6);
+        offsetX += max((unsigned int)(face->glyph->advance.x >> 6), face->glyph->bitmap.width);
     }
     loadedFonts[size] = characters;
     return characters[c];

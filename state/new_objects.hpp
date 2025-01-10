@@ -3,7 +3,7 @@
 #include <memory>
 #include <queue>
 #include "../core/object.hpp"
-namespace GameState {
+namespace Game {
 	extern std::queue<std::shared_ptr<Object>> newObjects;
 }
 

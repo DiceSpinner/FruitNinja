@@ -2,7 +2,7 @@
 #define CURSOR_H
 #include "glm/glm.hpp"
 
-namespace GameState {
+namespace Game {
 	extern bool mouseClicked;
 }
 void setViewProjection(glm::mat4 view, glm::mat4 projection);

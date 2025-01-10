@@ -3,7 +3,7 @@
 #include "../settings/fruitplane.hpp"
 #include "../state/cursor.hpp"
 #include "../state/camera.hpp"
-#include "../state/score.hpp"
+#include "../state/state.hpp"
 #include "../state/new_objects.hpp"
 #include "../core/object.hpp"
 #include "fruitslice.hpp"
@@ -22,7 +22,7 @@ Fruit::Fruit(unordered_map<type_index, unique_ptr<Component>>& collection, Trans
 
 bool Fruit::CursorInContact() { // Sphere collision check
 	glm::vec3 ray = getCursorRay();
-	glm::vec3 oc = GameState::cameraPos - transform.position();
+	glm::vec3 oc = Game::cameraPos - transform.position();
 	float b = 2 * glm::dot(ray, oc);
 	glm::vec3 scale = transform.scale();
 	float c = glm::dot(oc, oc) - glm::pow(glm::max(scale.x, scale.y) * radius, 2);
@@ -38,12 +38,15 @@ void Fruit::Update() {
 		object->Destroy();
 		return;
 	}
-	if (!GameState::mouseClicked || glm::length(cursorDirection) == 0) { return; }
+	if (!Game::mouseClicked || glm::length(cursorDirection) == 0) { return; }
 
 	if (CursorInContact()) {
 		cout << "Fruit Sliced\n";
-		GameState::score += this->score;
-		cout << "Score " << GameState::score << "\n";
+		if (Game::state == State::GAME) {
+			Game::score += this->score;
+		}
+		
+		cout << "Score " << Game::score << "\n";
 		object->Destroy();
 
 		shared_ptr<Object> slice1 = make_shared<Object>(this->slice1);
@@ -75,7 +78,7 @@ void Fruit::Update() {
 		r2->AddForce(-FRUIT_SLICE_FORCE * up, ForceMode::Impulse);
 		r2->AddRelativeTorque(180.0f * glm::vec3(1, 0, 0), ForceMode::Impulse);
 		
-		GameState::newObjects.push(slice1);
-		GameState::newObjects.push(slice2);
+		Game::newObjects.push(slice1);
+		Game::newObjects.push(slice2);
 	}
 }

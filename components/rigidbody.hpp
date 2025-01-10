@@ -13,6 +13,7 @@ public:
 	Rigidbody(std::unordered_map<std::type_index, std::unique_ptr<Component>>& collection, Transform& transform, Object* object);
 	glm::vec3 velocity;
 	glm::vec3 localAngularVelocity;
+	bool useGravity;
 
 	void AddForce(glm::vec3 force, ForceMode forcemode = ForceMode::Force);
 	void AddTorque(glm::vec3 torque, ForceMode forcemode = ForceMode::Force);

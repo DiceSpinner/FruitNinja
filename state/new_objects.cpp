@@ -1,4 +1,4 @@
 #include "new_objects.hpp"
-namespace GameState {
+namespace Game {
 	std::queue<std::shared_ptr<Object>> newObjects;
 }

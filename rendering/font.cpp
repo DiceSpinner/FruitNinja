@@ -87,10 +87,6 @@ Character getChar(int size, char c) {
             maxY = 0;
         }
 
-        if (i == 'j') {
-            cout << (face->glyph->advance.x >> 6) << "\n";
-        }
-
         glTexSubImage2D(
             GL_TEXTURE_2D,
             0,

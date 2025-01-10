@@ -11,7 +11,7 @@ using namespace std;
 const glm::vec3 Rigidbody::Gravity(0, -25, 0);
 Rigidbody::Rigidbody(unordered_map<type_index, unique_ptr<Component>>& collection, 
 	Transform& transform, Object* object) :
-	Component(collection, transform, object), velocity(0), localAngularVelocity(0) {}
+	Component(collection, transform, object), velocity(0), localAngularVelocity(0), useGravity(true) {}
 
 void Rigidbody::AddForce(glm::vec3 force, ForceMode forcemode) {
 	if (forcemode == ForceMode::Force) {
@@ -52,6 +52,7 @@ void Rigidbody::Update() {
 	if (!glm::all(glm::epsilonEqual(localAngularVelocity, glm::vec3(0.0f), (float)1e-6))) {
 		transform.matrix = glm::rotate(transform.matrix, glm::radians(rotation * deltaTime()), localAngularVelocity);
 	}
-
-	velocity += (Gravity * deltaTime());
+	if (useGravity) {
+		velocity += (Gravity * deltaTime());
+	}
 }

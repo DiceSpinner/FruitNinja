@@ -5,7 +5,7 @@
 
 using namespace std;
 
-namespace GameState {
+namespace Game {
 	bool mouseClicked = false;
 }
 

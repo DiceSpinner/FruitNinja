@@ -29,6 +29,16 @@ public:
 		}
 		return nullptr;
 	}
+	
+	template<typename T>
+	T* GetComponent() {
+		auto item = components.find(std::type_index(typeid(T)));
+		if (item != components.end()) {
+			return (T*)item->second.get();
+		}
+		return nullptr;
+	}
+
 	void Draw(Shader& shader) const;
 	bool isAlive() const;
 	virtual void Update();

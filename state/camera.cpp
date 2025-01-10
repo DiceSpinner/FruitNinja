@@ -23,7 +23,9 @@ using namespace Game;
 void setCameraPerspective(float near, float far) {
     Game::near = near;
     Game::far = far;
-    perspective = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, near, far);
+    if (SCR_HEIGHT > 0) {
+        perspective = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, near, far);
+    }
 }
 
 float computeNormalizedZ(float viewZ) {

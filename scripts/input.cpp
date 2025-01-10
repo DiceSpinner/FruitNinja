@@ -1,5 +1,7 @@
 #include "input.hpp"
 #include "../state/camera.hpp"
+#include "../state/cursor.hpp"
+#include "../state/time.hpp"
 
 using namespace Game;
 
@@ -26,12 +28,15 @@ void onKeyPressed(GLFWwindow* window, int key, int scancode, int action, int mod
 
 static double lastCursorX = 0;
 static double lastCursorY = 0;
+static const double mouseSensitivity = 0.1;
 void cursorAim(GLFWwindow* window, double xpos, double ypos) {
     static bool init = true;
     double offsetX = xpos - lastCursorX;
     double offsetY = ypos - lastCursorY;
     lastCursorX = xpos;
     lastCursorY = ypos;
+
+    updateCursorPosition(glm::vec2(xpos, ypos));
 
     if (lockedCamera) {
         return;
@@ -49,4 +54,26 @@ void cursorAim(GLFWwindow* window, double xpos, double ypos) {
     yaw += offsetX;
 
     pitch = glm::clamp(pitch, -85.0, 85.0);
+}
+
+void processInput(GLFWwindow* window)
+{
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+        mouseClicked = true;
+    }
+    else {
+        mouseClicked = false;
+    }
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+        cameraPos += cameraSpeed * deltaTime() * cameraFront;
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+        cameraPos -= cameraSpeed * deltaTime() * cameraFront;
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+        cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * deltaTime() * cameraSpeed;
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+        cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * deltaTime() * cameraSpeed;
+    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
+        cameraPos += cameraSpeed * deltaTime() * cameraUp;
+    if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
+        cameraPos -= cameraSpeed * deltaTime() * cameraUp;
 }

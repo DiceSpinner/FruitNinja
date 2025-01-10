@@ -5,12 +5,14 @@
 #include "game.hpp"
 #include "../settings/fruitsize.hpp"
 #include "../settings/fruitplane.hpp"
+#include "../settings/uiSetting.hpp"
 #include "../components/fruit.hpp"
 #include "../components/rigidbody.hpp"
 #include "../rendering/model.hpp"
 #include "../state/time.hpp"
 #include "../state/new_objects.hpp"
 #include "../state/state.hpp"
+#include "../state/camera.hpp"
 #include "../state/window.hpp"
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
@@ -110,19 +112,20 @@ void initGame() {
 
 	// Start Game Button
 	startGame = make_shared<Object>(watermelonModel);
-	startGame->AddComponent<Fruit>();
-	Rigidbody* rigidbody = startGame->AddComponent<Rigidbody>(WATERMELON_SIZE, 0, watermelonTopModel, watermelonBottomModel);
+	startGame->AddComponent<Fruit>(WATERMELON_SIZE, 0, watermelonTopModel, watermelonBottomModel);
+	Rigidbody* rigidbody = startGame->AddComponent<Rigidbody>();
 	rigidbody->useGravity = false;
 	glm::vec3 torque(
 		randFloat(SPAWN_X_ROT_MIN, SPAWN_X_ROT_MAX),
 		randFloat(SPAWN_Y_ROT_MIN, SPAWN_Y_ROT_MAX),
 		randFloat(SPAWN_Z_ROT_MIN, SPAWN_Z_ROT_MAX)
 	);
-	rigidbody->AddRelativeTorque(torque);
+	rigidbody->AddRelativeTorque(torque, ForceMode::Impulse);
+	rigidbody->transform.SetPosition(glm::vec3(-7, -2, 0));
 
 	// Exit button
 	exitGame = make_shared<Object>(appleModel);
-	exitGame->AddComponent<Fruit>();
+	exitGame->AddComponent<Fruit>(APPLE_SIZE, 0, appleTopModel, appleBottomModel);
 	rigidbody = exitGame->AddComponent<Rigidbody>();
 	rigidbody->useGravity = false;
 	torque = glm::vec3(
@@ -130,10 +133,14 @@ void initGame() {
 		randFloat(SPAWN_Y_ROT_MIN, SPAWN_Y_ROT_MAX),
 		randFloat(SPAWN_Z_ROT_MIN, SPAWN_Z_ROT_MAX)
 	);
-	rigidbody->AddRelativeTorque(torque);
+	rigidbody->AddRelativeTorque(torque, ForceMode::Impulse);
+	rigidbody->transform.SetPosition(glm::vec3(7, -2, 0));
+
+	Game::newObjects.push(startGame);
+	Game::newObjects.push(exitGame);
 }
 
-void step() {
+void gameStep() {
 	switch (state) {
 		case State::START:
 			if (!startGame->isAlive()) {
@@ -142,6 +149,17 @@ void step() {
 			}
 			else if (!exitGame->isAlive()) {
 				glfwSetWindowShouldClose(window, true);
+			}
+			else {
+				glm::mat4 inverse = glm::inverse(Game::perspective);
+				glm::vec4 pos = Game::perspective * Game::view * glm::vec4(0, 0, -200, 1);
+				glm::vec4 startPos = inverse * glm::vec4(1, 1, 0, 1);
+				startPos /= startPos.w;
+				startGame->transform.SetPosition(startPos);
+
+				glm::vec4 exitPos = inverse * glm::vec4(-1, 1, 0, 1);
+				exitPos /= exitPos.w;
+				exitGame->transform.SetPosition(exitPos);
 			}
 			break;
 		case State::GAME:

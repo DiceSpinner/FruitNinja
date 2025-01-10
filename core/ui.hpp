@@ -16,11 +16,14 @@ private:
 	int textSize = 0;
 	glm::ivec2 textureSize{0, 0};
 public:
-	UI(GLuint texture, std::string text="", int textSize = 50);
-	UI() = default;
+	bool isEnabled = true;
 	Transform transform;
 
+	UI(GLuint texture, std::string text="", int textSize = 50);
+	UI() = default;
+
 	void Draw(Shader& shader) const;
+	void DrawInNDC(glm::vec2 ndc, Shader& shader);
 	void UpdateText(std::string newText);
 	std::string text() const;
 };

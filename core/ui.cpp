@@ -1,9 +1,10 @@
 #include "ui.hpp"
 #include "glm/ext.hpp"
+#include "../state/window.hpp"
 
 using namespace std;
 
-UI::UI(GLuint texture, string text, int textSize) : texture(texture), transform(), textSize(textSize), textureSize(0) {
+UI::UI(GLuint texture, string text, int textSize) : texture(texture), transform(), textSize(textSize), textureSize(0), isEnabled(true) {
 	glGenVertexArrays(1, &VAO);
 	glGenBuffers(1, &VBO);
 	glGenBuffers(1, &EBO);
@@ -113,10 +114,18 @@ void UI::Draw(Shader& shader) const {
 		shader.SetInt("textAtlas", 1);
 		glBindTexture(GL_TEXTURE_2D, characters[0].texture);
 	}
+
 	glUniformMatrix4fv(glGetUniformLocation(shader.ID, "transform"), 1, GL_FALSE, glm::value_ptr(transform.matrix));
 	glBindVertexArray(VAO);
 	glDrawElements(GL_TRIANGLES, 6 + 6 * characters.size(), GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
+}
+
+void UI::DrawInNDC(glm::vec2 ndc, Shader& shader) {
+	float x = ndc.x / 2 * SCR_WIDTH;
+	float y = ndc.y / 2 * SCR_HEIGHT;
+	transform.SetPosition(glm::vec3(x, y, 0));
+	Draw(shader);
 }
 
 void UI::UpdateText(string newText) {

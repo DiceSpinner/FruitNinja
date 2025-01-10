@@ -8,6 +8,4 @@
 extern unsigned int SCR_WIDTH;
 extern unsigned int SCR_HEIGHT;
 extern GLFWwindow* window;
-extern glm::mat4 perspective;
-extern glm::mat4 ortho;
 #endif

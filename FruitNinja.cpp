@@ -20,8 +20,10 @@
 #include "core/ui.hpp"
 #include "core/ui3D.hpp"
 #include "settings/fruitsize.hpp"
+#include "scripts/input.hpp"
 #include "scripts/game.hpp"
 #include "scripts/frontUI.hpp"
+#include "scripts/backUI.hpp"
 #include "scripts/initialization.hpp"
 
 using namespace std;
@@ -33,32 +35,6 @@ const char* unlitFrag = "shaders/object_unlit.frag";
 const char* ui3DVertPath = "shaders/ui3D.vert";
 const char* uiVertPath = "shaders/ui.vert";
 const char* uiFragPath = "shaders/ui.frag";
-
-static void processInput(GLFWwindow* window)
-{
-    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
-        mouseClicked = true;
-    }
-    else {
-        mouseClicked = false;
-    }
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-        cameraPos += cameraSpeed * deltaTime() * cameraFront;
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-        cameraPos += cameraSpeed * deltaTime() * cameraFront;
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-        cameraPos -= cameraSpeed * deltaTime() * cameraFront;
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-        cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * deltaTime() * cameraSpeed;
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-        cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * deltaTime() * cameraSpeed;
-    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
-        cameraPos += cameraSpeed * deltaTime() * cameraUp;
-    if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
-        cameraPos -= cameraSpeed * deltaTime() * cameraUp;
-}
-
-const double mouseSensitivity = 0.1;
 
 const char* unitCube = "models/unit_cube.obj";
 const char* unitSphere = "models/unit_sphere.obj";
@@ -74,9 +50,8 @@ int main() {
     shared_ptr<Object> sphere = make_shared<Object>(unitSphereModel);
     sphere->transform.SetScale(glm::vec3(WATERMELON_SIZE, WATERMELON_SIZE, WATERMELON_SIZE));
 
-    GLuint image = textureFromFile("fruit_ninja_clean.png", "images");
     GLuint smileFace = textureFromFile("awesomeface.png", "images");
-    UI background(image, "Fruit Ninja");
+    
     UI3D rayIndicator(smileFace);
     rayIndicator.transform.SetScale(glm::vec3(1, 1, 1));
     
@@ -88,35 +63,37 @@ int main() {
     glBindVertexArray(0);
 
     initGame();
-    initGameUI();
+    initFrontUI();
+    initBackUI();
     vector<shared_ptr<Object>> objects = {};
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
         updateTime();
         processInput(window);
-        step();
 
         cameraFront.x = glm::cos(glm::radians(pitch)) * glm::sin(glm::radians(yaw));
         cameraFront.y = glm::sin(glm::radians(pitch));
         cameraFront.z = -glm::cos(glm::radians(yaw)) * glm::cos(glm::radians(pitch));
         cameraFront = glm::normalize(cameraFront);
 
-        glm::mat4 view = glm::lookAt(
+        view = glm::lookAt(
             cameraPos,
             cameraPos + cameraFront,
             cameraUp
         );
 
-        updateCursorPosition(glm::vec2(lastCursorX, lastCursorY), SCR_WIDTH, SCR_HEIGHT);
         setViewProjection(view, perspective);
+
+        gameStep();
         
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glDisable(GL_DEPTH_TEST);
         uiShader.Use();
         glUniformMatrix4fv(glGetUniformLocation(uiShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(ortho));
-        background.Draw(uiShader);
+        drawBackUI(uiShader);
+
         glClear(GL_DEPTH_BUFFER_BIT);
         glm::vec3 lightPos = glm::vec3(0, 0, 10);
 
@@ -154,7 +131,7 @@ int main() {
 
         glClear(GL_DEPTH_BUFFER_BIT);
         uiShader.Use();
-        drawGameUI(uiShader);
+        drawFrontUI(uiShader);
 
         /*rayTracerShader.Use();
         glUniformMatrix4fv(glGetUniformLocation(rayTracerShader.ID, "view"), 1, GL_FALSE, glm::value_ptr(view));

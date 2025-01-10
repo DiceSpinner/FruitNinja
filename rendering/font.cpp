@@ -61,7 +61,7 @@ Character getChar(int size, char c) {
     int offsetX = 0;
     int offsetY = 0;
     int maxY = 0;
-    for (unsigned char i = 48; i <= 200;i++) {
+    for (unsigned char i = 0; i <= 200;i++) {
         if (FT_Load_Char(face, i, FT_LOAD_RENDER))
         {
             std::cout << "Failed to load Glyph for char " << i << std::endl;

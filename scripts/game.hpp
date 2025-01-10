@@ -11,6 +11,6 @@ constexpr float SPAWN_Y_ROT_MAX = 180;
 constexpr float SPAWN_Z_ROT_MIN = 0;
 constexpr float SPAWN_Z_ROT_MAX = 180;
 
-void step();
+void gameStep();
 void initGame();
 #endif

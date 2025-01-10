@@ -6,5 +6,8 @@ namespace Game {
     bool lockedCamera = true;
     double pitch = 0;
     double yaw = 0;
-    float cameraSpeed = 2;
+    float cameraSpeed = 4;
+    glm::mat4 ortho(1);
+    glm::mat4 perspective(1);
+    glm::mat4 view(1);
 }

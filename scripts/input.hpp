@@ -5,4 +5,5 @@
 
 void onKeyPressed(GLFWwindow* window, int key, int scancode, int action, int mods);
 void cursorAim(GLFWwindow* window, double xpos, double ypos);
+void processInput(GLFWwindow* window);
 #endif

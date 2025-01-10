@@ -1,5 +1,6 @@
 #include <iostream>
 #include "cursor.hpp"
+#include "window.hpp"
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
 
@@ -23,9 +24,9 @@ static glm::vec2 cursorPosDelta(0, 0);
 static glm::vec3 cursorRay(0, 0, 1);
 static glm::vec2 currPosition(0, 0);
 
-void updateCursorPosition(glm::vec2 position, float width, float height) {
-	float halfW = width / 2;
-	float halfH = height / 2;
+void updateCursorPosition(glm::vec2 position) {
+	float halfW = static_cast<float>(SCR_WIDTH) / 2;
+	float halfH = static_cast<float>(SCR_HEIGHT) / 2;
 	position.x = (position.x - halfW) / halfW;
 	position.y = (halfH - position.y) / halfH;
 

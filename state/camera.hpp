@@ -9,5 +9,8 @@ namespace Game {
 	extern double pitch;
 	extern double yaw;
 	extern float cameraSpeed;
+	extern glm::mat4 perspective;
+	extern glm::mat4 ortho;
+	extern glm::mat4 view;
 }
 #endif

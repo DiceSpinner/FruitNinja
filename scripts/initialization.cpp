@@ -1,8 +1,11 @@
 #include <iostream>
 #include "initialization.hpp"
 #include "../state/window.hpp"
+#include "../state/camera.hpp"
 #include "../rendering/font.hpp"
 #include "input.hpp"
+
+using namespace Game;
 
 static void onWindowResize(GLFWwindow* window, int width, int height)
 {
@@ -75,7 +78,7 @@ void initializeContext() {
 #endif
     //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
-    GLFWwindow* window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Fruit Ninja", NULL, NULL);
+    window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Fruit Ninja", NULL, NULL);
     if (window == NULL)
     {
         std::cout << "Failed to create GLFW window" << std::endl;
@@ -109,7 +112,6 @@ void initializeContext() {
     glEnable(GL_DEPTH_TEST);
     glfwSwapInterval(0);
     initFont();
-
 
     // Initialize projection matrices
     perspective = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 300.0f);

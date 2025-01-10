@@ -69,7 +69,7 @@ static void spawnFruit(shared_ptr<Model>& fruitModel, shared_ptr<Model>& slice1M
 	rb->AddRelativeTorque(torque, ForceMode::Impulse);
 	float startX =  randFloat(FRUIT_SPAWN_CENTER - FRUIT_SPAWN_WIDTH / 2, FRUIT_SPAWN_CENTER + FRUIT_SPAWN_WIDTH / 2);
 	glm::vec3 position(startX, FRUIT_SPAWN_HEIGHT, 0);
-	cout << "Spawn at " << glm::to_string(position) << "\n";
+	// cout << "Spawn at " << glm::to_string(position) << "\n";
 	rb->transform.SetPosition(position);
 	Game::newObjects.push(fruit);
 }
@@ -146,18 +146,20 @@ void gameStep() {
 			if (!startGame->isAlive()) {
 				state = State::GAME;
 				exitGame->GetComponent<Rigidbody>()->useGravity = true;
+				score = 0;
+				spawnTimer = 0;
 			}
 			else if (!exitGame->isAlive()) {
 				glfwSetWindowShouldClose(window, true);
 			}
 			else {
-				glm::mat4 inverse = glm::inverse(Game::perspective);
-				glm::vec4 pos = Game::perspective * Game::view * glm::vec4(0, 0, -200, 1);
-				glm::vec4 startPos = inverse * glm::vec4(1, 1, 0, 1);
+				glm::mat4 inverse = glm::inverse(Game::perspective * Game::view);
+				float z = computeNormalizedZ(30);
+				glm::vec4 startPos = inverse * glm::vec4(START_BUTTON_POS, z, 1);
 				startPos /= startPos.w;
 				startGame->transform.SetPosition(startPos);
 
-				glm::vec4 exitPos = inverse * glm::vec4(-1, 1, 0, 1);
+				glm::vec4 exitPos = inverse * glm::vec4(EXIT_BUTTON_POS, z, 1);
 				exitPos /= exitPos.w;
 				exitGame->transform.SetPosition(exitPos);
 			}

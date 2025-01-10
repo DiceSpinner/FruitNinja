@@ -17,7 +17,7 @@ static void onWindowResize(GLFWwindow* window, int width, int height)
     float halfWidth = SCR_WIDTH / 2.0f;
     float halfHeight = SCR_HEIGHT / 2.0f;
     ortho = glm::ortho(-halfWidth, halfWidth, -halfHeight, halfHeight);
-    perspective = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 300.0f);
+    setCameraPerspective(0.1f, 300.0f);
 }
 
 static void APIENTRY glDebugOutput(GLenum source,
@@ -114,7 +114,7 @@ void initializeContext() {
     initFont();
 
     // Initialize projection matrices
-    perspective = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 300.0f);
+    setCameraPerspective(0.1f, 300.0f);
     float halfWidth = SCR_WIDTH / 2.0f;
     float halfHeight = SCR_HEIGHT / 2.0f;
     ortho = glm::ortho(-halfWidth, halfWidth, -halfHeight, halfHeight);

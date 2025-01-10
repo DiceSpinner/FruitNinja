@@ -41,12 +41,12 @@ void Fruit::Update() {
 	if (!Game::mouseClicked || glm::length(cursorDirection) == 0) { return; }
 
 	if (CursorInContact()) {
-		cout << "Fruit Sliced\n";
+		// cout << "Fruit Sliced\n";
 		if (Game::state == State::GAME) {
 			Game::score += this->score;
 		}
 		
-		cout << "Score " << Game::score << "\n";
+		// cout << "Score " << Game::score << "\n";
 		object->Destroy();
 
 		shared_ptr<Object> slice1 = make_shared<Object>(this->slice1);

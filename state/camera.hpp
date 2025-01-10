@@ -13,4 +13,7 @@ namespace Game {
 	extern glm::mat4 ortho;
 	extern glm::mat4 view;
 }
+
+void setCameraPerspective(float near, float far);
+float computeNormalizedZ(float viewZ);
 #endif

@@ -11,8 +11,8 @@ class Object {
 private:
 	std::shared_ptr<Model> model;
 	std::unordered_map<std::type_index, std::unique_ptr<Component>> components;
-	bool alive;
 public:
+	bool enabled;
 	bool drawOverlay;
 	Transform transform;
 
@@ -40,8 +40,6 @@ public:
 	}
 
 	void Draw(Shader& shader) const;
-	bool isAlive() const;
 	virtual void Update();
-	void Destroy();
 };
 #endif

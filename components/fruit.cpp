@@ -1,6 +1,6 @@
 #include <iostream>
 #include "fruit.hpp"
-#include "../settings/fruitplane.hpp"
+#include "../settings/fruitspawn.hpp"
 #include "../state/cursor.hpp"
 #include "../state/camera.hpp"
 #include "../state/state.hpp"
@@ -15,7 +15,7 @@ using namespace std;
 
 Fruit::Fruit(unordered_map<type_index, unique_ptr<Component>>& collection, Transform& transform, Object* object, 
 	float radius, int score, shared_ptr<Model> slice1, shared_ptr<Model> slice2) :
-	Component(collection, transform, object), radius(radius), score(score), slice1(slice1), slice2(slice2)
+	Component(collection, transform, object), radius(radius), reward(score), slice1(slice1), slice2(slice2)
 {
 
 }
@@ -31,11 +31,12 @@ bool Fruit::CursorInContact() { // Sphere collision check
 }
 
 void Fruit::Update() {
-	
 	glm::vec2 cursorDirection = getCursorPosDelta();
 	if (transform.position().y <= FRUIT_KILL_HEIGHT) {
-		cout << "Missed\n";
-		object->Destroy();
+		if (this->reward > 0) {
+			Game::misses++;
+		}
+		object->enabled = false;
 		return;
 	}
 	if (!Game::mouseClicked || glm::length(cursorDirection) == 0) { return; }
@@ -43,11 +44,16 @@ void Fruit::Update() {
 	if (CursorInContact()) {
 		// cout << "Fruit Sliced\n";
 		if (Game::state == State::GAME) {
-			Game::score += this->score;
+			Game::score += this->reward;
+			int quotient = Game::score / 50;
+			if (quotient > Game::recovery) {
+				Game::misses = glm::max(Game::misses - (quotient - Game::recovery), 0);
+				Game::recovery = quotient;
+			}
 		}
 		
 		// cout << "Score " << Game::score << "\n";
-		object->Destroy();
+		object->enabled = false;
 
 		shared_ptr<Object> slice1 = make_shared<Object>(this->slice1);
 		shared_ptr<Object> slice2 = make_shared<Object>(this->slice2);

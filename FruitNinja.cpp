@@ -87,14 +87,13 @@ int main() {
 
         gameStep();
         
-        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+        glClearColor(0.4f, 0.2f, 0, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glDisable(GL_DEPTH_TEST);
         uiShader.Use();
         glUniformMatrix4fv(glGetUniformLocation(uiShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(ortho));
         drawBackUI(uiShader);
 
-        glClear(GL_DEPTH_BUFFER_BIT);
         glm::vec3 lightPos = glm::vec3(0, 0, 10);
 
         glEnable(GL_DEPTH_TEST);
@@ -115,7 +114,7 @@ int main() {
         for (auto i = objects.begin(); i != objects.end();) {
             auto& obj = *i;
             obj->Update();
-            if (obj->isAlive()) {
+            if (obj->enabled) {
                 obj->Draw(unlitShader);
                 i++;
             }
@@ -124,12 +123,11 @@ int main() {
             }
         }
 
-        glClear(GL_DEPTH_BUFFER_BIT);
+        glDisable(GL_DEPTH_TEST);
         if (lockedCamera) {
             // sphere->Draw(unlitShader);
         }
 
-        glClear(GL_DEPTH_BUFFER_BIT);
         uiShader.Use();
         drawFrontUI(uiShader);
 

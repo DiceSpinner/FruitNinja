@@ -9,5 +9,7 @@ enum State {
 namespace Game {
 	extern State state;
 	extern int score;
+	extern int misses;
+	extern int recovery;
 }
 #endif

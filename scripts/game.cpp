@@ -4,8 +4,7 @@
 #include <functional>
 #include "game.hpp"
 #include "../settings/fruitsize.hpp"
-#include "../settings/fruitplane.hpp"
-#include "../settings/uiSetting.hpp"
+#include "../settings/fruitspawn.hpp"
 #include "../components/fruit.hpp"
 #include "../components/rigidbody.hpp"
 #include "../rendering/model.hpp"
@@ -14,6 +13,7 @@
 #include "../state/state.hpp"
 #include "../state/camera.hpp"
 #include "../state/window.hpp"
+#include "frontUI.hpp"
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
 
@@ -121,7 +121,6 @@ void initGame() {
 		randFloat(SPAWN_Z_ROT_MIN, SPAWN_Z_ROT_MAX)
 	);
 	rigidbody->AddRelativeTorque(torque, ForceMode::Impulse);
-	rigidbody->transform.SetPosition(glm::vec3(-7, -2, 0));
 
 	// Exit button
 	exitGame = make_shared<Object>(appleModel);
@@ -134,49 +133,114 @@ void initGame() {
 		randFloat(SPAWN_Z_ROT_MIN, SPAWN_Z_ROT_MAX)
 	);
 	rigidbody->AddRelativeTorque(torque, ForceMode::Impulse);
-	rigidbody->transform.SetPosition(glm::vec3(7, -2, 0));
 
 	Game::newObjects.push(startGame);
 	Game::newObjects.push(exitGame);
+	
+	// Reset Button
+	restart = make_shared<Object>(pineappleModel);
+	restart->AddComponent<Fruit>(PINEAPPLE_SIZE, 0, pineappleTopModel, pineappleBottomModel);
+	rigidbody = restart->AddComponent<Rigidbody>();
+	rigidbody->useGravity = false;
+	torque = glm::vec3(
+		randFloat(SPAWN_X_ROT_MIN, SPAWN_X_ROT_MAX),
+		randFloat(SPAWN_Y_ROT_MIN, SPAWN_Y_ROT_MAX),
+		randFloat(SPAWN_Z_ROT_MIN, SPAWN_Z_ROT_MAX)
+	);
+	rigidbody->AddRelativeTorque(torque, ForceMode::Impulse);
+}
+
+static void processStart() {
+	if (!startGame->enabled) {
+		state = State::GAME;
+		exitGame->GetComponent<Rigidbody>()->useGravity = true;
+		score = 0;
+		spawnTimer = 0;
+		misses = 0;
+		recovery = 0;
+	}
+	else if (!exitGame->enabled) {
+		glfwSetWindowShouldClose(window, true);
+	}
+	else {
+		glm::mat4 inverse = glm::inverse(Game::perspective * Game::view);
+		float z = computeNormalizedZ(30);
+		glm::vec4 startPos = inverse * glm::vec4(START_BUTTON_POS, z, 1);
+		startPos /= startPos.w;
+		startGame->transform.SetPosition(startPos);
+
+		glm::vec4 exitPos = inverse * glm::vec4(EXIT_BUTTON_POS, z, 1);
+		exitPos /= exitPos.w;
+		exitGame->transform.SetPosition(exitPos);
+	}
+}
+
+static void processGame() {
+	spawnTimer += deltaTime();
+	if (spawnTimer >= spawnCooldown) {
+		int spawnAmount = round(randFloat(SPAWN_AMOUNT_MIN, SPAWN_AMOUNT_MAX));
+		for (int i = 0; i < spawnAmount; i++) {
+			int index = round(randFloat(0, spawners.size() - 1));
+			spawners[index]();
+		}
+		spawnCooldown = round(randFloat(SPAWN_COOLDOWN_MIN, SPAWN_COOLDOWN_MAX));
+		spawnTimer = 0;
+	}
+	if (misses >= MISS_TOLERENCE) {
+		state = State::SCORE;
+		exitGame->enabled = true;
+		exitGame->GetComponent<Rigidbody>()->useGravity = false;
+		restart->enabled = true;
+		newObjects.push(exitGame);
+		newObjects.push(restart);
+
+		glm::mat4 inverse = glm::inverse(Game::perspective * Game::view);
+		float z = computeNormalizedZ(30);
+		glm::vec4 startPos = inverse * glm::vec4(START_BUTTON_POS, z, 1);
+		startPos /= startPos.w;
+		restart->transform.SetPosition(startPos);
+
+		glm::vec4 exitPos = inverse * glm::vec4(EXIT_BUTTON_POS, z, 1);
+		exitPos /= exitPos.w;
+		exitGame->transform.SetPosition(exitPos);
+	}
+}
+
+static void processScore() {
+	if (!restart->enabled) {
+		state = State::GAME;
+		exitGame->GetComponent<Rigidbody>()->useGravity = true;
+		score = 0;
+		misses = 0;
+		recovery = 0;
+		spawnTimer = 0;
+	}
+	else if (!exitGame->enabled) {
+		glfwSetWindowShouldClose(window, true);
+	}
+	else {
+		glm::mat4 inverse = glm::inverse(Game::perspective * Game::view);
+		float z = computeNormalizedZ(30);
+		glm::vec4 startPos = inverse * glm::vec4(START_BUTTON_POS, z, 1);
+		startPos /= startPos.w;
+		restart->transform.SetPosition(startPos);
+
+		glm::vec4 exitPos = inverse * glm::vec4(EXIT_BUTTON_POS, z, 1);
+		exitPos /= exitPos.w;
+		exitGame->transform.SetPosition(exitPos);
+	}
 }
 
 void gameStep() {
 	switch (state) {
 		case State::START:
-			if (!startGame->isAlive()) {
-				state = State::GAME;
-				exitGame->GetComponent<Rigidbody>()->useGravity = true;
-				score = 0;
-				spawnTimer = 0;
-			}
-			else if (!exitGame->isAlive()) {
-				glfwSetWindowShouldClose(window, true);
-			}
-			else {
-				glm::mat4 inverse = glm::inverse(Game::perspective * Game::view);
-				float z = computeNormalizedZ(30);
-				glm::vec4 startPos = inverse * glm::vec4(START_BUTTON_POS, z, 1);
-				startPos /= startPos.w;
-				startGame->transform.SetPosition(startPos);
-
-				glm::vec4 exitPos = inverse * glm::vec4(EXIT_BUTTON_POS, z, 1);
-				exitPos /= exitPos.w;
-				exitGame->transform.SetPosition(exitPos);
-			}
+			processStart();
 			break;
 		case State::GAME:
-			spawnTimer += deltaTime();
-			if (spawnTimer >= spawnCooldown) {
-				int spawnAmount = round(randFloat(SPAWN_AMOUNT_MIN, SPAWN_AMOUNT_MAX));
-				for (int i = 0; i < spawnAmount; i++) {
-					int index = round(randFloat(0, spawners.size() - 1));
-					spawners[index]();
-				}
-				spawnCooldown = round(randFloat(SPAWN_COOLDOWN_MIN, SPAWN_COOLDOWN_MAX));
-				spawnTimer = 0;
-			}
+			processGame();
 			break;
 		case State::SCORE:
+			processScore();
 			break;
 	}
 }

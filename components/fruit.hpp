@@ -9,7 +9,7 @@ private:
 	std::shared_ptr<Model> slice1;
 	std::shared_ptr<Model> slice2;
 public:
-	int score;
+	int reward;
 	float radius;
 
 	Fruit(std::unordered_map<std::type_index, std::unique_ptr<Component>>& collection, Transform& transform, Object* object, 

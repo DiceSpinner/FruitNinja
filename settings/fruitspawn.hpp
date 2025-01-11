@@ -10,5 +10,5 @@ constexpr float FRUIT_UP_MAX = 32;
 constexpr float FRUIT_UP_MIN = 25;
 constexpr float FRUIT_HORIZONTAL_MIN = -7;
 constexpr float FRUIT_HORIZONTAL_MAX = 7;
-constexpr float FRUIT_SLICE_FORCE = 8;
+constexpr float FRUIT_SLICE_FORCE = 10;
 #endif

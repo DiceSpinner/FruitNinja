@@ -6,6 +6,8 @@
     "freetype",
     "glfw3",
     "glm",
-    "assimp"
+    "assimp",
+    "openal-soft",
+    "audiofile"
   ]
 }

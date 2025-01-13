@@ -8,6 +8,7 @@ using namespace std;
 
 namespace Game {
 	bool mouseClicked = false;
+	vector<function<void(glm::vec2)>> OnMousePositionUpdated;
 }
 
 static glm::mat4 inverseViewProjection(1);
@@ -36,6 +37,9 @@ void updateCursorPosition(glm::vec2 position) {
 	glm::vec4 viewRay = inverseProjection * glm::vec4(position, 0, 1);
 	viewRay.w = 0;
 	cursorRay = glm::normalize(glm::vec3(inverseView * viewRay));
+	for (auto& observer : Game::OnMousePositionUpdated) {
+		observer(position);
+	}
 }
 
 glm::vec3 getCursorRay() {

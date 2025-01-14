@@ -18,3 +18,9 @@ void Object::Update() {
 		pair.second->Update();
 	}
 }
+
+void Object::FixedUpdate() {
+	for (auto& pair : components) {
+		pair.second->FixedUpdate();
+	}
+}

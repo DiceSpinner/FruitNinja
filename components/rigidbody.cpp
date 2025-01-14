@@ -43,16 +43,16 @@ void Rigidbody::AddRelativeTorque(glm::vec3 torque, ForceMode forcemode) {
 	}
 }
 
-void Rigidbody::Update() {
+void Rigidbody::FixedUpdate() {
 	glm::vec3 translation = transform.position();
-	translation += velocity * deltaTime();
+	translation += velocity * fixedDeltaTime();
 	transform.matrix[3] = glm::vec4(translation, 1);
 	float rotation = glm::length(localAngularVelocity);
 	
 	if (!glm::all(glm::epsilonEqual(localAngularVelocity, glm::vec3(0.0f), (float)1e-6))) {
-		transform.matrix = glm::rotate(transform.matrix, glm::radians(rotation * deltaTime()), localAngularVelocity);
+		transform.matrix = glm::rotate(transform.matrix, glm::radians(rotation * fixedDeltaTime()), localAngularVelocity);
 	}
 	if (useGravity) {
-		velocity += (Gravity * deltaTime());
+		velocity += (Gravity * fixedDeltaTime());
 	}
 }

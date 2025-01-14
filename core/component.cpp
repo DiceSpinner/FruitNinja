@@ -11,3 +11,4 @@ Component::Component(unordered_map<std::type_index, std::unique_ptr<Component>>&
 
 void Component::Update() {}
 void Component::Initialize() {}
+void Component::FixedUpdate() {}

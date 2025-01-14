@@ -40,6 +40,7 @@ public:
 	}
 
 	void Draw(Shader& shader) const;
-	virtual void Update();
+	void Update();
+	void FixedUpdate();
 };
 #endif

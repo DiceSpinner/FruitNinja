@@ -66,6 +66,7 @@ int main() {
     initFrontUI();
     initBackUI();
     vector<shared_ptr<Object>> objects = {};
+
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
@@ -84,8 +85,6 @@ int main() {
         );
 
         setViewProjection(view, perspective);
-
-        gameStep();
         
         glClearColor(0.4f, 0.2f, 0, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -111,6 +110,19 @@ int main() {
             newObjects.pop();
         }
 
+        if (checkShouldPhysicsUpdate()) {
+            for (auto i = objects.begin(); i != objects.end();) {
+                auto& obj = *i;
+                obj->FixedUpdate();
+                if (obj->enabled) {
+                    i++;
+                }
+                else {
+                    i = objects.erase(i);
+                }
+            }
+        }
+
         for (auto i = objects.begin(); i != objects.end();) {
             auto& obj = *i;
             obj->Update();
@@ -122,6 +134,8 @@ int main() {
                 i = objects.erase(i);
             }
         }
+
+        gameStep();
 
         glDisable(GL_DEPTH_TEST);
         if (lockedCamera) {

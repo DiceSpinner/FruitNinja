@@ -17,6 +17,7 @@ public:
 	Component(std::unordered_map<std::type_index, std::unique_ptr<Component>>& collection, Transform& transform, Object* object);
 	void virtual Update();
 	void virtual Initialize();
+	void virtual FixedUpdate();
 
 	template<typename T>
 	T* GetComponent() {

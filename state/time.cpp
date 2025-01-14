@@ -5,6 +5,10 @@ using namespace std;
 static float currTime = 0;
 static float cdeltaTime = 0;
 static bool init = true;
+static float fixedUpdateDelta = 0;
+static float lastFixedUpdate = 0;
+static float fixedUpdateAccumulator = 0;
+static bool shouldPhysicsUpdate = false;
 
 void updateTime() {
 	float currentTime = glfwGetTime();
@@ -16,6 +20,16 @@ void updateTime() {
 		cdeltaTime = currentTime - currTime;
 	}
 	currTime = currentTime;
+	fixedUpdateAccumulator += cdeltaTime;
+	if (fixedUpdateAccumulator >= 1.0f / PHYSICS_FPS) {
+		fixedUpdateDelta = currTime - lastFixedUpdate;
+		lastFixedUpdate = currTime;
+		fixedUpdateAccumulator -= 1.0f / PHYSICS_FPS;
+		shouldPhysicsUpdate = true;
+	}
+	else {
+		shouldPhysicsUpdate = false;
+	}
 }
 
 float time() {
@@ -24,4 +38,12 @@ float time() {
 
 float deltaTime() {
 	return cdeltaTime;
+}
+
+float fixedDeltaTime() {
+	return fixedUpdateDelta;
+}
+
+bool checkShouldPhysicsUpdate() {
+	return shouldPhysicsUpdate;
 }

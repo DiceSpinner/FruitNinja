@@ -13,4 +13,5 @@ struct Character {
 };
 
 void initFont();
+void deinitFont();
 Character getChar(int size, char c);

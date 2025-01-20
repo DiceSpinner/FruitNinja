@@ -26,6 +26,11 @@ void initFont() {
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 }
 
+void deinitFont() {
+    FT_Done_Face(face);
+    FT_Done_FreeType(lib);
+}
+
 Character getChar(int size, char c) {
 	auto font = loadedFonts.find(size);
 	if (font != loadedFonts.end()) {

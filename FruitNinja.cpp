@@ -24,7 +24,7 @@
 #include "scripts/game.hpp"
 #include "scripts/frontUI.hpp"
 #include "scripts/backUI.hpp"
-#include "scripts/initialization.hpp"
+#include "scripts/context.hpp"
 
 using namespace std;
 using namespace Game;
@@ -153,7 +153,6 @@ int main() {
         // rayIndicator.Draw(rayTracerShader);
         glfwSwapBuffers(window);
     }
-
-    glfwTerminate();
+    destroyContext();
     return 0;
 }

@@ -119,8 +119,5 @@ vector<GLuint> Model::loadMaterialTextures(aiMaterial* material, aiTextureType t
 			textures.push_back(texture);
 		}
 	}
-	if (material->GetTextureCount(type) == 0) {
-
-	}
 	return textures;
 }

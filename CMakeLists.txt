@@ -9,8 +9,9 @@ find_package(glad CONFIG REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 find_package(assimp CONFIG REQUIRED)
 find_package(OpenAL CONFIG REQUIRED)
+find_package(AudioFile CONFIG REQUIRED)
 
 include_directories("libraries")
 
-add_executable(${CMAKE_PROJECT_NAME} "FruitNinja.cpp" "rendering/shader.cpp" "libraries/stb_image.cpp" "rendering/mesh.cpp" "rendering/model.cpp" "core/object.cpp"  "state/time.cpp" "core/ui.cpp" "core/transform.cpp" "core/component.cpp" "components/rigidbody.cpp" "components/fruit.cpp"  "state/cursor.cpp" "core/ui3D.cpp" "state/camera.cpp"  "state/new_objects.cpp" "components/fruitslice.cpp" "scripts/game.cpp" "rendering/font.cpp" "state/window.cpp" "scripts/frontUI.cpp" "state/state.cpp" "scripts/initialization.cpp" "scripts/input.cpp" "scripts/backUI.cpp") 
-target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE glm::glm glad::glad glfw assimp::assimp Freetype::Freetype OpenAL::OpenAL)
+add_executable(${CMAKE_PROJECT_NAME} "FruitNinja.cpp" "rendering/shader.cpp" "libraries/stb_image.cpp" "rendering/mesh.cpp" "rendering/model.cpp" "core/object.cpp"  "state/time.cpp" "core/ui.cpp" "core/transform.cpp" "core/component.cpp" "components/rigidbody.cpp" "components/fruit.cpp"  "state/cursor.cpp" "core/ui3D.cpp" "state/camera.cpp"  "state/new_objects.cpp" "components/fruitslice.cpp" "scripts/game.cpp" "rendering/font.cpp" "state/window.cpp" "scripts/frontUI.cpp" "state/state.cpp" "scripts/context.cpp" "scripts/input.cpp" "scripts/backUI.cpp" "audio/audio.cpp" "components/audiosource.cpp" "components/audiolistener.cpp") 
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE glm::glm glad::glad glfw assimp::assimp Freetype::Freetype OpenAL::OpenAL AudioFile)

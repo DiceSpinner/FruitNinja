@@ -1,46 +1,92 @@
 #include <iostream>
-#include <cstdlib>
-#include "audio.hpp"
+#include <array>
 #include <AL/al.h>
 #include <AL/alc.h>
+#include <AL/alext.h>
 #include <AudioFile.h>
+#include "audio.hpp"
 using namespace std;
+
+constexpr auto GetDebugSourceName(ALenum source) noexcept -> std::string_view
+{
+	switch (source)
+	{
+	case AL_DEBUG_SOURCE_API_EXT: return "API"sv;
+	case AL_DEBUG_SOURCE_AUDIO_SYSTEM_EXT: return "Audio System"sv;
+	case AL_DEBUG_SOURCE_THIRD_PARTY_EXT: return "Third Party"sv;
+	case AL_DEBUG_SOURCE_APPLICATION_EXT: return "Application"sv;
+	case AL_DEBUG_SOURCE_OTHER_EXT: return "Other"sv;
+	}
+	return "<invalid source>"sv;
+}
+
+constexpr auto GetDebugTypeName(ALenum type) noexcept -> std::string_view
+{
+	switch (type)
+	{
+	case AL_DEBUG_TYPE_ERROR_EXT: return "Error"sv;
+	case AL_DEBUG_TYPE_DEPRECATED_BEHAVIOR_EXT: return "Deprecated Behavior"sv;
+	case AL_DEBUG_TYPE_UNDEFINED_BEHAVIOR_EXT: return "Undefined Behavior"sv;
+	case AL_DEBUG_TYPE_PORTABILITY_EXT: return "Portability"sv;
+	case AL_DEBUG_TYPE_PERFORMANCE_EXT: return "Performance"sv;
+	case AL_DEBUG_TYPE_MARKER_EXT: return "Marker"sv;
+	case AL_DEBUG_TYPE_PUSH_GROUP_EXT: return "Push Group"sv;
+	case AL_DEBUG_TYPE_POP_GROUP_EXT: return "Pop Group"sv;
+	case AL_DEBUG_TYPE_OTHER_EXT: return "Other"sv;
+	}
+	return "<invalid type>"sv;
+}
+
+constexpr auto GetDebugSeverityName(ALenum severity) noexcept -> std::string_view
+{
+	switch (severity)
+	{
+	case AL_DEBUG_SEVERITY_HIGH_EXT: return "High"sv;
+	case AL_DEBUG_SEVERITY_MEDIUM_EXT: return "Medium"sv;
+	case AL_DEBUG_SEVERITY_LOW_EXT: return "Low"sv;
+	case AL_DEBUG_SEVERITY_NOTIFICATION_EXT: return "Notification"sv;
+	}
+	return "<invalid severity>"sv;
+}
 
 static ALCdevice* device;
 static ALCcontext* context;
 
-void initALContext() {
-
 #ifdef _DEBUG
-#if defined(_WIN32) || defined(_WIN64)
-	// For Windows, use _putenv_s or _putenv
-	_putenv("ALSOFT_LOG=1");
-	_putenv("ALSOFT_LOG_LEVEL=3");  // Set to highest verbosity
-#else
-	// For Linux/macOS, use setenv
-	setenv("ALSOFT_LOG", "1", 1);  // Enable logging
-	setenv("ALSOFT_LOG_LEVEL", "3", 1);  // Set verbosity level (3 = debug level)
-#endif
+static LPALDEBUGMESSAGECALLBACKEXT alDebugMessageCallbackEXT;
+static LPALDEBUGMESSAGEINSERTEXT alDebugMessageInsertEXT;
+static LPALDEBUGMESSAGECONTROLEXT alDebugMessageControlEXT;
+static LPALPUSHDEBUGGROUPEXT alPushDebugGroupEXT;
+static LPALPOPDEBUGGROUPEXT alPopDebugGroupEXT;
+static LPALGETDEBUGMESSAGELOGEXT alGetDebugMessageLogEXT;
+static LPALOBJECTLABELEXT alObjectLabelEXT;
+static LPALGETOBJECTLABELEXT alGetObjectLabelEXT;
+static LPALGETPOINTEREXT alGetPointerEXT;
+static LPALGETPOINTERVEXT alGetPointervEXT;
 #endif
 
-	device = alcOpenDevice("OpenAL Soft on Headphones (High Definition Audio Device)");
-	const ALCchar* devices;
-	const ALCchar* defaultDeviceName;
-	bool ext = alcIsExtensionPresent(NULL, "ALC_ENUMERATION_EXT") == AL_TRUE;
-	// Pass in NULL device handle to get list of devices
-	devices = alcGetString(NULL, ALC_DEVICE_SPECIFIER);
-	// devices contains the device names, separated by NULL
-	// and terminated by two consecutive NULLs.
-	defaultDeviceName = alcGetString(NULL,
-		ALC_DEFAULT_DEVICE_SPECIFIER);
-	// defaultDeviceName contains the name of the default
-	std::cout << "Audio Devices: " << devices << std::endl;
+void initALContext() {
+	device = alcOpenDevice(nullptr);
+
 	if (!device)
 	{
 		cout << "Failed to open audio device!\n";
 		exit(1);
 	}
-	context = alcCreateContext(device, nullptr);
+	ALuint flags = 0;
+#ifdef _DEBUG
+	bool debugExt = alcIsExtensionPresent(device, "ALC_EXT_debug");
+	if (debugExt)
+	{
+		flags = ALC_CONTEXT_DEBUG_BIT_EXT;
+	}
+	else {
+		cout << "ALC_EXT_debug supported on device\n";
+	}
+#endif
+	 
+	std::array<ALCint, 3> attributes{ALC_CONTEXT_FLAGS_EXT, flags, 0};
+	context = alcCreateContext(device, attributes.data());
 	if (!context) {
 		cout << "Failed to create OpenAL context!\n";
 		exit(1);
@@ -49,7 +95,43 @@ void initALContext() {
 		cout << "Failed to set current OpenAL context!\n";
 		exit(1);
 	}
+#ifdef _DEBUG
+	if (debugExt) {
+#define LOAD_PROC(N) N = reinterpret_cast<decltype(N)>(alcGetProcAddress(device, #N))
+		LOAD_PROC(alDebugMessageCallbackEXT);
+		LOAD_PROC(alDebugMessageInsertEXT);
+		LOAD_PROC(alDebugMessageControlEXT);
+		LOAD_PROC(alPushDebugGroupEXT);
+		LOAD_PROC(alPopDebugGroupEXT);
+		LOAD_PROC(alGetDebugMessageLogEXT);
+		LOAD_PROC(alObjectLabelEXT);
+		LOAD_PROC(alGetObjectLabelEXT);
+		LOAD_PROC(alGetPointerEXT);
+		LOAD_PROC(alGetPointervEXT);
+#undef LOAD_PROC
+		alDebugMessageControlEXT(AL_DONT_CARE_EXT, AL_DONT_CARE_EXT, AL_DEBUG_SEVERITY_LOW_EXT, 0,
+			nullptr, AL_TRUE);
+		alEnable(AL_DEBUG_OUTPUT_EXT);
 
+		static constexpr auto debug_callback = [](ALenum source, ALenum type, ALuint id,
+			ALenum severity, ALsizei length, const ALchar* message, void* userParam [[maybe_unused]] )
+			noexcept -> void
+			{
+				/* The message length provided to the callback does not include the
+				 * null terminator.
+				 */
+				const auto msgstr = std::string_view{ message, static_cast<ALuint>(length) };
+				cout << ("Got message from callback:\n"
+					"  Source: {}\n"
+					"  Type: {}\n"
+					"  ID: {}\n"
+					"  Severity: {}\n"
+					"  Message: \"{}\"", GetDebugSourceName(source), GetDebugTypeName(type), id,
+					GetDebugSeverityName(severity), msgstr);
+			};
+		alDebugMessageCallbackEXT(debug_callback, nullptr);
+	}
+#endif
 	AudioFile<short> audioFile;
 	audioFile.load("sounds/abyss.wav");
 
@@ -72,8 +154,8 @@ void initALContext() {
 			format = AL_FORMAT_STEREO16;
 		}
 	}
-	int numChannels = audioFile.getNumChannels();
-	int numSamples = audioFile.samples.size();
+	auto numChannels = audioFile.getNumChannels();
+	auto numSamples = audioFile.getNumSamplesPerChannel();
 	std::vector<short> dataBuffer(numChannels * numSamples);
 
 	for (int sampleIndex = 0; sampleIndex < numSamples; ++sampleIndex) {
@@ -88,7 +170,6 @@ void initALContext() {
 	alGenSources(1, &source);
 	alSourcei(source, AL_BUFFER, soundBuffer);
 	alSourcePlay(source);
-	cout << alGetError();
 }
 
 void destroyALContext() {

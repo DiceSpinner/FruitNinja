@@ -10,6 +10,7 @@ class Model
 public:
     Model(const char* path);
     void Draw(Shader& shader);
+    ~Model();
 private:
     // model data
     std::vector<Mesh> meshes;

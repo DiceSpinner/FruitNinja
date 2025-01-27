@@ -13,7 +13,7 @@
 
 using namespace std;
 
-Fruit::Fruit(unordered_map<type_index, unique_ptr<Component>>& collection, Transform& transform, Object* object, 
+Fruit::Fruit(unordered_map<type_index, unique_ptr<Component>>& collection, Transform& transform, Object* object,
 	float radius, int score, shared_ptr<Model> slice1, shared_ptr<Model> slice2) :
 	Component(collection, transform, object), radius(radius), reward(score), slice1(slice1), slice2(slice2)
 {

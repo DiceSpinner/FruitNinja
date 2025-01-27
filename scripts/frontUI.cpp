@@ -110,11 +110,11 @@ static void OnMouseUpdate(glm::vec2 position) {
 }
 
 void initFrontUI() {
-	scoreBoard = UI(-1, "Score: ");
-	largeScoreBoard = UI(-1, "Score", 70);
-	startButtom = UI(-1, "Start");
-	exitButton = UI(-1, "Exit");
-	restartButton = UI(-1, "Restart");
+	scoreBoard = UI(0, "Score: ");
+	largeScoreBoard = UI(0, "Score", 70);
+	startButtom = UI(0, "Start");
+	exitButton = UI(0, "Exit");
+	restartButton = UI(0, "Restart");
 	restartButton.transform.SetPosition(FINAL_SCORE_POS);
 
 	GLuint emptyCross = textureFromFile("empty_cross.png", "images");

@@ -8,7 +8,7 @@ static UI backgroundText;
 void initBackUI() {
 	GLuint image = textureFromFile("fruit_ninja_clean.png", "images");
 	background = UI(image);
-	backgroundText = UI(-1, "Fruit Ninja", 100);
+	backgroundText = UI(0, "Fruit Ninja", 100);
 }
 
 void drawBackUI(Shader& shader) {

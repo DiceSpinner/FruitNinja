@@ -1,5 +1,6 @@
 #ifndef FRUIT_H
 #define FRUIT_H
+#include <memory>
 #include "../core/component.hpp"
 #include "../rendering/model.hpp"
 
@@ -12,7 +13,7 @@ public:
 	int reward;
 	float radius;
 
-	Fruit(std::unordered_map<std::type_index, std::unique_ptr<Component>>& collection, Transform& transform, Object* object, 
+	Fruit(std::unordered_map<std::type_index, std::unique_ptr<Component>>& collection, Transform& transform, Object* object,
 		float radius, int score, std::shared_ptr<Model> slice1, std::shared_ptr<Model> slice2);
 	void Update() override;
 };

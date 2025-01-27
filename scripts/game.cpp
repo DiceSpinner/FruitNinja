@@ -150,14 +150,39 @@ void initGame() {
 	rigidbody->AddRelativeTorque(torque, ForceMode::Impulse);
 }
 
+static void enterGame() {
+	state = State::GAME;
+	exitGame->GetComponent<Rigidbody>()->useGravity = true;
+	score = 0;
+	spawnTimer = 0;
+	misses = 0;
+	recovery = 0;
+}
+
+static void enterScore() {
+	state = State::SCORE;
+	exitGame->enabled = true;
+	auto rb = exitGame->GetComponent<Rigidbody>();
+	rb->useGravity = false;
+	rb->velocity = glm::vec3(0);
+	restart->enabled = true;
+	newObjects.push(exitGame);
+	newObjects.push(restart);
+
+	glm::mat4 inverse = glm::inverse(Game::perspective * Game::view);
+	float z = computeNormalizedZ(30);
+	glm::vec4 startPos = inverse * glm::vec4(START_BUTTON_POS, z, 1);
+	startPos /= startPos.w;
+	restart->transform.SetPosition(startPos);
+
+	glm::vec4 exitPos = inverse * glm::vec4(EXIT_BUTTON_POS, z, 1);
+	exitPos /= exitPos.w;
+	exitGame->transform.SetPosition(exitPos);
+}
+
 static void processStart() {
 	if (!startGame->enabled) {
-		state = State::GAME;
-		exitGame->GetComponent<Rigidbody>()->useGravity = true;
-		score = 0;
-		spawnTimer = 0;
-		misses = 0;
-		recovery = 0;
+		enterGame();
 	}
 	else if (!exitGame->enabled) {
 		glfwSetWindowShouldClose(window, true);
@@ -187,47 +212,16 @@ static void processGame() {
 		spawnTimer = 0;
 	}
 	if (misses >= MISS_TOLERENCE) {
-		state = State::SCORE;
-		exitGame->enabled = true;
-		exitGame->GetComponent<Rigidbody>()->useGravity = false;
-		restart->enabled = true;
-		newObjects.push(exitGame);
-		newObjects.push(restart);
-
-		glm::mat4 inverse = glm::inverse(Game::perspective * Game::view);
-		float z = computeNormalizedZ(30);
-		glm::vec4 startPos = inverse * glm::vec4(START_BUTTON_POS, z, 1);
-		startPos /= startPos.w;
-		restart->transform.SetPosition(startPos);
-
-		glm::vec4 exitPos = inverse * glm::vec4(EXIT_BUTTON_POS, z, 1);
-		exitPos /= exitPos.w;
-		exitGame->transform.SetPosition(exitPos);
+		enterScore();
 	}
 }
 
 static void processScore() {
 	if (!restart->enabled) {
-		state = State::GAME;
-		exitGame->GetComponent<Rigidbody>()->useGravity = true;
-		score = 0;
-		misses = 0;
-		recovery = 0;
-		spawnTimer = 0;
+		enterGame();
 	}
 	else if (!exitGame->enabled) {
 		glfwSetWindowShouldClose(window, true);
-	}
-	else {
-		glm::mat4 inverse = glm::inverse(Game::perspective * Game::view);
-		float z = computeNormalizedZ(30);
-		glm::vec4 startPos = inverse * glm::vec4(START_BUTTON_POS, z, 1);
-		startPos /= startPos.w;
-		restart->transform.SetPosition(startPos);
-
-		glm::vec4 exitPos = inverse * glm::vec4(EXIT_BUTTON_POS, z, 1);
-		exitPos /= exitPos.w;
-		exitGame->transform.SetPosition(exitPos);
 	}
 }
 

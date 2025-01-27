@@ -5,7 +5,7 @@
 
 using namespace std;
 
-FruitSlice::FruitSlice(unordered_map<type_index, unique_ptr<Component>>& collection, Transform& transform, Object* object) 
+FruitSlice::FruitSlice(unordered_map<type_index, unique_ptr<Component>>& collection, Transform& transform, Object* object)
 	: Component(collection, transform, object) {
 }
 

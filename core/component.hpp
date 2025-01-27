@@ -23,9 +23,19 @@ public:
 	T* GetComponent() {
 		auto item = componentMap.find(std::type_index(typeid(T)));
 		if (item != componentMap.end()) {
-			return (T*)item->second.get();
+			return static_cast<T*>(item->second.get());
 		}
 		return nullptr;
+	}
+};
+
+template<typename T>
+class ComponentFactory {
+public:
+	template<typename... Args>
+	static std::unique_ptr<T> Construct(Args&&... args)
+	{ 
+		return std::make_unique<T>(std::forward<Args>(args)...); 
 	}
 };
 #endif

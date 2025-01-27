@@ -37,6 +37,7 @@ public:
 	std::vector<unsigned int> indices;
 	Material material;
 	Mesh(std::vector<Vertex> vertices, std::vector<unsigned int> indices, Material material);
+	void Destroy() const;
 	void Draw(Shader& shader);
 };
 

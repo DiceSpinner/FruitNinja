@@ -47,7 +47,7 @@ GLuint textureFromFile(const char* path, string directory) {
 	{
 		std::cout << "Texture failed to load at path: " << path << std::endl;
 		stbi_image_free(data);
-		texture = -1;
+		texture = 0;
 	}
 	return texture;
 }
@@ -113,4 +113,10 @@ void Mesh::Draw(Shader& shader) {
 	glBindVertexArray(VAO);
 	glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
 	glBindVertexArray(0);
+}
+
+void Mesh::Destroy() const {
+	glDeleteBuffers(1, &VBO);
+	glDeleteBuffers(1, &EBO);
+	glDeleteVertexArrays(1, &VAO);
 }

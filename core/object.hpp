@@ -22,10 +22,13 @@ public:
 	T* AddComponent(Args&&... args) {
 		auto item = components.find(std::type_index(typeid(T)));
 		if (item == components.end()) {
-			auto ptr = std::make_unique<T>(components, transform, this, std::forward<Args>(args)...);
-			auto handle = ptr.get();
-			components.emplace(std::type_index(typeid(T)), std::move(ptr));
-			return handle;
+			std::unique_ptr<T> obj = ComponentFactory<T>::Construct(components, transform, this, std::forward<Args>(args)...);
+			T* ptr = obj.get();
+			if (ptr) {
+				auto pair = components.emplace(std::type_index(typeid(T)), std::move(obj));
+				return ptr;
+			}
+			return nullptr;
 		}
 		return nullptr;
 	}
@@ -34,7 +37,7 @@ public:
 	T* GetComponent() {
 		auto item = components.find(std::type_index(typeid(T)));
 		if (item != components.end()) {
-			return (T*)item->second.get();
+			return static_cast<T*>(item->second.get());
 		}
 		return nullptr;
 	}

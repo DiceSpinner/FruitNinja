@@ -16,6 +16,12 @@ Model::Model(const char* path) {
 	}
 }
 
+Model::~Model() {
+	for (auto& i : meshes) {
+		i.Destroy();
+	}
+}
+
 void Model::Draw(Shader& shader){
 	for (auto& mesh : meshes) {
 		mesh.Draw(shader);

@@ -15,7 +15,7 @@ UI::UI(GLuint texture, string text, int textSize) : texture(texture), transform(
 
 	vector<float> vertices;
 	vector<unsigned int> indices;
-	if (texture != -1) {
+	if (texture != 0) {
 		glBindTexture(GL_TEXTURE_2D, texture);
 		int textureWidth, textureHeight;
 		glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &textureWidth);
@@ -103,7 +103,7 @@ UI::UI(GLuint texture, string text, int textSize) : texture(texture), transform(
 }
 
 void UI::Draw(Shader& shader) const {
-	if (texture != -1) {
+	if (texture != 0) {
 		glActiveTexture(GL_TEXTURE0);
 		shader.SetInt("image", 0);
 		glBindTexture(GL_TEXTURE_2D, texture);
@@ -134,7 +134,7 @@ void UI::UpdateText(string newText) {
 	vector<float> vertices;
 	vector<unsigned int> indices;
 
-	if (texture != -1) {
+	if (texture != 0) {
 		int flooredHalfWidth = textureSize.x / 2;
 		int flooredHalfHeight = textureSize.y / 2;
 

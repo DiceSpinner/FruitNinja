@@ -1,13 +1,12 @@
 #include <iostream>
 #include <array>
-#include <AL/al.h>
 #include <AL/alc.h>
 #include <AL/alext.h>
 #include <AudioFile.h>
 #include "audio.hpp"
 using namespace std;
 
-constexpr auto GetDebugSourceName(ALenum source) noexcept -> std::string_view
+static constexpr auto GetDebugSourceName(ALenum source) noexcept -> std::string_view
 {
 	switch (source)
 	{
@@ -20,7 +19,7 @@ constexpr auto GetDebugSourceName(ALenum source) noexcept -> std::string_view
 	return "<invalid source>"sv;
 }
 
-constexpr auto GetDebugTypeName(ALenum type) noexcept -> std::string_view
+static constexpr auto GetDebugTypeName(ALenum type) noexcept -> std::string_view
 {
 	switch (type)
 	{
@@ -37,7 +36,7 @@ constexpr auto GetDebugTypeName(ALenum type) noexcept -> std::string_view
 	return "<invalid type>"sv;
 }
 
-constexpr auto GetDebugSeverityName(ALenum severity) noexcept -> std::string_view
+static constexpr auto GetDebugSeverityName(ALenum severity) noexcept -> std::string_view
 {
 	switch (severity)
 	{
@@ -70,7 +69,7 @@ void initALContext() {
 
 	if (!device)
 	{
-		cout << "Failed to open audio device!\n";
+		std::cout << "Failed to open audio device!\n";
 		exit(1);
 	}
 	ALuint flags = 0;
@@ -88,11 +87,11 @@ void initALContext() {
 	std::array<ALCint, 3> attributes{ALC_CONTEXT_FLAGS_EXT, flags, 0};
 	context = alcCreateContext(device, attributes.data());
 	if (!context) {
-		cout << "Failed to create OpenAL context!\n";
+		std::cout << "Failed to create OpenAL context!\n";
 		exit(1);
 	}
 	if (!alcMakeContextCurrent(context)) {
-		cout << "Failed to set current OpenAL context!\n";
+		std::cout << "Failed to set current OpenAL context!\n";
 		exit(1);
 	}
 #ifdef _DEBUG
@@ -132,6 +131,15 @@ void initALContext() {
 		alDebugMessageCallbackEXT(debug_callback, nullptr);
 	}
 #endif
+}
+
+void destroyALContext() {
+	alcMakeContextCurrent(nullptr);
+	alcDestroyContext(context);
+	alcCloseDevice(device);
+}
+
+AudioClip::AudioClip(const char* path) {
 	AudioFile<short> audioFile;
 	audioFile.load("sounds/abyss.wav");
 
@@ -146,7 +154,7 @@ void initALContext() {
 			format = AL_FORMAT_MONO16;
 		}
 	}
-	else{
+	else {
 		if (audioFile.getBitDepth() == 8) {
 			format = AL_FORMAT_STEREO8;
 		}
@@ -158,22 +166,21 @@ void initALContext() {
 	auto numSamples = audioFile.getNumSamplesPerChannel();
 	std::vector<short> dataBuffer(numChannels * numSamples);
 
-	for (int sampleIndex = 0; sampleIndex < numSamples; ++sampleIndex) {
+	for (size_t sampleIndex = 0; sampleIndex < numSamples; ++sampleIndex) {
 		for (int channel = 0; channel < numChannels; ++channel) {
 			dataBuffer[sampleIndex * numChannels + channel] = audioFile.samples[channel][sampleIndex];
 		}
 	}
 
 	alBufferData(soundBuffer, format, dataBuffer.data(), dataBuffer.size() * sizeof(short), audioFile.getSampleRate());
-	
-	ALuint source;
-	alGenSources(1, &source);
-	alSourcei(source, AL_BUFFER, soundBuffer);
-	alSourcePlay(source);
 }
 
-void destroyALContext() {
-	alcMakeContextCurrent(nullptr);
-	alcDestroyContext(context);
-	alcCloseDevice(device);
+AudioClip::~AudioClip() {
+	if (audioBuffer != 0) {
+		alDeleteBuffers(1, &audioBuffer);
+	}
+}
+
+ALuint AudioClip::Get() const {
+	return audioBuffer;
 }

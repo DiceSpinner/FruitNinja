@@ -2,8 +2,7 @@
 #include <array>
 #include <AL/alc.h>
 #include <AL/alext.h>
-#include <AudioFile.h>
-#include "audio.hpp"
+#include "audio_context.hpp"
 using namespace std;
 
 static constexpr auto GetDebugSourceName(ALenum source) noexcept -> std::string_view
@@ -83,8 +82,8 @@ void initALContext() {
 		cout << "ALC_EXT_debug supported on device\n";
 	}
 #endif
-	 
-	std::array<ALCint, 3> attributes{ALC_CONTEXT_FLAGS_EXT, flags, 0};
+
+	std::array<ALCint, 3> attributes{ ALC_CONTEXT_FLAGS_EXT, flags, 0 };
 	context = alcCreateContext(device, attributes.data());
 	if (!context) {
 		std::cout << "Failed to create OpenAL context!\n";
@@ -137,50 +136,4 @@ void destroyALContext() {
 	alcMakeContextCurrent(nullptr);
 	alcDestroyContext(context);
 	alcCloseDevice(device);
-}
-
-AudioClip::AudioClip(const char* path) {
-	AudioFile<short> audioFile;
-	audioFile.load("sounds/abyss.wav");
-
-	ALuint soundBuffer;
-	alGenBuffers(1, &soundBuffer);
-	ALuint format;
-	if (audioFile.isMono()) {
-		if (audioFile.getBitDepth() == 8) {
-			format = AL_FORMAT_MONO8;
-		}
-		else {
-			format = AL_FORMAT_MONO16;
-		}
-	}
-	else {
-		if (audioFile.getBitDepth() == 8) {
-			format = AL_FORMAT_STEREO8;
-		}
-		else {
-			format = AL_FORMAT_STEREO16;
-		}
-	}
-	auto numChannels = audioFile.getNumChannels();
-	auto numSamples = audioFile.getNumSamplesPerChannel();
-	std::vector<short> dataBuffer(numChannels * numSamples);
-
-	for (size_t sampleIndex = 0; sampleIndex < numSamples; ++sampleIndex) {
-		for (int channel = 0; channel < numChannels; ++channel) {
-			dataBuffer[sampleIndex * numChannels + channel] = audioFile.samples[channel][sampleIndex];
-		}
-	}
-
-	alBufferData(soundBuffer, format, dataBuffer.data(), dataBuffer.size() * sizeof(short), audioFile.getSampleRate());
-}
-
-AudioClip::~AudioClip() {
-	if (audioBuffer != 0) {
-		alDeleteBuffers(1, &audioBuffer);
-	}
-}
-
-ALuint AudioClip::Get() const {
-	return audioBuffer;
 }

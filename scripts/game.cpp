@@ -2,16 +2,17 @@
 #include <random>
 #include <iostream>
 #include <functional>
+#include "../core/object.hpp"
 #include "game.hpp"
 #include "../settings/fruitsize.hpp"
 #include "../settings/fruitspawn.hpp"
 #include "../components/fruit.hpp"
+#include "../components/renderer.hpp"
 #include "../components/rigidbody.hpp"
+#include "../components/camera.hpp"
 #include "../rendering/model.hpp"
 #include "../state/time.hpp"
-#include "../state/new_objects.hpp"
 #include "../state/state.hpp"
-#include "../state/camera.hpp"
 #include "../state/window.hpp"
 #include "frontUI.hpp"
 #define GLM_ENABLE_EXPERIMENTAL
@@ -52,8 +53,9 @@ static float randFloat(float min, float max) {
 }
 
 static void spawnFruit(shared_ptr<Model>& fruitModel, shared_ptr<Model>& slice1Model, shared_ptr<Model>& slice2Model, float radius=1, int score = 1) {
-	shared_ptr<Object> fruit = make_shared<Object>(fruitModel);
-	fruit->drawOverlay = true;
+	shared_ptr<Object> fruit = Object::Create();
+	auto renderer = fruit->AddComponent<Renderer>(fruitModel);
+	renderer->drawOverlay = true;
 	fruit->AddComponent<Fruit>(radius, score, slice1Model, slice2Model);
 	Rigidbody* rb = fruit->AddComponent<Rigidbody>();
 	float upForce = randFloat(FRUIT_UP_MIN, FRUIT_UP_MAX);
@@ -71,7 +73,6 @@ static void spawnFruit(shared_ptr<Model>& fruitModel, shared_ptr<Model>& slice1M
 	glm::vec3 position(startX, FRUIT_SPAWN_HEIGHT, 0);
 	// cout << "Spawn at " << glm::to_string(position) << "\n";
 	rb->transform.SetPosition(position);
-	Game::newObjects.push(fruit);
 }
 
 static void spawnApple() {
@@ -95,6 +96,8 @@ static shared_ptr<Object> startGame;
 static shared_ptr<Object> exitGame;
 static shared_ptr<Object> restart;
 
+static shared_ptr<Object> camera;
+
 void initGame() {
 	appleModel = make_shared<Model>(apple);
 	appleTopModel = make_shared<Model>(appleTop);
@@ -111,7 +114,8 @@ void initGame() {
 	state = State::START;
 
 	// Start Game Button
-	startGame = make_shared<Object>(watermelonModel);
+	startGame = Object::Create();
+	startGame->AddComponent<Renderer>(watermelonModel);
 	startGame->AddComponent<Fruit>(WATERMELON_SIZE, 0, watermelonTopModel, watermelonBottomModel);
 	Rigidbody* rigidbody = startGame->AddComponent<Rigidbody>();
 	rigidbody->useGravity = false;
@@ -123,7 +127,8 @@ void initGame() {
 	rigidbody->AddRelativeTorque(torque, ForceMode::Impulse);
 
 	// Exit button
-	exitGame = make_shared<Object>(appleModel);
+	exitGame = Object::Create();
+	exitGame->AddComponent<Renderer>(appleModel);
 	exitGame->AddComponent<Fruit>(APPLE_SIZE, 0, appleTopModel, appleBottomModel);
 	rigidbody = exitGame->AddComponent<Rigidbody>();
 	rigidbody->useGravity = false;
@@ -133,12 +138,11 @@ void initGame() {
 		randFloat(SPAWN_Z_ROT_MIN, SPAWN_Z_ROT_MAX)
 	);
 	rigidbody->AddRelativeTorque(torque, ForceMode::Impulse);
-
-	Game::newObjects.push(startGame);
-	Game::newObjects.push(exitGame);
 	
 	// Reset Button
-	restart = make_shared<Object>(pineappleModel);
+	restart = Object::Create();
+	restart->SetEnable(false);
+	restart->AddComponent<Renderer>(pineappleModel);
 	restart->AddComponent<Fruit>(PINEAPPLE_SIZE, 0, pineappleTopModel, pineappleBottomModel);
 	rigidbody = restart->AddComponent<Rigidbody>();
 	rigidbody->useGravity = false;
@@ -148,6 +152,11 @@ void initGame() {
 		randFloat(SPAWN_Z_ROT_MIN, SPAWN_Z_ROT_MAX)
 	);
 	rigidbody->AddRelativeTorque(torque, ForceMode::Impulse);
+
+	camera = Object::Create();
+	camera->AddComponent<Camera>(1.0f, 300.0f);
+	camera->transform.SetPosition(glm::vec3(0, 0, 30));
+	camera->transform.LookAt(camera->transform.position() + glm::vec3(0, 0, -1), glm::vec3(0, 1, 0));
 }
 
 static void enterGame() {
@@ -161,16 +170,14 @@ static void enterGame() {
 
 static void enterScore() {
 	state = State::SCORE;
-	exitGame->enabled = true;
+	exitGame->SetEnable(true);
 	auto rb = exitGame->GetComponent<Rigidbody>();
 	rb->useGravity = false;
 	rb->velocity = glm::vec3(0);
-	restart->enabled = true;
-	newObjects.push(exitGame);
-	newObjects.push(restart);
+	restart->SetEnable(true);
 
-	glm::mat4 inverse = glm::inverse(Game::perspective * Game::view);
-	float z = computeNormalizedZ(30);
+	glm::mat4 inverse = glm::inverse(Camera::main->Perspective() * Camera::main->View());
+	float z = Camera::main->ComputerNormalizedZ(30);
 	glm::vec4 startPos = inverse * glm::vec4(START_BUTTON_POS, z, 1);
 	startPos /= startPos.w;
 	restart->transform.SetPosition(startPos);
@@ -181,15 +188,15 @@ static void enterScore() {
 }
 
 static void processStart() {
-	if (!startGame->enabled) {
+	if (!startGame->IsActive()) {
 		enterGame();
 	}
-	else if (!exitGame->enabled) {
+	else if (!exitGame->IsActive()) {
 		glfwSetWindowShouldClose(window, true);
 	}
 	else {
-		glm::mat4 inverse = glm::inverse(Game::perspective * Game::view);
-		float z = computeNormalizedZ(30);
+		glm::mat4 inverse = glm::inverse(Camera::main->Perspective() * Camera::main->View());
+		float z = Camera::main->ComputerNormalizedZ(30);
 		glm::vec4 startPos = inverse * glm::vec4(START_BUTTON_POS, z, 1);
 		startPos /= startPos.w;
 		startGame->transform.SetPosition(startPos);
@@ -217,10 +224,10 @@ static void processGame() {
 }
 
 static void processScore() {
-	if (!restart->enabled) {
+	if (!restart->IsActive()) {
 		enterGame();
 	}
-	else if (!exitGame->enabled) {
+	else if (!exitGame->IsActive()) {
 		glfwSetWindowShouldClose(window, true);
 	}
 }

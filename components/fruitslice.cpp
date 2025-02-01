@@ -5,12 +5,12 @@
 
 using namespace std;
 
-FruitSlice::FruitSlice(unordered_map<type_index, unique_ptr<Component>>& collection, Transform& transform, Object* object)
-	: Component(collection, transform, object) {
+FruitSlice::FruitSlice(std::unordered_map<std::type_index, std::unique_ptr<Component>>& components, Transform& transform, Object* object)
+	: Component(components, transform, object) {
 }
 
 void FruitSlice::Update() {
 	if (transform.position().y <= FRUIT_KILL_HEIGHT) {
-		object->enabled = false;
+		object->SetEnable(false);
 	}
 }

@@ -18,12 +18,15 @@ public:
 	void virtual Update();
 	void virtual Initialize();
 	void virtual FixedUpdate();
+	void virtual OnEnabled();
+	void virtual OnDisabled();
+	void virtual OnDestroyed();
 
 	template<typename T>
 	T* GetComponent() {
 		auto item = componentMap.find(std::type_index(typeid(T)));
 		if (item != componentMap.end()) {
-			return static_cast<T*>(item->second.get());
+			return dynamic_cast<T*>(item->second.get());
 		}
 		return nullptr;
 	}

@@ -1,9 +1,17 @@
-#include "input.hpp"
-#include "../state/camera.hpp"
+#include "../core/input.hpp"
+#include "../components/camera.hpp"
 #include "../state/cursor.hpp"
 #include "../state/time.hpp"
 
 using namespace Game;
+
+static double pitch = 0;
+static double yaw = 0;
+static auto cameraPos = glm::vec3(0, 0, 30);
+static auto cameraFront = glm::vec3(0, 0, -1);
+static auto cameraUp = glm::vec3(0, 1, 0);
+static float cameraSpeed = 4;
+bool lockedCamera = true;
 
 void onKeyPressed(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
@@ -13,11 +21,12 @@ void onKeyPressed(GLFWwindow* window, int key, int scancode, int action, int mod
     if (key == GLFW_KEY_R && action == GLFW_RELEASE) {
         lockedCamera = !lockedCamera;
         if (lockedCamera) {
-            cameraPos = glm::vec3(0, 0, 30);
-            cameraFront = glm::vec3(0, 0, -1);
-            cameraUp = glm::vec3(0, 1, 0);
-            pitch = 0;
-            yaw = 0;
+            auto cameraPos = glm::vec3(0, 0, 30);
+            auto cameraFront = glm::vec3(0, 0, -1);
+            auto cameraUp = glm::vec3(0, 1, 0);
+
+            Camera::main->transform.LookAt(cameraPos + cameraFront, cameraUp);
+            
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
         }
         else {

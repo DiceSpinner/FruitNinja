@@ -9,9 +9,8 @@
 using namespace std;
 
 const glm::vec3 Rigidbody::Gravity(0, -25, 0);
-Rigidbody::Rigidbody(unordered_map<type_index, unique_ptr<Component>>& collection,
-	Transform& transform, Object* object) :
-	Component(collection, transform, object), velocity(0), localAngularVelocity(0), useGravity(true) {}
+Rigidbody::Rigidbody(unordered_map<type_index, unique_ptr<Component>>& components, Transform& transform, Object* object) :
+	Component(components, transform, object), velocity(0), localAngularVelocity(0), useGravity(true) {}
 
 void Rigidbody::AddForce(glm::vec3 force, ForceMode forcemode) {
 	if (forcemode == ForceMode::Force) {

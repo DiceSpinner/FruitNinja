@@ -1,9 +1,4 @@
-#ifndef AUDIO_H
-#define AUDIO_H
-#include <al/al.h>
-
-void initALContext();
-void destroyALContext();
+#include <AL/al.h>
 
 class AudioClip {
 private:
@@ -13,4 +8,3 @@ public:
 	ALuint Get() const;
 	~AudioClip();
 };
-#endif

@@ -7,24 +7,24 @@
 #include <iostream>
 #include <fstream>
 #include <vector>
+#include "core/context.hpp"
+#include "core/object.hpp"
+#include "core/input.hpp"
 #include "state/time.hpp"
 #include "state/cursor.hpp"
-#include "state/camera.hpp"
-#include "state/new_objects.hpp"
 #include "state/window.hpp"
 #include "state/state.hpp"
 #include "rendering/shader.hpp"
-#include "core/object.hpp"
+#include "components/camera.hpp"
+#include "components/renderer.hpp"
 #include "components/rigidbody.hpp"
 #include "components/fruit.hpp"
 #include "core/ui.hpp"
 #include "core/ui3D.hpp"
 #include "settings/fruitsize.hpp"
-#include "scripts/input.hpp"
 #include "scripts/game.hpp"
 #include "scripts/frontUI.hpp"
 #include "scripts/backUI.hpp"
-#include "scripts/context.hpp"
 
 using namespace std;
 using namespace Game;
@@ -40,14 +40,15 @@ const char* unitCube = "models/unit_cube.obj";
 const char* unitSphere = "models/unit_sphere.obj";
 
 int main() {
-    initializeContext();
+    initContext();
     Shader objectShader(objVertexPath, objFragPath);
     Shader unlitShader(objVertexPath, unlitFrag);
     Shader uiShader(uiVertPath, uiFragPath);
     // Shader rayTracerShader(ui3DVertPath, uiFragPath);
 
     std::shared_ptr<Model> unitSphereModel = std::make_shared<Model>(unitSphere);
-    shared_ptr<Object> sphere = make_shared<Object>(unitSphereModel);
+    shared_ptr<Object> sphere = Object::Create();
+    // sphere->AddComponent<Renderer>(unitSphereModel);
     sphere->transform.SetScale(glm::vec3(WATERMELON_SIZE, WATERMELON_SIZE, WATERMELON_SIZE));
 
     GLuint smileFace = textureFromFile("awesomeface.png", "images");
@@ -72,70 +73,35 @@ int main() {
         glfwPollEvents();
         updateTime();
         processInput(window);
-
-        cameraFront.x = glm::cos(glm::radians(pitch)) * glm::sin(glm::radians(yaw));
-        cameraFront.y = glm::sin(glm::radians(pitch));
-        cameraFront.z = -glm::cos(glm::radians(yaw)) * glm::cos(glm::radians(pitch));
-        cameraFront = glm::normalize(cameraFront);
-
-        view = glm::lookAt(
-            cameraPos,
-            cameraPos + cameraFront,
-            cameraUp
-        );
-
-        setViewProjection(view, perspective);
         
         glClearColor(0.4f, 0.2f, 0, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glDisable(GL_DEPTH_TEST);
         uiShader.Use();
-        glUniformMatrix4fv(glGetUniformLocation(uiShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(ortho));
+        glUniformMatrix4fv(glGetUniformLocation(uiShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(Camera::main->Ortho()));
         drawBackUI(uiShader);
 
-        glm::vec3 lightPos = glm::vec3(0, 0, 10);
+        Object::ActivateNewlyEnabledObjects();
+
+        if (checkShouldPhysicsUpdate()) {
+            Object::ExecuteFixedUpdate();
+        }
+
+        Object::ExecuteUpdate();
+
+        gameStep();
 
         glEnable(GL_DEPTH_TEST);
         unlitShader.Use();
-        glUniformMatrix4fv(glGetUniformLocation(unlitShader.ID, "view"), 1, GL_FALSE, glm::value_ptr(view));
-        glUniformMatrix4fv(glGetUniformLocation(unlitShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(perspective));
+        glm::vec3 lightPos = glm::vec3(0, 0, 10);
+        glUniformMatrix4fv(glGetUniformLocation(unlitShader.ID, "view"), 1, GL_FALSE, glm::value_ptr(Camera::main->View()));
+        glUniformMatrix4fv(glGetUniformLocation(unlitShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(Camera::main->Perspective()));
         glUniform3fv(glGetUniformLocation(unlitShader.ID, "light.position"), 1, glm::value_ptr(lightPos));
         glUniform4fv(glGetUniformLocation(unlitShader.ID, "light.diffuse"), 1, glm::value_ptr(lightDiffuse));
         glUniform4fv(glGetUniformLocation(unlitShader.ID, "light.ambient"), 1, glm::value_ptr(lightAmbient));
         glUniform4fv(glGetUniformLocation(unlitShader.ID, "light.specular"), 1, glm::value_ptr(lightSpecular));
-        glUniform3fv(glGetUniformLocation(unlitShader.ID, "cameraPosition"), 1, glm::value_ptr(cameraPos));
-
-        while (!newObjects.empty()) {
-            objects.push_back(newObjects.front());
-            newObjects.pop();
-        }
-
-        if (checkShouldPhysicsUpdate()) {
-            for (auto i = objects.begin(); i != objects.end();) {
-                auto& obj = *i;
-                obj->FixedUpdate();
-                if (obj->enabled) {
-                    i++;
-                }
-                else {
-                    i = objects.erase(i);
-                }
-            }
-        }
-
-        for (auto i = objects.begin(); i != objects.end();) {
-            auto& obj = *i;
-            obj->Update();
-            if (obj->enabled) {
-                obj->Draw(unlitShader);
-                i++;
-            }
-            else {
-                i = objects.erase(i);
-            }
-        }
-
-        gameStep();
+        glUniform3fv(glGetUniformLocation(unlitShader.ID, "cameraPosition"), 1, glm::value_ptr(Camera::main->transform.position()));
+        Renderer::DrawObjects(unlitShader);
 
         glDisable(GL_DEPTH_TEST);
         if (lockedCamera) {
@@ -145,12 +111,6 @@ int main() {
         uiShader.Use();
         drawFrontUI(uiShader);
 
-        /*rayTracerShader.Use();
-        glUniformMatrix4fv(glGetUniformLocation(rayTracerShader.ID, "view"), 1, GL_FALSE, glm::value_ptr(view));
-        glUniformMatrix4fv(glGetUniformLocation(rayTracerShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
-        rayIndicator.transform.SetPosition(cameraPos + 3.0f * getCursorRay());
-        rayIndicator.transform.LookAt(cameraPos);*/
-        // rayIndicator.Draw(rayTracerShader);
         glfwSwapBuffers(window);
     }
     destroyContext();

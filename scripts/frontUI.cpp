@@ -2,11 +2,11 @@
 #include "frontUI.hpp"
 #include <memory>
 #include <iostream>
+#include "../components/camera.hpp"
 #include "../state/window.hpp"
 #include "../state/state.hpp"
 #include "../state/cursor.hpp"
 #include "../state/time.hpp"
-#include "../state/camera.hpp"
 
 using namespace std;
 using namespace Game;
@@ -298,7 +298,7 @@ static void drawMouseTrail() {
 		glActiveTexture(GL_TEXTURE0 + 1);
 		glBindTexture(GL_TEXTURE_2D, trailArrow);
 		trailShader->SetInt("arrow", 1);
-		glUniformMatrix4fv(glGetUniformLocation(trailShader->ID, "projection"), 1, GL_FALSE, glm::value_ptr(ortho));
+		glUniformMatrix4fv(glGetUniformLocation(trailShader->ID, "projection"), 1, GL_FALSE, glm::value_ptr(Camera::main->Ortho()));
 		glDrawElements(GL_TRIANGLES, indices, GL_UNSIGNED_INT, 0);
 	}
 	

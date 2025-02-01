@@ -1,12 +1,15 @@
 #include <iostream>
-#include "context.hpp"
+#include <memory>
+#include "../core/context.hpp"
 #include "../state/window.hpp"
-#include "../state/camera.hpp"
+#include "../components/camera.hpp"
 #include "../rendering/font.hpp"
-#include "../audio/audio.hpp"
+#include "../audio/audio_context.hpp"
 #include "input.hpp"
 
-using namespace Game;
+using namespace std;
+
+static shared_ptr<Object> camera;
 
 static void onWindowResize(GLFWwindow* window, int width, int height)
 {
@@ -15,10 +18,9 @@ static void onWindowResize(GLFWwindow* window, int width, int height)
     glViewport(0, 0, width, height);
     SCR_WIDTH = width;
     SCR_HEIGHT = height;
-    float halfWidth = SCR_WIDTH / 2.0f;
-    float halfHeight = SCR_HEIGHT / 2.0f;
-    ortho = glm::ortho(-halfWidth, halfWidth, -halfHeight, halfHeight);
-    setCameraPerspective(0.1f, 300.0f);
+    for (auto& camera : *Camera::cameras) {
+        camera->SetPerspective(0.1f, 300.0f);
+    }
 }
 
 static void APIENTRY glDebugOutput(GLenum source,
@@ -69,7 +71,7 @@ static void APIENTRY glDebugOutput(GLenum source,
     exit(-1);
 }
 
-void initializeContext() {
+void initContext() {
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
@@ -114,13 +116,9 @@ void initializeContext() {
     glfwSwapInterval(0);
     initFont();
 
-    // Initialize projection matrices
-    setCameraPerspective(0.1f, 300.0f);
-    float halfWidth = SCR_WIDTH / 2.0f;
-    float halfHeight = SCR_HEIGHT / 2.0f;
-    ortho = glm::ortho(-halfWidth, halfWidth, -halfHeight, halfHeight);
-
     initALContext();
+
+    // Camera
 }
 void destroyContext() {
     deinitFont();

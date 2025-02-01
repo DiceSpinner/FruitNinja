@@ -1,4 +1,5 @@
 #include <iostream>
+#include "../components/camera.hpp"
 #include "cursor.hpp"
 #include "window.hpp"
 #define GLM_ENABLE_EXPERIMENTAL
@@ -9,16 +10,6 @@ using namespace std;
 namespace Game {
 	bool mouseClicked = false;
 	vector<function<void(glm::vec2)>> OnMousePositionUpdated;
-}
-
-static glm::mat4 inverseViewProjection(1);
-static glm::mat4 inverseProjection(1);
-static glm::mat4 inverseView(1);
-
-void setViewProjection(glm::mat4 view, glm::mat4 projection) {
-	inverseView = glm::inverse(view);
-	inverseProjection = glm::inverse(projection);
-	inverseViewProjection = inverseView * inverseProjection;
 }
 
 static glm::vec2 cursorPosDelta(0, 0);
@@ -33,6 +24,9 @@ void updateCursorPosition(glm::vec2 position) {
 
 	cursorPosDelta = position - currPosition;
 	currPosition = position;
+
+	auto inverseProjection = glm::inverse(Camera::main->Projection());
+	auto inverseView = glm::inverse(Camera::main->View());
 
 	glm::vec4 viewRay = inverseProjection * glm::vec4(position, 0, 1);
 	viewRay.w = 0;

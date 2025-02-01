@@ -3,6 +3,8 @@
 #include <glad/glad.h>
 #include <glfw/glfw3.h>
 
+extern bool lockedCamera;
+
 void onKeyPressed(GLFWwindow* window, int key, int scancode, int action, int mods);
 void cursorAim(GLFWwindow* window, double xpos, double ypos);
 void processInput(GLFWwindow* window);

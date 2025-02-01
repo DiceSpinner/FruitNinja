@@ -1,9 +1,11 @@
 #ifndef AUDIOLISTENER_H
 #define AUDIOLISTENER_H
+#include <iostream>
 #include "../core/component.hpp"
 
 class AudioListener : public Component {
-
+public:
+	AudioListener(std::unordered_map<std::type_index, std::unique_ptr<Component>>& components, Transform& transform, Object* object);
 };
 
 template<>

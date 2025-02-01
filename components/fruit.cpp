@@ -1,10 +1,10 @@
 #include <iostream>
 #include "fruit.hpp"
+#include "../components/renderer.hpp"
 #include "../settings/fruitspawn.hpp"
 #include "../state/cursor.hpp"
-#include "../state/camera.hpp"
+#include "../components/camera.hpp"
 #include "../state/state.hpp"
-#include "../state/new_objects.hpp"
 #include "../core/object.hpp"
 #include "fruitslice.hpp"
 #include "rigidbody.hpp"
@@ -13,16 +13,16 @@
 
 using namespace std;
 
-Fruit::Fruit(unordered_map<type_index, unique_ptr<Component>>& collection, Transform& transform, Object* object,
+Fruit::Fruit(std::unordered_map<std::type_index, std::unique_ptr<Component>>& components, Transform& transform, Object* object,
 	float radius, int score, shared_ptr<Model> slice1, shared_ptr<Model> slice2) :
-	Component(collection, transform, object), radius(radius), reward(score), slice1(slice1), slice2(slice2)
+	Component(components, transform, object), radius(radius), reward(score), slice1(slice1), slice2(slice2)
 {
 
 }
 
 bool Fruit::CursorInContact() { // Sphere collision check
 	glm::vec3 ray = getCursorRay();
-	glm::vec3 oc = Game::cameraPos - transform.position();
+	glm::vec3 oc = Camera::main->transform.position() - transform.position();
 	float b = 2 * glm::dot(ray, oc);
 	glm::vec3 scale = transform.scale();
 	float c = glm::dot(oc, oc) - glm::pow(glm::max(scale.x, scale.y) * radius, 2);
@@ -36,7 +36,7 @@ void Fruit::Update() {
 		if (this->reward > 0) {
 			Game::misses++;
 		}
-		object->enabled = false;
+		object->SetEnable(false);
 		return;
 	}
 	if (!Game::mouseClicked || glm::length(cursorDirection) == 0) { return; }
@@ -53,12 +53,15 @@ void Fruit::Update() {
 		}
 		
 		// cout << "Score " << Game::score << "\n";
-		object->enabled = false;
+		object->SetEnable(false);
 
-		shared_ptr<Object> slice1 = make_shared<Object>(this->slice1);
-		shared_ptr<Object> slice2 = make_shared<Object>(this->slice2);
-	    slice1->AddComponent<FruitSlice>();
+		shared_ptr<Object> slice1 = Object::Create();
+		slice1->AddComponent<Renderer>(this->slice1);
+		slice1->AddComponent<FruitSlice>();
 		auto r1 = slice1->AddComponent<Rigidbody>();
+
+		shared_ptr<Object> slice2 = Object::Create();
+		slice2->AddComponent<Renderer>(this->slice2);
 		slice2->AddComponent<FruitSlice>();
 		auto r2 = slice2->AddComponent<Rigidbody>();
 
@@ -83,8 +86,5 @@ void Fruit::Update() {
 		r2->velocity = rb->velocity;
 		r2->AddForce(-FRUIT_SLICE_FORCE * up, ForceMode::Impulse);
 		r2->AddRelativeTorque(180.0f * glm::vec3(1, 0, 0), ForceMode::Impulse);
-		
-		Game::newObjects.push(slice1);
-		Game::newObjects.push(slice2);
 	}
 }

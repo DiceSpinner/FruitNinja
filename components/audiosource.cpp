@@ -2,8 +2,8 @@
 
 using namespace std;
 
-AudioSource::AudioSource(unordered_map<std::type_index, unique_ptr<Component>>& collection, Transform& transform, Object* object)
-	: Component(collection, transform, object), audioClip(), sourceID(0)
+AudioSource::AudioSource(std::unordered_map<std::type_index, std::unique_ptr<Component>>& components, Transform& transform, Object* object)
+	: Component(components, transform, object), audioClip(), sourceID(0)
 {
 	alGenSources(1, &sourceID);
 }

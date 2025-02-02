@@ -25,6 +25,7 @@ public:
 
 	static std::shared_ptr<Object> Create();
 	static void ActivateNewlyEnabledObjects();
+	static void ExecuteEarlyFixedUpdate();
 	static void ExecuteFixedUpdate();
 	static void ExecuteUpdate();
 
@@ -55,8 +56,6 @@ public:
 		return nullptr;
 	}
 
-	void Update();
-	void FixedUpdate();
 	void SetEnable(bool value);
 	bool IsActive() const;
 

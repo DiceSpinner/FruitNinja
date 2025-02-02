@@ -48,7 +48,8 @@ int main() {
 
     std::shared_ptr<Model> unitSphereModel = std::make_shared<Model>(unitSphere);
     shared_ptr<Object> sphere = Object::Create();
-    // sphere->AddComponent<Renderer>(unitSphereModel);
+    sphere->SetEnable(false);
+    sphere->AddComponent<Renderer>(unitSphereModel);
     sphere->transform.SetScale(glm::vec3(WATERMELON_SIZE, WATERMELON_SIZE, WATERMELON_SIZE));
 
     GLuint smileFace = textureFromFile("awesomeface.png", "images");
@@ -72,7 +73,6 @@ int main() {
     {
         glfwPollEvents();
         updateTime();
-        processInput(window);
         
         glClearColor(0.4f, 0.2f, 0, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -84,6 +84,7 @@ int main() {
         Object::ActivateNewlyEnabledObjects();
 
         if (checkShouldPhysicsUpdate()) {
+            Object::ExecuteEarlyFixedUpdate();
             Object::ExecuteFixedUpdate();
         }
 
@@ -105,13 +106,15 @@ int main() {
 
         glDisable(GL_DEPTH_TEST);
         if (lockedCamera) {
-            // sphere->Draw(unlitShader);
+            // sphere->GetComponent<Renderer>()->Draw(unlitShader);
         }
 
         uiShader.Use();
         drawFrontUI(uiShader);
 
         glfwSwapBuffers(window);
+
+        processInput(window);
     }
     destroyContext();
     return 0;

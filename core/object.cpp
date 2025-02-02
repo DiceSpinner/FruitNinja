@@ -17,10 +17,27 @@ void Object::ActivateNewlyEnabledObjects() {
 	newObjectSet.clear();
 }
 
+void Object::ExecuteEarlyFixedUpdate() {
+	for (auto i = objectList.begin(); i != objectList.end();) {
+		auto& obj = *i;
+		for (auto& pair : obj->components) {
+			pair.second->EarlyFixedUpdate();
+		}
+		if (obj->IsActive()) {
+			i++;
+		}
+		else {
+			i = objectList.erase(i);
+		}
+	}
+}
+
 void Object::ExecuteFixedUpdate() {
 	for (auto i = objectList.begin(); i != objectList.end();) {
 		auto& obj = *i;
-		obj->FixedUpdate();
+		for (auto& pair : obj->components) {
+			pair.second->FixedUpdate();
+		}
 		if (obj->IsActive()) {
 			i++;
 		}
@@ -33,7 +50,9 @@ void Object::ExecuteFixedUpdate() {
 void Object::ExecuteUpdate() {
 	for (auto i = objectList.begin(); i != objectList.end();) {
 		auto& obj = *i;
-		obj->Update();
+		for (auto& pair : obj->components) {
+			pair.second->Update();
+		}
 		if (obj->IsActive()) {
 			i++;
 		}
@@ -44,18 +63,6 @@ void Object::ExecuteUpdate() {
 }
 
 Object::Object() :transform(), components(), enabled(true) {}
-
-void Object::Update() {
-	for (auto& pair : components) {
-		pair.second->Update();
-	}
-}
-
-void Object::FixedUpdate() {
-	for (auto& pair : components) {
-		pair.second->FixedUpdate();
-	}
-}
 
 void Object::SetEnable(bool value) {
 	if (enabled == value) return;

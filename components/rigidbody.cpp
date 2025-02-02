@@ -42,7 +42,7 @@ void Rigidbody::AddRelativeTorque(glm::vec3 torque, ForceMode forcemode) {
 	}
 }
 
-void Rigidbody::FixedUpdate() {
+void Rigidbody::EarlyFixedUpdate() {
 	glm::vec3 translation = transform.position();
 	translation += velocity * fixedDeltaTime();
 	transform.matrix[3] = glm::vec4(translation, 1);

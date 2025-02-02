@@ -1,3 +1,4 @@
+#include <glm/ext.hpp>
 #include "../core/input.hpp"
 #include "../components/camera.hpp"
 #include "../state/cursor.hpp"
@@ -7,9 +8,6 @@ using namespace Game;
 
 static double pitch = 0;
 static double yaw = 0;
-static auto cameraPos = glm::vec3(0, 0, 30);
-static auto cameraFront = glm::vec3(0, 0, -1);
-static auto cameraUp = glm::vec3(0, 1, 0);
 static float cameraSpeed = 4;
 bool lockedCamera = true;
 
@@ -25,6 +23,7 @@ void onKeyPressed(GLFWwindow* window, int key, int scancode, int action, int mod
             auto cameraFront = glm::vec3(0, 0, -1);
             auto cameraUp = glm::vec3(0, 1, 0);
 
+            Camera::main->transform.SetPosition(cameraPos);
             Camera::main->transform.LookAt(cameraPos + cameraFront, cameraUp);
             
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
@@ -63,6 +62,13 @@ void cursorAim(GLFWwindow* window, double xpos, double ypos) {
     yaw += offsetX;
 
     pitch = glm::clamp(pitch, -85.0, 85.0);
+    glm::vec3 front;
+    front.x = glm::cos(glm::radians(pitch)) * glm::sin(glm::radians(yaw));
+    front.y = glm::sin(glm::radians(pitch));
+    front.z = -glm::cos(glm::radians(yaw)) * glm::cos(glm::radians(pitch));
+    front = glm::normalize(front);
+
+    Camera::main->transform.LookAt(Camera::main->transform.position() + front, glm::vec3(0, 1, 0));
 }
 
 void processInput(GLFWwindow* window)
@@ -73,16 +79,24 @@ void processInput(GLFWwindow* window)
     else {
         mouseClicked = false;
     }
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-        cameraPos += cameraSpeed * deltaTime() * cameraFront;
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-        cameraPos -= cameraSpeed * deltaTime() * cameraFront;
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-        cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * deltaTime() * cameraSpeed;
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-        cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * deltaTime() * cameraSpeed;
-    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
-        cameraPos += cameraSpeed * deltaTime() * cameraUp;
-    if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
-        cameraPos -= cameraSpeed * deltaTime() * cameraUp;
+
+    if (!lockedCamera) {
+        Camera* camera = Camera::main;
+        auto cameraFront = camera->transform.forward();
+        auto cameraUp = camera->transform.up();
+        auto pos = camera->transform.position();
+        if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+            pos += cameraSpeed * deltaTime() * cameraFront;
+        if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+            pos -= cameraSpeed * deltaTime() * cameraFront;
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+            pos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * deltaTime() * cameraSpeed;
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+            pos += glm::normalize(glm::cross(cameraFront, cameraUp)) * deltaTime() * cameraSpeed;
+        if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
+            pos += cameraSpeed * deltaTime() * cameraUp;
+        if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
+            pos -= cameraSpeed * deltaTime() * cameraUp;
+        camera->transform.SetPosition(pos);
+    }
 }

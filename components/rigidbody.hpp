@@ -18,7 +18,7 @@ public:
 	void AddForce(glm::vec3 force, ForceMode forcemode = ForceMode::Force);
 	void AddTorque(glm::vec3 torque, ForceMode forcemode = ForceMode::Force);
 	void AddRelativeTorque(glm::vec3 torque, ForceMode forcemode = ForceMode::Force);
-	void FixedUpdate() override;
+	void EarlyFixedUpdate() override;
 };
 
 #endif

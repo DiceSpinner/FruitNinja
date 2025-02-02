@@ -7,8 +7,8 @@
 namespace Game {
 	extern bool mouseClicked;
 	extern std::vector<std::function<void(glm::vec2)>> OnMousePositionUpdated;
+	extern std::vector<std::function<void()>> OnLeftClickReleased;
 }
-void setViewProjection(glm::mat4 view, glm::mat4 projection);
 void updateCursorPosition(glm::vec2 position);
 glm::vec3 getCursorRay();
 glm::vec2 getCursorPosDelta();

@@ -10,6 +10,7 @@ using namespace std;
 namespace Game {
 	bool mouseClicked = false;
 	vector<function<void(glm::vec2)>> OnMousePositionUpdated;
+	vector<function<void()>> OnLeftClickReleased;
 }
 
 static glm::vec2 cursorPosDelta(0, 0);

@@ -92,8 +92,13 @@ bool doIntersect(glm::vec2 p1, glm::vec2 q1, glm::vec2 p2, glm::vec2 q2)
 	return false; // Doesn't fall in any of the above cases 
 }
 
+static bool flushMousePositions = false;
 static void OnMouseUpdate(glm::vec2 position) {
 	if (Game::mouseClicked) {
+		if (flushMousePositions) {
+			flushMousePositions = false;
+			mousePositions.clear();
+		}
 		glm::vec2 expanded(position.x * SCR_WIDTH / 2, position.y * SCR_HEIGHT / 2);
 		if (!mousePositions.empty()) {
 			glm::vec2 lastPos = mousePositions.back();
@@ -107,6 +112,10 @@ static void OnMouseUpdate(glm::vec2 position) {
 			mousePositions.pop_front();
 		}
 	}
+}
+
+static void OnLeftReleased() {
+	flushMousePositions = true;
 }
 
 void initFrontUI() {
@@ -133,6 +142,7 @@ void initFrontUI() {
 	trailTexture = textureFromFile("FruitNinja_blade0.png", "images");
 	trailArrow = textureFromFile("blade0_arrow.png", "images");
 	Game::OnMousePositionUpdated.push_back(OnMouseUpdate);
+	Game::OnLeftClickReleased.push_back(OnLeftReleased);
 	glGenBuffers(1, &mouseTrailVBO);
 	glGenBuffers(1, &mouseTrailEBO);
 	glGenVertexArrays(1, &mouseTrailVAO);

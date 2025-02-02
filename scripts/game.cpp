@@ -4,8 +4,11 @@
 #include <functional>
 #include "../core/object.hpp"
 #include "game.hpp"
+#include "../audio/audio_clip.hpp"
 #include "../settings/fruitsize.hpp"
 #include "../settings/fruitspawn.hpp"
+#include "../components/audiosource.hpp"
+#include "../components/audiolistener.hpp"
 #include "../components/fruit.hpp"
 #include "../components/renderer.hpp"
 #include "../components/rigidbody.hpp"
@@ -21,8 +24,12 @@
 using namespace std;
 using namespace Game;
 
+// Resource path
 static const char* unitCube = "models/unit_cube.obj";
 static const char* unitSphere = "models/unit_sphere.obj";
+
+static const char* fruitSliceAudioPath = "sounds/hit2.wav";
+static const char* bgmPath = "sounds/abyss.wav";
 
 static const char* apple = "models/fruits/apple.obj";
 static const char* appleTop = "models/fruits/apple_top.obj";
@@ -36,6 +43,11 @@ static const char* watermelon = "models/fruits/watermelon.obj";
 static const char* watermelonTop = "models/fruits/watermelon_top.obj";
 static const char* watermelonBottom = "models/fruits/watermelon_bottom.obj";
 
+// Audio
+static shared_ptr<AudioClip> fruitSliceAudio;
+static shared_ptr<AudioClip> bgmAudio;
+
+// Models
 static shared_ptr<Model> appleModel;
 static shared_ptr<Model> appleTopModel;
 static shared_ptr<Model> appleBottomModel;
@@ -54,6 +66,10 @@ static float randFloat(float min, float max) {
 
 static void spawnFruit(shared_ptr<Model>& fruitModel, shared_ptr<Model>& slice1Model, shared_ptr<Model>& slice2Model, float radius=1, int score = 1) {
 	shared_ptr<Object> fruit = Object::Create();
+	auto audioSource = fruit->AddComponent<AudioSource>();
+	audioSource->SetAudioClip(fruitSliceAudio);
+	audioSource->delayDeletionUntilFinish = true;
+
 	auto renderer = fruit->AddComponent<Renderer>(fruitModel);
 	renderer->drawOverlay = true;
 	fruit->AddComponent<Fruit>(radius, score, slice1Model, slice2Model);
@@ -99,6 +115,9 @@ static shared_ptr<Object> restart;
 static shared_ptr<Object> camera;
 
 void initGame() {
+	fruitSliceAudio = make_shared<AudioClip>(fruitSliceAudioPath);
+	bgmAudio = make_shared<AudioClip>(bgmPath);
+
 	appleModel = make_shared<Model>(apple);
 	appleTopModel = make_shared<Model>(appleTop);
 	appleBottomModel = make_shared<Model>(appleBottom);
@@ -157,6 +176,23 @@ void initGame() {
 	camera->AddComponent<Camera>(1.0f, 300.0f);
 	camera->transform.SetPosition(glm::vec3(0, 0, 30));
 	camera->transform.LookAt(camera->transform.position() + glm::vec3(0, 0, -1), glm::vec3(0, 1, 0));
+	camera->AddComponent<AudioListener>();
+
+	AudioSource* audioSource = camera->AddComponent<AudioSource>();
+	audioSource->SetAudioClip(bgmAudio);
+	audioSource->SetLoopEnabled(true);
+	audioSource->Play();
+	alDistanceModel(AL_INVERSE_DISTANCE_CLAMPED);
+
+	glm::mat4 inverse = glm::inverse(Camera::main->Perspective() * Camera::main->View());
+	float z = Camera::main->ComputerNormalizedZ(30);
+	glm::vec4 startPos = inverse * glm::vec4(START_BUTTON_POS, z, 1);
+	startPos /= startPos.w;
+	startGame->transform.SetPosition(startPos);
+
+	glm::vec4 exitPos = inverse * glm::vec4(EXIT_BUTTON_POS, z, 1);
+	exitPos /= exitPos.w;
+	exitGame->transform.SetPosition(exitPos);
 }
 
 static void enterGame() {
@@ -193,17 +229,6 @@ static void processStart() {
 	}
 	else if (!exitGame->IsActive()) {
 		glfwSetWindowShouldClose(window, true);
-	}
-	else {
-		glm::mat4 inverse = glm::inverse(Camera::main->Perspective() * Camera::main->View());
-		float z = Camera::main->ComputerNormalizedZ(30);
-		glm::vec4 startPos = inverse * glm::vec4(START_BUTTON_POS, z, 1);
-		startPos /= startPos.w;
-		startGame->transform.SetPosition(startPos);
-
-		glm::vec4 exitPos = inverse * glm::vec4(EXIT_BUTTON_POS, z, 1);
-		exitPos /= exitPos.w;
-		exitGame->transform.SetPosition(exitPos);
 	}
 }
 

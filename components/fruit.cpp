@@ -1,5 +1,6 @@
 #include <iostream>
 #include "fruit.hpp"
+#include "audiosource.hpp"
 #include "../components/renderer.hpp"
 #include "../settings/fruitspawn.hpp"
 #include "../state/cursor.hpp"
@@ -86,5 +87,10 @@ void Fruit::Update() {
 		r2->velocity = rb->velocity;
 		r2->AddForce(-FRUIT_SLICE_FORCE * up, ForceMode::Impulse);
 		r2->AddRelativeTorque(180.0f * glm::vec3(1, 0, 0), ForceMode::Impulse);
+
+		AudioSource* audioSource = GetComponent<AudioSource>();
+		if (audioSource) {
+			audioSource->Play();
+		}
 	}
 }

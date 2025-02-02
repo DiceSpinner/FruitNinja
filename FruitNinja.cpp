@@ -15,12 +15,12 @@
 #include "state/window.hpp"
 #include "state/state.hpp"
 #include "rendering/shader.hpp"
+#include "components/audiosource.hpp"
 #include "components/camera.hpp"
 #include "components/renderer.hpp"
 #include "components/rigidbody.hpp"
 #include "components/fruit.hpp"
 #include "core/ui.hpp"
-#include "core/ui3D.hpp"
 #include "settings/fruitsize.hpp"
 #include "scripts/game.hpp"
 #include "scripts/frontUI.hpp"
@@ -51,11 +51,6 @@ int main() {
     sphere->SetEnable(false);
     sphere->AddComponent<Renderer>(unitSphereModel);
     sphere->transform.SetScale(glm::vec3(WATERMELON_SIZE, WATERMELON_SIZE, WATERMELON_SIZE));
-
-    GLuint smileFace = textureFromFile("awesomeface.png", "images");
-    
-    UI3D rayIndicator(smileFace);
-    rayIndicator.transform.SetScale(glm::vec3(1, 1, 1));
     
     glm::vec3 lightPosition = glm::vec3(0, 0, 0);
     glm::vec4 lightDiffuse(1, 1, 1, 1);
@@ -89,6 +84,7 @@ int main() {
         }
 
         Object::ExecuteUpdate();
+        AudioSource::DeleteFinishedSources();
 
         gameStep();
 

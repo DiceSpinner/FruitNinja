@@ -87,7 +87,6 @@ bool Object::IsActive() const {
 
 Object::~Object() {
 	for (auto& item : components) {
-		item.second->OnDisabled();
 		item.second->OnDestroyed();
 	}
 }

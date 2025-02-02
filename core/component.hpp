@@ -8,7 +8,11 @@
 
 class Object;
 
+template<typename T>
+class ComponentFactory;
+
 class Component {
+	template <typename T> friend class ComponentFactory;
 private:
 	std::unordered_map<std::type_index, std::unique_ptr<Component>>& componentMap;
 public:

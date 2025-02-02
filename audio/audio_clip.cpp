@@ -3,10 +3,9 @@
 
 AudioClip::AudioClip(const char* path) {
 	AudioFile<short> audioFile;
-	audioFile.load("sounds/abyss.wav");
+	audioFile.load(path);
 
-	ALuint soundBuffer;
-	alGenBuffers(1, &soundBuffer);
+	alGenBuffers(1, &audioBuffer);
 	ALuint format;
 	if (audioFile.isMono()) {
 		if (audioFile.getBitDepth() == 8) {
@@ -34,7 +33,7 @@ AudioClip::AudioClip(const char* path) {
 		}
 	}
 
-	alBufferData(soundBuffer, format, dataBuffer.data(), dataBuffer.size() * sizeof(short), audioFile.getSampleRate());
+	alBufferData(audioBuffer, format, dataBuffer.data(), dataBuffer.size() * sizeof(short), audioFile.getSampleRate());
 }
 
 AudioClip::~AudioClip() {

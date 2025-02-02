@@ -1,3 +1,5 @@
+#ifndef AUDIO_CLIP_H
+#define AUDIO_CLIP_H
 #include <AL/al.h>
 
 class AudioClip {
@@ -8,3 +10,4 @@ public:
 	ALuint Get() const;
 	~AudioClip();
 };
+#endif

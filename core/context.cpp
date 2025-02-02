@@ -117,8 +117,6 @@ void initContext() {
     initFont();
 
     initALContext();
-
-    // Camera
 }
 void destroyContext() {
     deinitFont();

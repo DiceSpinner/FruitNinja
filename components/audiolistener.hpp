@@ -6,12 +6,14 @@
 class AudioListener : public Component {
 public:
 	AudioListener(std::unordered_map<std::type_index, std::unique_ptr<Component>>& components, Transform& transform, Object* object);
+	void FixedUpdate() override;
 };
 
 template<>
 class ComponentFactory<AudioListener> {
 	static unsigned char numListeners;
 
+public:
 	template<typename... Args>
 	static std::unique_ptr<AudioListener> Construct(Args&&... args)
 	{

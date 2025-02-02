@@ -1,3 +1,4 @@
+#include <iostream>
 #include <glm/ext.hpp>
 #include "../core/input.hpp"
 #include "../components/camera.hpp"
@@ -71,13 +72,22 @@ void cursorAim(GLFWwindow* window, double xpos, double ypos) {
     Camera::main->transform.LookAt(Camera::main->transform.position() + front, glm::vec3(0, 1, 0));
 }
 
+static bool wasMouseClicked;
+
 void processInput(GLFWwindow* window)
 {
+    wasMouseClicked = mouseClicked;
     if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+        
         mouseClicked = true;
     }
     else {
         mouseClicked = false;
+    }
+    if (!mouseClicked && wasMouseClicked) {
+        for (auto& i : OnLeftClickReleased) {
+            i();
+        }
     }
 
     if (!lockedCamera) {

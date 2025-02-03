@@ -2,7 +2,7 @@
 #include "frontUI.hpp"
 #include <memory>
 #include <iostream>
-#include "../components/camera.hpp"
+#include "../rendering/camera.hpp"
 #include "../state/window.hpp"
 #include "../state/state.hpp"
 #include "../state/cursor.hpp"

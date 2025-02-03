@@ -1,14 +1,15 @@
 #include <iostream>
 #include "fruit.hpp"
-#include "audiosource.hpp"
-#include "../components/renderer.hpp"
+#include "../physics/rigidbody.hpp"
+#include "../audio/audiosource.hpp"
+#include "../rendering/renderer.hpp"
+#include "../rendering/camera.hpp"
 #include "../settings/fruitspawn.hpp"
 #include "../state/cursor.hpp"
-#include "../components/camera.hpp"
 #include "../state/state.hpp"
 #include "../core/object.hpp"
 #include "fruitslice.hpp"
-#include "rigidbody.hpp"
+
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
 

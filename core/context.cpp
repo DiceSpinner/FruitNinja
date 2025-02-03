@@ -2,7 +2,7 @@
 #include <memory>
 #include "../core/context.hpp"
 #include "../state/window.hpp"
-#include "../components/camera.hpp"
+#include "../rendering/camera.hpp"
 #include "../rendering/font.hpp"
 #include "../audio/audio_context.hpp"
 #include "input.hpp"

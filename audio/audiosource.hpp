@@ -2,7 +2,7 @@
 #define AUDIOSOURCE_H
 #include <memory>
 #include "../core/component.hpp"
-#include "../audio/audio_clip.hpp"
+#include "audio_clip.hpp"
 
 class AudioSource : public Component {
 private:

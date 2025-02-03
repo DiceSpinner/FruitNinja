@@ -1,7 +1,7 @@
 #include <iostream>
 #include <glm/ext.hpp>
 #include "../core/input.hpp"
-#include "../components/camera.hpp"
+#include "../rendering/camera.hpp"
 #include "../state/cursor.hpp"
 #include "../state/time.hpp"
 

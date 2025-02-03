@@ -1,5 +1,5 @@
 #include <iostream>
-#include "../components/camera.hpp"
+#include "../rendering/camera.hpp"
 #include "cursor.hpp"
 #include "window.hpp"
 #define GLM_ENABLE_EXPERIMENTAL

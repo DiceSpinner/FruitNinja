@@ -25,7 +25,7 @@ public:
 	void virtual FixedUpdate();
 	void virtual OnEnabled();
 	void virtual OnDisabled();
-	void virtual OnDestroyed();
+	virtual ~Component() = default;
 
 	template<typename T>
 	T* GetComponent() {

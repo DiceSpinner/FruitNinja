@@ -58,7 +58,5 @@ public:
 
 	void SetEnable(bool value);
 	bool IsActive() const;
-
-	~Object();
 };
 #endif

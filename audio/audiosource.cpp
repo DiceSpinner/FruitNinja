@@ -46,7 +46,7 @@ void AudioSource::OnDisabled() {
 	alSourceStop(sourceID);
 }
 
-void AudioSource::OnDestroyed() {
+AudioSource::~AudioSource() {
 	if (delayDeletionUntilFinish) {
 		MarkDeleteOnFinish(sourceID);
 	}

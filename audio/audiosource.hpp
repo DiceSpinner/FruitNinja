@@ -24,6 +24,6 @@ public:
 	void Pause() const;
 	bool LoopEnabled() const;
 	void OnDisabled() override;
-	void OnDestroyed() override;
+	~AudioSource() override;
 };
 #endif

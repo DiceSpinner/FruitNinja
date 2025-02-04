@@ -12,8 +12,7 @@ Component::Component(unordered_map<std::type_index, unique_ptr<Component>>& coll
 
 void Component::Update() {}
 void Component::Initialize() {}
-void Component::EarlyFixedUpdate(){}
+void Component::EarlyFixedUpdate() {}
 void Component::FixedUpdate() {}
 void Component::OnEnabled() {}
 void Component::OnDisabled() {}
-void Component::OnDestroyed(){}

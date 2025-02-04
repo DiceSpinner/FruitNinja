@@ -18,6 +18,7 @@
 #include "audio/audiosource.hpp"
 #include "rendering/camera.hpp"
 #include "rendering/renderer.hpp"
+#include "rendering/particle_system.hpp"
 #include "physics/rigidbody.hpp"
 #include "game/fruit.hpp"
 #include "core/ui.hpp"
@@ -35,6 +36,8 @@ const char* unlitFrag = "shaders/object_unlit.frag";
 const char* ui3DVertPath = "shaders/ui3D.vert";
 const char* uiVertPath = "shaders/ui.vert";
 const char* uiFragPath = "shaders/ui.frag";
+const char* particleVertPath = "shaders/particle.vert";
+const char* particleFragPath = "shaders/particle.frag";
 
 const char* unitCube = "models/unit_cube.obj";
 const char* unitSphere = "models/unit_sphere.obj";
@@ -44,6 +47,7 @@ int main() {
     Shader objectShader(objVertexPath, objFragPath);
     Shader unlitShader(objVertexPath, unlitFrag);
     Shader uiShader(uiVertPath, uiFragPath);
+    Shader particleShader(particleVertPath, particleFragPath);
     // Shader rayTracerShader(ui3DVertPath, uiFragPath);
 
     std::shared_ptr<Model> unitSphereModel = std::make_shared<Model>(unitSphere);
@@ -104,6 +108,11 @@ int main() {
         if (lockedCamera) {
             // sphere->GetComponent<Renderer>()->Draw(unlitShader);
         }
+
+        particleShader.Use();
+        glUniformMatrix4fv(glGetUniformLocation(particleShader.ID, "view"), 1, GL_FALSE, glm::value_ptr(Camera::main->View()));
+        glUniformMatrix4fv(glGetUniformLocation(particleShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(Camera::main->Perspective()));
+        ParticleSystem::DrawParticles(particleShader);
 
         uiShader.Use();
         drawFrontUI(uiShader);

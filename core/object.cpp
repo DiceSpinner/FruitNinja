@@ -84,9 +84,3 @@ void Object::SetEnable(bool value) {
 bool Object::IsActive() const {
 	return enabled;
 }
-
-Object::~Object() {
-	for (auto& item : components) {
-		item.second->OnDestroyed();
-	}
-}

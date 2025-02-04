@@ -14,6 +14,7 @@
 #include "../rendering/renderer.hpp"
 #include "../rendering/camera.hpp"
 #include "../rendering/model.hpp"
+#include "../rendering/particle_system.hpp"
 #include "../state/time.hpp"
 #include "../state/state.hpp"
 #include "../state/window.hpp"
@@ -113,6 +114,7 @@ static shared_ptr<Object> exitGame;
 static shared_ptr<Object> restart;
 
 static shared_ptr<Object> camera;
+static shared_ptr<Object> particle;
 
 void initGame() {
 	fruitSliceAudio = make_shared<AudioClip>(fruitSliceAudioPath);
@@ -131,6 +133,12 @@ void initGame() {
 	watermelonBottomModel = make_shared<Model>(watermelonBottom);
 
 	state = State::START;
+
+	particle = Object::Create();
+	ParticleSystem* system = particle->AddComponent<ParticleSystem>(300, 3);
+	system->useGravity = false;
+	GLuint image = textureFromFile("awesomeface.png", "images");
+	system->SetTexture(image);
 
 	// Start Game Button
 	startGame = Object::Create();

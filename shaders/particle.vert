@@ -11,5 +11,5 @@ out vec2 uv;
 void main()
 {
 	 uv = pos.xy + vec2(0.5, 0.5);
-	 gl_Position = projection * view * vec4(pos + offset + modelPos, 1);
+	 gl_Position = projection * (vec4(pos + modelPos + offset, 0) + view * vec4(0, 0, 0, 1));
 }

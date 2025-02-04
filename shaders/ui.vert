@@ -11,5 +11,7 @@ void main()
 {
 	 uv = tex;
 	 isText = pos.z;
-	 gl_Position = projection * transform * vec4(pos.xy, 0, 1);
+	 vec4 result = projection * transform * vec4(pos.xy, 0, 1);
+	 result.z = 0;
+	 gl_Position = result;
 }

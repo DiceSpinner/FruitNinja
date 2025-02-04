@@ -13,7 +13,7 @@ Camera::Camera(std::unordered_map<std::type_index, std::unique_ptr<Component>>& 
 		perspective = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, near, far);
 		float halfWidth = SCR_WIDTH / 2.0f;
 		float halfHeight = SCR_HEIGHT / 2.0f;
-		ortho = glm::ortho(-halfWidth, halfWidth, -halfHeight, halfHeight);
+		ortho = glm::ortho(-halfWidth, halfWidth, -halfHeight, halfHeight, near, far);
 	}
 	if (!main) {
 		main = this;
@@ -27,7 +27,7 @@ void Camera::SetPerspective(float near, float far) {
 		perspective = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, near, far);
 		float halfWidth = SCR_WIDTH / 2.0f;
 		float halfHeight = SCR_HEIGHT / 2.0f;
-		ortho = glm::ortho(-halfWidth, halfWidth, -halfHeight, halfHeight);
+		ortho = glm::ortho(-halfWidth, halfWidth, -halfHeight, halfHeight, near, far);
 	}
 }
 

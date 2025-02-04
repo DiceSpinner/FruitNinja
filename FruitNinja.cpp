@@ -110,8 +110,9 @@ int main() {
         }
 
         particleShader.Use();
-        glUniformMatrix4fv(glGetUniformLocation(particleShader.ID, "view"), 1, GL_FALSE, glm::value_ptr(Camera::main->View()));
+        glUniform3fv(glGetUniformLocation(particleShader.ID, "cameraPos"), 1, glm::value_ptr(Camera::main->transform.position()));
         glUniformMatrix4fv(glGetUniformLocation(particleShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(Camera::main->Perspective()));
+        glUniformMatrix4fv(glGetUniformLocation(particleShader.ID, "view"), 1, GL_FALSE, glm::value_ptr(Camera::main->View()));
         ParticleSystem::DrawParticles(particleShader);
 
         uiShader.Use();

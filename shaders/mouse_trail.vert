@@ -10,5 +10,6 @@ void main()
 {
 	 uv = tex;
 	 isArrow = pos.z;
-	 gl_Position = projection * vec4(pos.xyz, 1);
+	 vec4 result = projection * vec4(pos.xyz, 1);
+	 gl_Position = vec4(result.xy, 0, 1);
 }

@@ -89,7 +89,7 @@ void ParticleSystem::Draw(Shader& shader) const {
 	glActiveTexture(GL_TEXTURE0);
 	shader.SetInt("image", 0);
 	glBindTexture(GL_TEXTURE_2D, texture);
-	glUniform3fv(glGetUniformLocation(shader.ID, "modelPos"), 1, glm::value_ptr(transform.position()));
+	glUniform3fv(glGetUniformLocation(shader.ID, "worldPos"), 1, glm::value_ptr(transform.position()));
 
 	glBindVertexArray(VAO);
 	glDrawArraysInstanced(GL_TRIANGLE_STRIP, 0, 4, activeParticles.size());

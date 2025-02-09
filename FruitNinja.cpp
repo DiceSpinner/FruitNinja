@@ -51,7 +51,7 @@ int main() {
     // Shader rayTracerShader(ui3DVertPath, uiFragPath);
 
     std::shared_ptr<Model> unitSphereModel = std::make_shared<Model>(unitSphere);
-    shared_ptr<Object> sphere = Object::Create();
+    shared_ptr<Object> sphere = make_shared<Object>();
     sphere->SetEnable(false);
     sphere->AddComponent<Renderer>(unitSphereModel);
     sphere->transform.SetScale(glm::vec3(WATERMELON_SIZE, WATERMELON_SIZE, WATERMELON_SIZE));
@@ -88,7 +88,6 @@ int main() {
         }
 
         Object::ExecuteUpdate();
-        AudioSource::DeleteFinishedSources();
 
         gameStep();
 
@@ -104,17 +103,20 @@ int main() {
         glUniform3fv(glGetUniformLocation(unlitShader.ID, "cameraPosition"), 1, glm::value_ptr(Camera::main->transform.position()));
         Renderer::DrawObjects(unlitShader);
 
-        glDisable(GL_DEPTH_TEST);
+        /*glDisable(GL_DEPTH_TEST);
         if (lockedCamera) {
-            // sphere->GetComponent<Renderer>()->Draw(unlitShader);
-        }
+            sphere->GetComponent<Renderer>()->Draw(unlitShader);
+        }*/
 
+        glDepthMask(GL_FALSE);
         particleShader.Use();
         glUniform3fv(glGetUniformLocation(particleShader.ID, "cameraPos"), 1, glm::value_ptr(Camera::main->transform.position()));
         glUniformMatrix4fv(glGetUniformLocation(particleShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(Camera::main->Perspective()));
         glUniformMatrix4fv(glGetUniformLocation(particleShader.ID, "view"), 1, GL_FALSE, glm::value_ptr(Camera::main->View()));
         ParticleSystem::DrawParticles(particleShader);
+        glDepthMask(GL_TRUE);
 
+        glDisable(GL_DEPTH_TEST);
         uiShader.Use();
         drawFrontUI(uiShader);
 

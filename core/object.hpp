@@ -19,15 +19,18 @@ private:
 	/// </summary>
 	std::unordered_map<std::type_index, std::unique_ptr<Component>> components;
 	bool enabled;
-	Object();
+
+	Object(bool isEnabled);
 public:
 	Transform transform;
-
-	static std::shared_ptr<Object> Create();
 	static void ActivateNewlyEnabledObjects();
 	static void ExecuteEarlyFixedUpdate();
 	static void ExecuteFixedUpdate();
 	static void ExecuteUpdate();
+
+	static std::shared_ptr<Object> Create(bool isEnabled = true);
+
+	Object();
 
 	template<typename T, typename... Args>
 	T* AddComponent(Args&&... args) {

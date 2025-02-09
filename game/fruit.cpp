@@ -1,7 +1,7 @@
 #include <iostream>
 #include "fruit.hpp"
+#include "../audio/audiosource_pool.hpp"
 #include "../physics/rigidbody.hpp"
-#include "../audio/audiosource.hpp"
 #include "../rendering/renderer.hpp"
 #include "../rendering/camera.hpp"
 #include "../settings/fruitspawn.hpp"
@@ -16,8 +16,8 @@
 using namespace std;
 
 Fruit::Fruit(std::unordered_map<std::type_index, std::unique_ptr<Component>>& components, Transform& transform, Object* object,
-	float radius, int score, shared_ptr<Model> slice1, shared_ptr<Model> slice2) :
-	Component(components, transform, object), radius(radius), reward(score), slice1(slice1), slice2(slice2)
+	float radius, int score, shared_ptr<Model> slice1, shared_ptr<Model> slice2, shared_ptr<AudioClip> clipOnSliced, shared_ptr<AudioClip> clipOnMissed) :
+	Component(components, transform, object), radius(radius), reward(score), slice1(slice1), slice2(slice2), clipOnSliced(clipOnSliced), clipOnMissed(clipOnMissed)
 {
 
 }
@@ -38,6 +38,14 @@ void Fruit::Update() {
 		if (this->reward > 0) {
 			Game::misses++;
 		}
+		if (clipOnMissed) {
+			auto audioSourceObj = acquireAudioSource();
+			if (audioSourceObj) {
+				auto source = audioSourceObj->GetComponent<AudioSource>();
+				source->SetAudioClip(clipOnMissed);
+				source->Play();
+			}
+		}
 		object->SetEnable(false);
 		return;
 	}
@@ -49,8 +57,12 @@ void Fruit::Update() {
 			Game::score += this->reward;
 			int quotient = Game::score / 50;
 			if (quotient > Game::recovery) {
+				auto before = Game::misses;
 				Game::misses = glm::max(Game::misses - (quotient - Game::recovery), 0);
 				Game::recovery = quotient;
+				if (before > Game::misses) {
+					Game::recentlyRecovered = true;
+				}
 			}
 		}
 		
@@ -89,9 +101,13 @@ void Fruit::Update() {
 		r2->AddForce(-FRUIT_SLICE_FORCE * up, ForceMode::Impulse);
 		r2->AddRelativeTorque(180.0f * glm::vec3(1, 0, 0), ForceMode::Impulse);
 
-		AudioSource* audioSource = GetComponent<AudioSource>();
-		if (audioSource) {
-			audioSource->Play();
+		if (clipOnSliced) {
+			auto audioSourceObj = acquireAudioSource();
+			if (audioSourceObj) {
+				auto source = audioSourceObj->GetComponent<AudioSource>();
+				source->SetAudioClip(clipOnSliced);
+				source->Play();
+			}
 		}
 	}
 }

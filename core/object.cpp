@@ -8,10 +8,6 @@ using namespace std;
 unordered_set<shared_ptr<Object>> Object::newObjectSet;
 static list<shared_ptr<Object>> objectList;
 
-shared_ptr<Object> Object::Create() {
-	return *newObjectSet.emplace(new Object()).first;
-}
-
 void Object::ActivateNewlyEnabledObjects() {
 	move(newObjectSet.begin(), newObjectSet.end(), back_inserter(objectList));
 	newObjectSet.clear();
@@ -62,7 +58,17 @@ void Object::ExecuteUpdate() {
 	}
 }
 
-Object::Object() :transform(), components(), enabled(true) {}
+shared_ptr<Object> Object::Create(bool isEnabled) {
+	auto ptr = shared_ptr<Object>(new Object(isEnabled));
+	if (isEnabled) {
+		newObjectSet.insert(ptr);
+	}
+	return ptr;
+}
+
+Object::Object() : transform(), components(), enabled(false) { }
+
+Object::Object(bool isEnabled) : transform(), components(), enabled(isEnabled) { }
 
 void Object::SetEnable(bool value) {
 	if (enabled == value) return;

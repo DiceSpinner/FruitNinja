@@ -117,6 +117,8 @@ void initContext() {
     initFont();
 
     initALContext();
+
+    srand(time(NULL));
 }
 void destroyContext() {
     deinitFont();

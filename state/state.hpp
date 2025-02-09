@@ -11,5 +11,6 @@ namespace Game {
 	extern int score;
 	extern int misses;
 	extern int recovery;
+	extern bool recentlyRecovered;
 }
 #endif

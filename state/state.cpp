@@ -5,4 +5,5 @@ namespace Game {
 	int score = 0;
 	int misses = 0;
 	int recovery = 0;
+	bool recentlyRecovered = false;
 }

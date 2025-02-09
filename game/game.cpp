@@ -3,12 +3,13 @@
 #include <iostream>
 #include <functional>
 #include "../core/object.hpp"
+#include "../core/object_pool.hpp"
 #include "game.hpp"
 #include "fruit.hpp"
 #include "../audio/audio_clip.hpp"
 #include "../settings/fruitsize.hpp"
 #include "../settings/fruitspawn.hpp"
-#include "../audio/audiosource.hpp"
+#include "../audio/audiosource_pool.hpp"
 #include "../audio/audiolistener.hpp"
 #include "../physics/rigidbody.hpp"
 #include "../rendering/renderer.hpp"
@@ -29,9 +30,6 @@ using namespace Game;
 static const char* unitCube = "models/unit_cube.obj";
 static const char* unitSphere = "models/unit_sphere.obj";
 
-static const char* fruitSliceAudioPath = "sounds/hit2.wav";
-static const char* bgmPath = "sounds/abyss.wav";
-
 static const char* apple = "models/fruits/apple.obj";
 static const char* appleTop = "models/fruits/apple_top.obj";
 const char* appleBottom = "models/fruits/apple_bottom.obj";
@@ -46,7 +44,24 @@ static const char* watermelonBottom = "models/fruits/watermelon_bottom.obj";
 
 // Audio
 static shared_ptr<AudioClip> fruitSliceAudio;
-static shared_ptr<AudioClip> bgmAudio;
+static shared_ptr<AudioClip> largeFruitSliceAudio;
+static shared_ptr<AudioClip> startMenuAudio;
+static shared_ptr<AudioClip> gameStartAudio;
+static shared_ptr<AudioClip> gameOverAudio;
+static shared_ptr<AudioClip> fruitMissAudio;
+static shared_ptr<AudioClip> fruitSpawnAudio;
+static shared_ptr<AudioClip> recoveryAudio;
+
+static void loadAudio() {
+	fruitSliceAudio = make_shared<AudioClip>("sounds/onhit.wav");
+	largeFruitSliceAudio = make_shared<AudioClip>("sounds/onhit2.wav");
+	startMenuAudio = make_shared<AudioClip>("sounds/StartMenu.wav");
+	gameStartAudio = make_shared<AudioClip>("sounds/Game-start.wav");
+	gameOverAudio = make_shared<AudioClip>("sounds/Game-over.wav");
+	fruitMissAudio = make_shared<AudioClip>("sounds/gank.wav");
+	fruitSpawnAudio = make_shared<AudioClip>("sounds/Throw-fruit.wav");
+	recoveryAudio = make_shared<AudioClip>("sounds/extra-life.wav");
+}
 
 // Models
 static shared_ptr<Model> appleModel;
@@ -61,19 +76,30 @@ static shared_ptr<Model> watermelonModel;
 static shared_ptr<Model> watermelonTopModel;
 static shared_ptr<Model> watermelonBottomModel;
 
+static void loadModels() {
+	appleModel = make_shared<Model>(apple);
+	appleTopModel = make_shared<Model>(appleTop);
+	appleBottomModel = make_shared<Model>(appleBottom);
+
+	pineappleModel = make_shared<Model>(pineapple);
+	pineappleTopModel = make_shared<Model>(pineappleTop);
+	pineappleBottomModel = make_shared<Model>(pineappleBottom);
+
+	watermelonModel = make_shared<Model>(watermelon);
+	watermelonTopModel = make_shared<Model>(watermelonTop);
+	watermelonBottomModel = make_shared<Model>(watermelonBottom);
+}
+
 static float randFloat(float min, float max) {
 	return rand() / static_cast<float>(RAND_MAX) * (max - min) + min;
 }
 
-static void spawnFruit(shared_ptr<Model>& fruitModel, shared_ptr<Model>& slice1Model, shared_ptr<Model>& slice2Model, float radius=1, int score = 1) {
+static void spawnFruit(shared_ptr<Model>& fruitModel, shared_ptr<Model>& slice1Model, shared_ptr<Model>& slice2Model, shared_ptr<AudioClip> sliceAudio, float radius=1, int score = 1) {
 	shared_ptr<Object> fruit = Object::Create();
-	auto audioSource = fruit->AddComponent<AudioSource>();
-	audioSource->SetAudioClip(fruitSliceAudio);
-	audioSource->delayDeletionUntilFinish = true;
 
 	auto renderer = fruit->AddComponent<Renderer>(fruitModel);
 	renderer->drawOverlay = true;
-	fruit->AddComponent<Fruit>(radius, score, slice1Model, slice2Model);
+	fruit->AddComponent<Fruit>(radius, score, slice1Model, slice2Model, sliceAudio, fruitMissAudio);
 	Rigidbody* rb = fruit->AddComponent<Rigidbody>();
 	float upForce = randFloat(FRUIT_UP_MIN, FRUIT_UP_MAX);
 	float horizontalForce = randFloat(FRUIT_HORIZONTAL_MIN, FRUIT_HORIZONTAL_MAX);
@@ -90,18 +116,25 @@ static void spawnFruit(shared_ptr<Model>& fruitModel, shared_ptr<Model>& slice1M
 	glm::vec3 position(startX, FRUIT_SPAWN_HEIGHT, 0);
 	// cout << "Spawn at " << glm::to_string(position) << "\n";
 	rb->transform.SetPosition(position);
+
+	auto audioSourceObj = acquireAudioSource();
+	if (audioSourceObj) {
+		auto source = audioSourceObj->GetComponent<AudioSource>();
+		source->SetAudioClip(fruitSpawnAudio);
+		source->Play();
+	}
 }
 
 static void spawnApple() {
-	spawnFruit(appleModel, appleTopModel, appleBottomModel, APPLE_SIZE);
+	spawnFruit(appleModel, appleTopModel, appleBottomModel, fruitSliceAudio, APPLE_SIZE);
 }
 
 static void spawnPineapple() {
-	spawnFruit(pineappleModel, pineappleTopModel, pineappleBottomModel, PINEAPPLE_SIZE);
+	spawnFruit(pineappleModel, pineappleTopModel, pineappleBottomModel, fruitSliceAudio, PINEAPPLE_SIZE);
 }
 
 static void spawnWatermelon() {
-	spawnFruit(watermelonModel, watermelonTopModel, watermelonBottomModel, WATERMELON_SIZE);
+	spawnFruit(watermelonModel, watermelonTopModel, watermelonBottomModel, largeFruitSliceAudio, WATERMELON_SIZE);
 }
 
 static vector<function<void()>> spawners = {spawnApple, spawnPineapple, spawnWatermelon};
@@ -117,28 +150,24 @@ static shared_ptr<Object> camera;
 static shared_ptr<Object> particle;
 
 void initGame() {
-	fruitSliceAudio = make_shared<AudioClip>(fruitSliceAudioPath);
-	bgmAudio = make_shared<AudioClip>(bgmPath);
-
-	appleModel = make_shared<Model>(apple);
-	appleTopModel = make_shared<Model>(appleTop);
-	appleBottomModel = make_shared<Model>(appleBottom);
-
-	pineappleModel = make_shared<Model>(pineapple);
-	pineappleTopModel = make_shared<Model>(pineappleTop);
-	pineappleBottomModel = make_shared<Model>(pineappleBottom);
-
-	watermelonModel = make_shared<Model>(watermelon);
-	watermelonTopModel = make_shared<Model>(watermelonTop);
-	watermelonBottomModel = make_shared<Model>(watermelonBottom);
+	loadAudio();
+	loadModels();
 
 	state = State::START;
 
 	particle = Object::Create();
-	ParticleSystem* system = particle->AddComponent<ParticleSystem>(300, 3);
-	system->useGravity = false;
-	GLuint image = textureFromFile("awesomeface.png", "images");
+	particle->transform.SetPosition(glm::vec3(0, 2, 0));
+	ParticleSystem* system = particle->AddComponent<ParticleSystem>(200);
+	system->useGravity = true;
+	GLuint image = textureFromFile("smoke3.png", "images");
 	system->SetTexture(image);
+	system->spawnFrequency = 0;
+	system->scale = glm::vec3(1, 1, 1);
+	system->spawnFrequency = 1;
+	system->spawnAmount = 50;
+	system->spawnDirection = glm::vec3(0, 10, 0);
+	system->maxSpawnDirectionDeviation = 180;
+	system->SetParticleLifeTime(2, 3);
 
 	// Start Game Button
 	startGame = Object::Create();
@@ -180,6 +209,7 @@ void initGame() {
 	);
 	rigidbody->AddRelativeTorque(torque, ForceMode::Impulse);
 
+	// Audio & Camera
 	camera = Object::Create();
 	camera->AddComponent<Camera>(1.0f, 300.0f);
 	camera->transform.SetPosition(glm::vec3(0, 0, 30));
@@ -187,11 +217,12 @@ void initGame() {
 	camera->AddComponent<AudioListener>();
 
 	AudioSource* audioSource = camera->AddComponent<AudioSource>();
-	audioSource->SetAudioClip(bgmAudio);
+	audioSource->SetAudioClip(startMenuAudio);
 	audioSource->SetLoopEnabled(true);
 	audioSource->Play();
-	alDistanceModel(AL_INVERSE_DISTANCE_CLAMPED);
+	alDistanceModel(AL_NONE);
 
+	// Set Button position
 	glm::mat4 inverse = glm::inverse(Camera::main->Perspective() * Camera::main->View());
 	float z = Camera::main->ComputerNormalizedZ(30);
 	glm::vec4 startPos = inverse * glm::vec4(START_BUTTON_POS, z, 1);
@@ -210,6 +241,13 @@ static void enterGame() {
 	spawnTimer = 0;
 	misses = 0;
 	recovery = 0;
+	camera->GetComponent<AudioSource>()->Pause();
+	auto source = acquireAudioSource();
+	if (source) {
+		auto audioSource = source->GetComponent<AudioSource>();
+		audioSource->SetAudioClip(gameStartAudio);
+		audioSource->Play();
+	}
 }
 
 static void enterScore() {
@@ -229,6 +267,13 @@ static void enterScore() {
 	glm::vec4 exitPos = inverse * glm::vec4(EXIT_BUTTON_POS, z, 1);
 	exitPos /= exitPos.w;
 	exitGame->transform.SetPosition(exitPos);
+
+	auto source = acquireAudioSource();
+	if (source) {
+		auto audioSource = source->GetComponent<AudioSource>();
+		audioSource->SetAudioClip(gameOverAudio);
+		audioSource->Play();
+	}
 }
 
 static void processStart() {
@@ -253,6 +298,15 @@ static void processGame() {
 	}
 	if (misses >= MISS_TOLERENCE) {
 		enterScore();
+	}
+	if (recentlyRecovered) {
+		recentlyRecovered = false;
+		auto source = acquireAudioSource();
+		if (source) {
+			auto audioSource = source->GetComponent<AudioSource>();
+			audioSource->SetAudioClip(recoveryAudio);
+			audioSource->Play();
+		}
 	}
 }
 

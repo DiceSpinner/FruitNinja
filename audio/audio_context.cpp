@@ -3,6 +3,7 @@
 #include <AL/alc.h>
 #include <AL/alext.h>
 #include "audio_context.hpp"
+#include "audiosource_pool.hpp"
 using namespace std;
 
 static constexpr auto GetDebugSourceName(ALenum source) noexcept -> std::string_view
@@ -130,6 +131,7 @@ void initALContext() {
 		alDebugMessageCallbackEXT(debug_callback, nullptr);
 	}
 #endif
+	initializeAudioSourcePool();
 }
 
 void destroyALContext() {

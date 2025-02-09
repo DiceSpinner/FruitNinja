@@ -1,32 +1,13 @@
 #include <list>
 #include "audiosource.hpp"
+#include "../core/object.hpp"
 
 using namespace std;
 
 static list<ALuint>* sourcesToBeDeleted = new list<ALuint>;
 
-void AudioSource::MarkDeleteOnFinish(ALuint source) {
-	if (source) {
-		sourcesToBeDeleted->push_back(source);
-	}
-}
-
-void AudioSource::DeleteFinishedSources() {
-	for (auto i = sourcesToBeDeleted->begin(); i != sourcesToBeDeleted->end();) {
-		ALint result;
-		alGetSourcei(*i, AL_SOURCE_STATE, &result);
-		if (result != AL_PLAYING) {
-			alDeleteSources(1, &*i);
-			i = sourcesToBeDeleted->erase(i);
-		}
-		else {
-			i++;
-		}
-	}
-}
-
 AudioSource::AudioSource(std::unordered_map<std::type_index, std::unique_ptr<Component>>& components, Transform& transform, Object* object)
-	: Component(components, transform, object), audioClip(), sourceID(0), loopEnabled(false), delayDeletionUntilFinish(false)
+	: Component(components, transform, object), audioClip(), sourceID(0), loopEnabled(false), disableWhileNotPlaying(false)
 {
 	alGenSources(1, &sourceID);
 }
@@ -34,6 +15,16 @@ AudioSource::AudioSource(std::unordered_map<std::type_index, std::unique_ptr<Com
 void AudioSource::FixedUpdate() {
 	auto pos = transform.position();
 	alSource3f(sourceID, AL_POSITION, pos.x, pos.y, pos.z);
+}
+
+void AudioSource::Update() {
+	if (disableWhileNotPlaying) {
+		ALint result;
+		alGetSourcei(sourceID, AL_SOURCE_STATE, &result);
+		if (result != AL_PLAYING) {
+			object->SetEnable(false);
+		}
+	}
 }
 
 void AudioSource::SetAudioClip(std::shared_ptr<AudioClip>& clip) {
@@ -47,15 +38,11 @@ void AudioSource::OnDisabled() {
 }
 
 AudioSource::~AudioSource() {
-	if (delayDeletionUntilFinish) {
-		MarkDeleteOnFinish(sourceID);
-	}
-	else {
-		alDeleteSources(1, &sourceID);
-	}	
+	alDeleteSources(1, &sourceID);
 }
 
 void AudioSource::Play() const {
+	object->SetEnable(true);
 	alSourcePlay(sourceID);
 }
 

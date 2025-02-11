@@ -90,16 +90,38 @@ static void loadModels() {
 	watermelonBottomModel = make_shared<Model>(watermelonBottom);
 }
 
+static GLuint sliceParticleTexture;
+static void loadTextures() {
+	sliceParticleTexture = textureFromFile("droplet.png", "images");
+}
+
+static ObjectPool<Object>* fruitSliceParticlePool;
+static Object* createFruitParticle() {
+	Object* obj = new Object();
+	ParticleSystem* system = obj->AddComponent<ParticleSystem>(100);
+	system->disableOnFinish = true;
+	system->maxSpawnDirectionDeviation = 180;
+	system->spawnAmount = 22;
+	system->spawnDirection = glm::vec3(0, 25, 0);
+	system->scale = glm::vec3(0.3, 0.3, 0.3);
+	system->spawnFrequency = 0;
+	system->useGravity = true;
+
+	return obj;
+}
+
 static float randFloat(float min, float max) {
 	return rand() / static_cast<float>(RAND_MAX) * (max - min) + min;
 }
 
-static void spawnFruit(shared_ptr<Model>& fruitModel, shared_ptr<Model>& slice1Model, shared_ptr<Model>& slice2Model, shared_ptr<AudioClip> sliceAudio, float radius=1, int score = 1) {
+static void spawnFruit(shared_ptr<Model>& fruitModel, shared_ptr<Model>& slice1Model, shared_ptr<Model>& slice2Model, shared_ptr<AudioClip> sliceAudio, glm::vec4 color, float radius=1, int score = 1) {
 	shared_ptr<Object> fruit = Object::Create();
 
 	auto renderer = fruit->AddComponent<Renderer>(fruitModel);
 	renderer->drawOverlay = true;
-	fruit->AddComponent<Fruit>(radius, score, slice1Model, slice2Model, sliceAudio, fruitMissAudio);
+	Fruit* ft = fruit->AddComponent<Fruit>(radius, score, *fruitSliceParticlePool, slice1Model, slice2Model, sliceAudio, fruitMissAudio);
+	ft->slicedParticleTexture = sliceParticleTexture;
+	ft->color = color;
 	Rigidbody* rb = fruit->AddComponent<Rigidbody>();
 	float upForce = randFloat(FRUIT_UP_MIN, FRUIT_UP_MAX);
 	float horizontalForce = randFloat(FRUIT_HORIZONTAL_MIN, FRUIT_HORIZONTAL_MAX);
@@ -126,15 +148,15 @@ static void spawnFruit(shared_ptr<Model>& fruitModel, shared_ptr<Model>& slice1M
 }
 
 static void spawnApple() {
-	spawnFruit(appleModel, appleTopModel, appleBottomModel, fruitSliceAudio, APPLE_SIZE);
+	spawnFruit(appleModel, appleTopModel, appleBottomModel, fruitSliceAudio, glm::vec4(1, 1, 1, 1), APPLE_SIZE);
 }
 
 static void spawnPineapple() {
-	spawnFruit(pineappleModel, pineappleTopModel, pineappleBottomModel, fruitSliceAudio, PINEAPPLE_SIZE);
+	spawnFruit(pineappleModel, pineappleTopModel, pineappleBottomModel, fruitSliceAudio, glm::vec4(1, 1, 0, 1), PINEAPPLE_SIZE);
 }
 
 static void spawnWatermelon() {
-	spawnFruit(watermelonModel, watermelonTopModel, watermelonBottomModel, largeFruitSliceAudio, WATERMELON_SIZE);
+	spawnFruit(watermelonModel, watermelonTopModel, watermelonBottomModel, largeFruitSliceAudio, glm::vec4(1, 0, 0, 1), WATERMELON_SIZE);
 }
 
 static vector<function<void()>> spawners = {spawnApple, spawnPineapple, spawnWatermelon};
@@ -151,28 +173,17 @@ static shared_ptr<Object> particle;
 
 void initGame() {
 	loadAudio();
+	loadTextures();
 	loadModels();
 
-	state = State::START;
+	fruitSliceParticlePool = new ObjectPool<Object>(50, createFruitParticle);
 
-	particle = Object::Create();
-	particle->transform.SetPosition(glm::vec3(0, 2, 0));
-	ParticleSystem* system = particle->AddComponent<ParticleSystem>(200);
-	system->useGravity = true;
-	GLuint image = textureFromFile("smoke3.png", "images");
-	system->SetTexture(image);
-	system->spawnFrequency = 0;
-	system->scale = glm::vec3(1, 1, 1);
-	system->spawnFrequency = 1;
-	system->spawnAmount = 50;
-	system->spawnDirection = glm::vec3(0, 10, 0);
-	system->maxSpawnDirectionDeviation = 180;
-	system->SetParticleLifeTime(2, 3);
+	state = State::START;
 
 	// Start Game Button
 	startGame = Object::Create();
 	startGame->AddComponent<Renderer>(watermelonModel);
-	startGame->AddComponent<Fruit>(WATERMELON_SIZE, 0, watermelonTopModel, watermelonBottomModel);
+	startGame->AddComponent<Fruit>(WATERMELON_SIZE, 0, *fruitSliceParticlePool, watermelonTopModel, watermelonBottomModel);
 	Rigidbody* rigidbody = startGame->AddComponent<Rigidbody>();
 	rigidbody->useGravity = false;
 	glm::vec3 torque(
@@ -185,7 +196,7 @@ void initGame() {
 	// Exit button
 	exitGame = Object::Create();
 	exitGame->AddComponent<Renderer>(appleModel);
-	exitGame->AddComponent<Fruit>(APPLE_SIZE, 0, appleTopModel, appleBottomModel);
+	exitGame->AddComponent<Fruit>(APPLE_SIZE, 0, *fruitSliceParticlePool, appleTopModel, appleBottomModel);
 	rigidbody = exitGame->AddComponent<Rigidbody>();
 	rigidbody->useGravity = false;
 	torque = glm::vec3(
@@ -199,7 +210,7 @@ void initGame() {
 	restart = Object::Create();
 	restart->SetEnable(false);
 	restart->AddComponent<Renderer>(pineappleModel);
-	restart->AddComponent<Fruit>(PINEAPPLE_SIZE, 0, pineappleTopModel, pineappleBottomModel);
+	restart->AddComponent<Fruit>(PINEAPPLE_SIZE, 0, *fruitSliceParticlePool, pineappleTopModel, pineappleBottomModel);
 	rigidbody = restart->AddComponent<Rigidbody>();
 	rigidbody->useGravity = false;
 	torque = glm::vec3(

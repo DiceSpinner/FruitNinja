@@ -24,16 +24,17 @@ private:
 	unsigned int maxCount;
 	float maxLifeTime;
 	float minLifeTime;
-	GLuint texture;
 	float spawnCounter;
 	bool init;
 public:
-	bool useGravity, is3D;
+	GLuint texture;
+	bool useGravity, is3D, disableOnFinish;
 	float spawnFrequency;
 	unsigned int spawnAmount;
 	glm::vec3 spawnDirection;
 	float maxSpawnDirectionDeviation;
 	glm::vec3 scale;
+	glm::vec4 color;
 
 	static void DrawParticles(Shader& shader);
 
@@ -42,7 +43,6 @@ public:
 		unsigned int maxParticleCount, std::function<void(Particle&)> particleModifier = {}
 	);
 	void SpawnParticle(glm::vec3 pos, glm::vec3 velocity);
-	void SetTexture(GLuint texture);
 	void SetParticleLifeTime(float min, float max);
 	void Draw(Shader& shader) const;
 	void FixedUpdate() override;

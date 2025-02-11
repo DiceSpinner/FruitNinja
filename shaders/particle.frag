@@ -4,7 +4,6 @@ in vec4 colorMod;
 out vec4 FragColor;
  
 uniform sampler2D image;
-uniform vec4 textColor;
 
 void main()
 {

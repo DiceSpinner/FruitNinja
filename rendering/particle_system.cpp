@@ -1,6 +1,7 @@
 #include <glm/ext.hpp>
 #include "../state/time.hpp"
 #include "particle_system.hpp"
+#include "../core/object.hpp"
 
 using namespace std;
 
@@ -12,7 +13,7 @@ static const GLfloat quadData[] = {
 };
 
 static vector<ParticleSystem*>* activeSystems = new vector<ParticleSystem*>;
-static glm::vec3 Gravity(0, -10, 0);
+static glm::vec3 Gravity(0, -25, 0);
 
 static float randFloat(float min, float max) {
 	return rand() / static_cast<float>(RAND_MAX) * (max - min) + min;
@@ -42,8 +43,8 @@ void ParticleSystem::DrawParticles(Shader& shader) {
 
 ParticleSystem::ParticleSystem(unordered_map<type_index, unique_ptr<Component>>& collection, Transform& transform, Object* object, unsigned int maxParticleCount, function<void(Particle&)> particleModifier)
 	: Component(collection, transform, object), maxCount(maxParticleCount), minLifeTime(1), maxLifeTime(1), particleModifier(particleModifier), init(true),
-	inactiveParticles(maxParticleCount), activeParticles(0), texture(0), useGravity(true), is3D(true),
-	maxSpawnDirectionDeviation(45), spawnDirection(0, 1, 0),
+	inactiveParticles(maxParticleCount), activeParticles(0), texture(0), useGravity(true), is3D(true), disableOnFinish(false),
+	maxSpawnDirectionDeviation(45), spawnDirection(0, 1, 0), color(1, 1, 1, 1),
 	spawnFrequency(1), spawnCounter(0), scale(1, 1, 1), spawnAmount(0),
 	VAO(0), offsetVertexBuffer(0), quadBuffer(0), localScaleBuffer(0)
 {
@@ -82,10 +83,6 @@ ParticleSystem::ParticleSystem(unordered_map<type_index, unique_ptr<Component>>&
 	glBindVertexArray(0);
 }
 
-void ParticleSystem::SetTexture(GLuint texture) {
-	this->texture = texture;
-}
-
 void ParticleSystem::SetParticleLifeTime(float min, float max) {
 	if (min <= max) {
 		minLifeTime = min;
@@ -111,6 +108,10 @@ void ParticleSystem::FixedUpdate() {
 		for (auto i = 0; i < spawnAmount; i++) {
 			SpawnParticle(glm::vec3(0, 0, 0), glm::length(spawnDirection) * randomUnitVectorInCone(spawnDirection, maxSpawnDirectionDeviation));
 		}
+		return;
+	}
+	if (disableOnFinish && !spawnFrequency && activeParticles.empty()) {
+		object->SetEnable(false);
 		return;
 	}
 
@@ -153,7 +154,7 @@ void ParticleSystem::FixedUpdate() {
 				float opacity = i->timeLived < quater ? i->timeLived / quater : (remainder - i->timeLived + quater) / remainder;
 				float size = i->timeLived < quater ? i->timeLived / quater : 1;
 				i->scale = glm::vec3(size, size, size);
-				i->color = glm::vec4(1, 1, 1, opacity);
+				i->color = color * glm::vec4(1, 1, 1, opacity);
 			}
 			else {
 				particleModifier(*i);

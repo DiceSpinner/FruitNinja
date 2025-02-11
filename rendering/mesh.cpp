@@ -26,6 +26,8 @@ GLuint textureFromFile(const char* path, string directory) {
 		GLenum format = GL_RED;
 		if (nrComponents == 1)
 			format = GL_RED;
+		else if (nrComponents == 2)
+			format = GL_RG;
 		else if (nrComponents == 3)
 			format = GL_RGB;
 		else if (nrComponents == 4)
@@ -34,6 +36,13 @@ GLuint textureFromFile(const char* path, string directory) {
 		glBindTexture(GL_TEXTURE_2D, texture);
 		glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
 		glGenerateMipmap(GL_TEXTURE_2D);
+
+		if (format == GL_RG) {
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_R, GL_RED);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_G, GL_RED);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_B, GL_RED);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_A, GL_GREEN);
+		}
 
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);

@@ -4,6 +4,7 @@
 #include "../physics/rigidbody.hpp"
 #include "../rendering/renderer.hpp"
 #include "../rendering/camera.hpp"
+#include "../rendering/particle_system.hpp"
 #include "../settings/fruitspawn.hpp"
 #include "../state/cursor.hpp"
 #include "../state/state.hpp"
@@ -15,11 +16,31 @@
 
 using namespace std;
 
-Fruit::Fruit(std::unordered_map<std::type_index, std::unique_ptr<Component>>& components, Transform& transform, Object* object,
-	float radius, int score, shared_ptr<Model> slice1, shared_ptr<Model> slice2, shared_ptr<AudioClip> clipOnSliced, shared_ptr<AudioClip> clipOnMissed) :
-	Component(components, transform, object), radius(radius), reward(score), slice1(slice1), slice2(slice2), clipOnSliced(clipOnSliced), clipOnMissed(clipOnMissed)
+Fruit::Fruit(
+	unordered_map<type_index, unique_ptr<Component>>& components, Transform& transform, Object* object,
+	float radius, int score, 
+	ObjectPool<Object>& particlePool, 
+	shared_ptr<Model> slice1, 
+	shared_ptr<Model> slice2, 
+	shared_ptr<AudioClip> clipOnSliced, 
+	shared_ptr<AudioClip> clipOnMissed) :
+	Component(components, transform, object), radius(radius), reward(score), color(1, 1, 1, 1),
+	particlePool(particlePool), slice1(slice1), slice2(slice2), clipOnSliced(clipOnSliced), 
+	clipOnMissed(clipOnMissed), slicedParticleTexture(0)
 {
 
+}
+
+void Fruit::PlayVFX() const {
+	if (!slicedParticleTexture) {
+		return;
+	}
+	shared_ptr<Object> particleSystemObj = particlePool.Acquire();
+	particleSystemObj->SetEnable(true);
+	particleSystemObj->transform.SetPosition(transform.position());
+	ParticleSystem* particleSystem = particleSystemObj->GetComponent<ParticleSystem>();
+	particleSystem->texture = slicedParticleTexture;
+	particleSystem->color = color;
 }
 
 bool Fruit::CursorInContact() { // Sphere collision check
@@ -53,6 +74,7 @@ void Fruit::Update() {
 
 	if (CursorInContact()) {
 		// cout << "Fruit Sliced\n";
+		PlayVFX();
 		if (Game::state == State::GAME) {
 			Game::score += this->reward;
 			int quotient = Game::score / 50;

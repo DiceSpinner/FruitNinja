@@ -17,7 +17,7 @@ struct Particle {
 
 class ParticleSystem : public Component {
 private:
-	GLuint VAO, quadBuffer, offsetVertexBuffer, localScaleBuffer, colorModifierBuffer;
+	GLuint VAO, quadBuffer, positionVertexBuffer, localScaleBuffer, colorModifierBuffer;
 	std::list<Particle> inactiveParticles;
 	std::list<Particle> activeParticles;
 	std::function<void(Particle&)> particleModifier;
@@ -27,6 +27,7 @@ private:
 	float spawnCounter;
 	bool init;
 public:
+	glm::vec3 offsetFromObject;
 	GLuint texture;
 	bool useGravity, is3D, disableOnFinish;
 	float spawnFrequency;

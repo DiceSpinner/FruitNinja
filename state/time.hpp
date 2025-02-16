@@ -1,10 +1,13 @@
 #ifndef TIME_H
 #define TIME_H
-constexpr int PHYSICS_FPS = 60;
-
-void updateTime();
-float deltaTime();
-float fixedDeltaTime();
-float time();
-bool checkShouldPhysicsUpdate();
+namespace Time {
+	constexpr int PHYSICS_FPS = 60;
+	extern float timeScale;
+	void updateTime();
+	float deltaTime();
+	float unscaledDeltaTime();
+	float fixedDeltaTime();
+	float time();
+	bool checkShouldPhysicsUpdate();
+}
 #endif

@@ -10,6 +10,7 @@
 
 using namespace std;
 using namespace Game;
+using namespace Time;
 
 static glm::vec4 scoreColor(1, 1, 0, 1);
 static glm::vec4 startColor(0, 1, 0, 1);
@@ -342,7 +343,7 @@ void drawFrontUI(Shader& shader) {
 			}
 		}
 	}
-	else {
+	else if (Game::state == State::SCORE) {
 		shader.SetVec4("textColor", restartColor);
 		restartButton.DrawInNDC(START_BUTTON_POS, shader);
 

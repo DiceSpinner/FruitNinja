@@ -3,6 +3,7 @@
 enum State {
 	START,
 	GAME,
+	EXPLOSION,
 	SCORE
 };
 
@@ -11,6 +12,7 @@ namespace Game {
 	extern int score;
 	extern int misses;
 	extern int recovery;
+	extern bool bombHit;
 	extern bool recentlyRecovered;
 }
 #endif

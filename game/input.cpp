@@ -6,6 +6,7 @@
 #include "../state/time.hpp"
 
 using namespace Game;
+using namespace Time;
 
 static double pitch = 0;
 static double yaw = 0;

@@ -4,6 +4,7 @@
 #include "../core/object.hpp"
 
 using namespace std;
+using namespace Time;
 
 static const GLfloat quadData[] = {
  -0.5f, -0.5f, 0.0f,
@@ -13,7 +14,7 @@ static const GLfloat quadData[] = {
 };
 
 static vector<ParticleSystem*>* activeSystems = new vector<ParticleSystem*>;
-static glm::vec3 Gravity(0, -25, 0);
+static glm::vec3 Gravity(0, -15, 0);
 
 static float randFloat(float min, float max) {
 	return rand() / static_cast<float>(RAND_MAX) * (max - min) + min;
@@ -44,9 +45,9 @@ void ParticleSystem::DrawParticles(Shader& shader) {
 ParticleSystem::ParticleSystem(unordered_map<type_index, unique_ptr<Component>>& collection, Transform& transform, Object* object, unsigned int maxParticleCount, function<void(Particle&)> particleModifier)
 	: Component(collection, transform, object), maxCount(maxParticleCount), minLifeTime(1), maxLifeTime(1), particleModifier(particleModifier), init(true),
 	inactiveParticles(maxParticleCount), activeParticles(0), texture(0), useGravity(true), is3D(true), disableOnFinish(false),
-	maxSpawnDirectionDeviation(45), spawnDirection(0, 1, 0), color(1, 1, 1, 1),
+	offsetFromObject(0), maxSpawnDirectionDeviation(45), spawnDirection(0, 1, 0), color(1, 1, 1, 1),
 	spawnFrequency(1), spawnCounter(0), scale(1, 1, 1), spawnAmount(0),
-	VAO(0), offsetVertexBuffer(0), quadBuffer(0), localScaleBuffer(0)
+	VAO(0), positionVertexBuffer(0), quadBuffer(0), localScaleBuffer(0)
 {
 	glGenVertexArrays(1, &VAO);
 	glBindVertexArray(VAO);
@@ -58,8 +59,8 @@ ParticleSystem::ParticleSystem(unordered_map<type_index, unique_ptr<Component>>&
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
 
 	glEnableVertexAttribArray(1);
-	glGenBuffers(1, &offsetVertexBuffer);
-	glBindBuffer(GL_ARRAY_BUFFER, offsetVertexBuffer);
+	glGenBuffers(1, &positionVertexBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, positionVertexBuffer);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 3 * maxCount, nullptr, GL_DYNAMIC_DRAW);
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
 
@@ -106,7 +107,7 @@ void ParticleSystem::FixedUpdate() {
 	if (init) {
 		init = false;
 		for (auto i = 0; i < spawnAmount; i++) {
-			SpawnParticle(glm::vec3(0, 0, 0), glm::length(spawnDirection) * randomUnitVectorInCone(spawnDirection, maxSpawnDirectionDeviation));
+			SpawnParticle(transform.position() + glm::vec3(transform.rotation() * glm::vec4(offsetFromObject, 0)), glm::length(spawnDirection) * randomUnitVectorInCone(transform.rotation() * glm::vec4(spawnDirection, 0), maxSpawnDirectionDeviation));
 		}
 		return;
 	}
@@ -121,13 +122,13 @@ void ParticleSystem::FixedUpdate() {
 	auto spawnFreqRecp = spawnFrequency ? (1 / spawnFrequency) : 1;
 	while(spawnCounter >= spawnFreqRecp) {
 		for (auto i = 0; i < spawnAmount; i++) {
-			SpawnParticle(glm::vec3(0, 0, 0), glm::length(spawnDirection) * randomUnitVectorInCone(spawnDirection, maxSpawnDirectionDeviation));
+			SpawnParticle(transform.position() + glm::vec3(transform.rotation() * glm::vec4(offsetFromObject, 0)), glm::length(spawnDirection) * randomUnitVectorInCone(transform.rotation() * glm::vec4(spawnDirection, 0), maxSpawnDirectionDeviation));
 		}
 		spawnCounter -= spawnFreqRecp;
 	}
 
-	glBindBuffer(GL_ARRAY_BUFFER, offsetVertexBuffer);
-	glm::vec3* offset = static_cast<glm::vec3*>(glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY));
+	glBindBuffer(GL_ARRAY_BUFFER, positionVertexBuffer);
+	glm::vec3* position = static_cast<glm::vec3*>(glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY));
 	glBindBuffer(GL_ARRAY_BUFFER, localScaleBuffer);
 	glm::vec3* localScale = static_cast<glm::vec3*>(glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY));
 	glBindBuffer(GL_ARRAY_BUFFER, colorModifierBuffer);
@@ -160,7 +161,7 @@ void ParticleSystem::FixedUpdate() {
 				particleModifier(*i);
 			}
 
-			offset[index] = i->pos;
+			position[index] = i->pos;
 			colorBuffer[index] = i->color;
 			localScale[index++] = i->scale;
 			i++;
@@ -170,7 +171,7 @@ void ParticleSystem::FixedUpdate() {
 	glUnmapBuffer(GL_ARRAY_BUFFER);
 	glBindBuffer(GL_ARRAY_BUFFER, localScaleBuffer);
 	glUnmapBuffer(GL_ARRAY_BUFFER);
-	glBindBuffer(GL_ARRAY_BUFFER, offsetVertexBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, positionVertexBuffer);
 	glUnmapBuffer(GL_ARRAY_BUFFER);
 }
 
@@ -181,7 +182,6 @@ void ParticleSystem::Draw(Shader& shader) const {
 	glActiveTexture(GL_TEXTURE0);
 	shader.SetInt("image", 0);
 	glBindTexture(GL_TEXTURE_2D, texture);
-	glUniform3fv(glGetUniformLocation(shader.ID, "worldPos"), 1, glm::value_ptr(transform.position()));
 	glUniform3fv(glGetUniformLocation(shader.ID, "scale"), 1, glm::value_ptr(scale));
 
 	glBindVertexArray(VAO);
@@ -200,6 +200,6 @@ void ParticleSystem::OnDisabled() {
 
 ParticleSystem::~ParticleSystem() {
 	glDeleteBuffers(1, &quadBuffer);
-	glDeleteBuffers(1, &offsetVertexBuffer);
+	glDeleteBuffers(1, &positionVertexBuffer);
 	glDeleteVertexArrays(1, &VAO);
 }

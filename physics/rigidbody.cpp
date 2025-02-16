@@ -7,6 +7,7 @@
 #include <glm/gtx/string_cast.hpp>
 
 using namespace std;
+using namespace Time;
 
 const glm::vec3 Rigidbody::Gravity(0, -25, 0);
 Rigidbody::Rigidbody(unordered_map<type_index, unique_ptr<Component>>& components, Transform& transform, Object* object) :

@@ -5,30 +5,22 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
 #include <iostream>
-#include <fstream>
-#include <vector>
 #include "core/context.hpp"
 #include "core/object.hpp"
 #include "core/input.hpp"
 #include "state/time.hpp"
-#include "state/cursor.hpp"
 #include "state/window.hpp"
-#include "state/state.hpp"
 #include "rendering/shader.hpp"
-#include "audio/audiosource.hpp"
 #include "rendering/camera.hpp"
 #include "rendering/renderer.hpp"
 #include "rendering/particle_system.hpp"
-#include "physics/rigidbody.hpp"
 #include "game/fruit.hpp"
-#include "core/ui.hpp"
 #include "settings/fruitsize.hpp"
 #include "game/game.hpp"
 #include "game/frontUI.hpp"
 #include "game/backUI.hpp"
 
 using namespace std;
-using namespace Game;
 
 const char* objVertexPath = "shaders/object.vert";
 const char* objFragPath = "shaders/object.frag";
@@ -66,12 +58,11 @@ int main() {
     initGame();
     initFrontUI();
     initBackUI();
-    vector<shared_ptr<Object>> objects = {};
 
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
-        updateTime();
+        Time::updateTime();
         
         glClearColor(0.4f, 0.2f, 0, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -82,7 +73,7 @@ int main() {
 
         Object::ActivateNewlyEnabledObjects();
 
-        if (checkShouldPhysicsUpdate()) {
+        if (Time::checkShouldPhysicsUpdate()) {
             Object::ExecuteEarlyFixedUpdate();
             Object::ExecuteFixedUpdate();
         }

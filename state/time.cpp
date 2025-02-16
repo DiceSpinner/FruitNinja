@@ -4,46 +4,57 @@
 using namespace std;
 static float currTime = 0;
 static float cdeltaTime = 0;
+static float usDeltaTime = 0;
 static bool init = true;
 static float fixedUpdateDelta = 0;
 static float lastFixedUpdate = 0;
 static float fixedUpdateAccumulator = 0;
 static bool shouldPhysicsUpdate = false;
 
-void updateTime() {
-	float currentTime = glfwGetTime();
-	if (init) {
-		init = false;
-		cdeltaTime = 0;
-	}
-	else {
-		cdeltaTime = currentTime - currTime;
-	}
-	currTime = currentTime;
-	fixedUpdateAccumulator += cdeltaTime;
-	if (fixedUpdateAccumulator >= 1.0f / PHYSICS_FPS) {
-		fixedUpdateDelta = currTime - lastFixedUpdate;
-		lastFixedUpdate = currTime;
-		fixedUpdateAccumulator -= 1.0f / PHYSICS_FPS;
-		shouldPhysicsUpdate = true;
-	}
-	else {
-		shouldPhysicsUpdate = false;
-	}
-}
+namespace Time {
+	float timeScale = 1;
 
-float time() {
-	return currTime;
-}
+	void updateTime() {
+		float currentTime = glfwGetTime();
+		if (init) {
+			init = false;
+			cdeltaTime = 0;
+		}
+		else {
+			cdeltaTime = currentTime - currTime;
+		}
+		usDeltaTime = cdeltaTime;
+		cdeltaTime *= timeScale;
+		currTime = currentTime;
+		fixedUpdateAccumulator += cdeltaTime;
+		if (fixedUpdateAccumulator >= 1.0f / PHYSICS_FPS) {
+			fixedUpdateDelta = currTime - lastFixedUpdate;
+			lastFixedUpdate = currTime;
+			fixedUpdateAccumulator -= 1.0f / PHYSICS_FPS;
+			shouldPhysicsUpdate = true;
+		}
+		else {
+			shouldPhysicsUpdate = false;
+		}
+	}
 
-float deltaTime() {
-	return cdeltaTime;
-}
+	float time() {
+		return currTime;
+	}
 
-float fixedDeltaTime() {
-	return fixedUpdateDelta;
-}
+	float deltaTime() {
+		return cdeltaTime;
+	}
 
-bool checkShouldPhysicsUpdate() {
-	return shouldPhysicsUpdate;
+	float unscaledDeltaTime() {
+		return usDeltaTime;
+	}
+
+	float fixedDeltaTime() {
+		return fixedUpdateDelta;
+	}
+
+	bool checkShouldPhysicsUpdate() {
+		return shouldPhysicsUpdate;
+	}
 }

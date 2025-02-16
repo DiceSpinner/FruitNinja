@@ -6,6 +6,7 @@
 #include "../core/object_pool.hpp"
 #include "game.hpp"
 #include "fruit.hpp"
+#include "bomb.hpp"
 #include "../audio/audio_clip.hpp"
 #include "../settings/fruitsize.hpp"
 #include "../settings/fruitspawn.hpp"
@@ -25,22 +26,11 @@
 
 using namespace std;
 using namespace Game;
+using namespace Time;
 
 // Resource path
 static const char* unitCube = "models/unit_cube.obj";
 static const char* unitSphere = "models/unit_sphere.obj";
-
-static const char* apple = "models/fruits/apple.obj";
-static const char* appleTop = "models/fruits/apple_top.obj";
-const char* appleBottom = "models/fruits/apple_bottom.obj";
-
-static const char* pineapple = "models/fruits/pineapple.obj";
-static const char* pineappleTop = "models/fruits/pineapple_top.obj";
-static const char* pineappleBottom = "models/fruits/pineapple_bottom.obj";
-
-static const char* watermelon = "models/fruits/watermelon.obj";
-static const char* watermelonTop = "models/fruits/watermelon_top.obj";
-static const char* watermelonBottom = "models/fruits/watermelon_bottom.obj";
 
 // Audio
 static shared_ptr<AudioClip> fruitSliceAudio;
@@ -51,6 +41,8 @@ static shared_ptr<AudioClip> gameOverAudio;
 static shared_ptr<AudioClip> fruitMissAudio;
 static shared_ptr<AudioClip> fruitSpawnAudio;
 static shared_ptr<AudioClip> recoveryAudio;
+static shared_ptr<AudioClip> explosionAudio;
+static shared_ptr<AudioClip> fuseAudio;
 
 static void loadAudio() {
 	fruitSliceAudio = make_shared<AudioClip>("sounds/onhit.wav");
@@ -61,6 +53,8 @@ static void loadAudio() {
 	fruitMissAudio = make_shared<AudioClip>("sounds/gank.wav");
 	fruitSpawnAudio = make_shared<AudioClip>("sounds/Throw-fruit.wav");
 	recoveryAudio = make_shared<AudioClip>("sounds/extra-life.wav");
+	explosionAudio = make_shared<AudioClip>("sounds/Bomb-explode.wav");
+	fuseAudio = make_shared<AudioClip>("sounds/Bomb-Fuse.wav");
 }
 
 // Models
@@ -76,23 +70,29 @@ static shared_ptr<Model> watermelonModel;
 static shared_ptr<Model> watermelonTopModel;
 static shared_ptr<Model> watermelonBottomModel;
 
+static shared_ptr<Model> bombModel;
+
 static void loadModels() {
-	appleModel = make_shared<Model>(apple);
-	appleTopModel = make_shared<Model>(appleTop);
-	appleBottomModel = make_shared<Model>(appleBottom);
+	bombModel = make_shared<Model>("models/bomb.obj");
 
-	pineappleModel = make_shared<Model>(pineapple);
-	pineappleTopModel = make_shared<Model>(pineappleTop);
-	pineappleBottomModel = make_shared<Model>(pineappleBottom);
+	appleModel = make_shared<Model>("models/fruits/apple.obj");
+	appleTopModel = make_shared<Model>("models/fruits/apple_top.obj");
+	appleBottomModel = make_shared<Model>("models/fruits/apple_bottom.obj");
 
-	watermelonModel = make_shared<Model>(watermelon);
-	watermelonTopModel = make_shared<Model>(watermelonTop);
-	watermelonBottomModel = make_shared<Model>(watermelonBottom);
+	pineappleModel = make_shared<Model>("models/fruits/pineapple.obj");
+	pineappleTopModel = make_shared<Model>("models/fruits/pineapple_top.obj");
+	pineappleBottomModel = make_shared<Model>("models/fruits/pineapple_bottom.obj");
+
+	watermelonModel = make_shared<Model>("models/fruits/watermelon.obj");
+	watermelonTopModel = make_shared<Model>("models/fruits/watermelon_top.obj");
+	watermelonBottomModel = make_shared<Model>("models/fruits/watermelon_bottom.obj");
 }
 
 static GLuint sliceParticleTexture;
+static GLuint sparkTexture;
 static void loadTextures() {
 	sliceParticleTexture = textureFromFile("droplet.png", "images");
+	sparkTexture = textureFromFile("spark.png", "images");
 }
 
 static ObjectPool<Object>* fruitSliceParticlePool;
@@ -159,17 +159,71 @@ static void spawnWatermelon() {
 	spawnFruit(watermelonModel, watermelonTopModel, watermelonBottomModel, largeFruitSliceAudio, glm::vec4(1, 0, 0, 1), WATERMELON_SIZE);
 }
 
-static vector<function<void()>> spawners = {spawnApple, spawnPineapple, spawnWatermelon};
+static void sparkParticleModifier(Particle& particle) {
+	particle.color.a = 1;
+}
+
+static void spawnBomb() {
+	shared_ptr<Object> bomb = Object::Create();
+
+	auto renderer = bomb->AddComponent<Renderer>(bombModel);
+	renderer->drawOverlay = true;
+	bomb->AddComponent<Bomb>(explosionAudio, BOMB_SIZE);
+
+	AudioSource* audioSource = bomb->AddComponent<AudioSource>();
+	audioSource->SetAudioClip(fuseAudio);
+	audioSource->SetLoopEnabled(true);
+	audioSource->Play();
+
+	Rigidbody* rb = bomb->AddComponent<Rigidbody>();
+	float upForce = randFloat(FRUIT_UP_MIN, FRUIT_UP_MAX);
+	float horizontalForce = randFloat(FRUIT_HORIZONTAL_MIN, FRUIT_HORIZONTAL_MAX);
+	rb->AddForce(glm::vec3(horizontalForce, upForce, 0), ForceMode::Impulse);
+
+	glm::vec3 torque(
+		randFloat(SPAWN_X_ROT_MIN, SPAWN_X_ROT_MAX),
+		randFloat(SPAWN_Y_ROT_MIN, SPAWN_Y_ROT_MAX),
+		randFloat(SPAWN_Z_ROT_MIN, SPAWN_Z_ROT_MAX)
+	);
+
+	rb->AddRelativeTorque(torque, ForceMode::Impulse);
+	float startX = randFloat(FRUIT_SPAWN_CENTER - FRUIT_SPAWN_WIDTH / 2, FRUIT_SPAWN_CENTER + FRUIT_SPAWN_WIDTH / 2);
+	glm::vec3 position(startX, FRUIT_SPAWN_HEIGHT, 0);
+	// cout << "Spawn at " << glm::to_string(position) << "\n";
+	rb->transform.SetPosition(position);
+
+	auto audioSourceObj = acquireAudioSource();
+	if (audioSourceObj) {
+		auto source = audioSourceObj->GetComponent<AudioSource>();
+		source->SetAudioClip(fruitSpawnAudio);
+		source->Play();
+	}
+
+	ParticleSystem* system = bomb->AddComponent<ParticleSystem>(50);
+	system->SetParticleLifeTime(0.5, 0.5);
+	system->texture = sparkTexture;
+	system->spawnAmount = 4;
+	system->spawnFrequency = 10;
+	system->offsetFromObject = glm::vec3(0, 1, 0);
+	system->maxSpawnDirectionDeviation = 30;
+	system->useGravity = false;
+	system->spawnDirection = glm::vec3(0, 1, 0);
+}
+
+static vector<function<void()>> spawners = {spawnApple, spawnPineapple, spawnWatermelon, spawnBomb};
 
 static float spawnCooldown = 1;
 static float spawnTimer = 0;
+
+static float explosionDuration = 2;
+static float explosionTimer = 0;
 
 static shared_ptr<Object> startGame;
 static shared_ptr<Object> exitGame;
 static shared_ptr<Object> restart;
 
 static shared_ptr<Object> camera;
-static shared_ptr<Object> particle;
+static shared_ptr<Object> explosionParticle;
 
 void initGame() {
 	loadAudio();
@@ -195,8 +249,8 @@ void initGame() {
 
 	// Exit button
 	exitGame = Object::Create();
-	exitGame->AddComponent<Renderer>(appleModel);
-	exitGame->AddComponent<Fruit>(APPLE_SIZE, 0, *fruitSliceParticlePool, appleTopModel, appleBottomModel);
+	exitGame->AddComponent<Renderer>(bombModel);
+	exitGame->AddComponent<Fruit>(BOMB_SIZE, 0, *fruitSliceParticlePool);
 	rigidbody = exitGame->AddComponent<Rigidbody>();
 	rigidbody->useGravity = false;
 	torque = glm::vec3(
@@ -252,6 +306,7 @@ static void enterGame() {
 	spawnTimer = 0;
 	misses = 0;
 	recovery = 0;
+	bombHit = false;
 	camera->GetComponent<AudioSource>()->Pause();
 	auto source = acquireAudioSource();
 	if (source) {
@@ -259,6 +314,13 @@ static void enterGame() {
 		audioSource->SetAudioClip(gameStartAudio);
 		audioSource->Play();
 	}
+}
+
+
+static void enterExplosion(){
+	state = State::EXPLOSION;
+	Time::timeScale = 0;
+	explosionTimer = 0;
 }
 
 static void enterScore() {
@@ -307,9 +369,13 @@ static void processGame() {
 		spawnCooldown = round(randFloat(SPAWN_COOLDOWN_MIN, SPAWN_COOLDOWN_MAX));
 		spawnTimer = 0;
 	}
-	if (misses >= MISS_TOLERENCE) {
+	if (bombHit) {
+		enterExplosion();
+	}
+	else if (misses >= MISS_TOLERENCE) {
 		enterScore();
 	}
+
 	if (recentlyRecovered) {
 		recentlyRecovered = false;
 		auto source = acquireAudioSource();
@@ -318,6 +384,14 @@ static void processGame() {
 			audioSource->SetAudioClip(recoveryAudio);
 			audioSource->Play();
 		}
+	}
+}
+
+static void processExplosion() {
+	explosionTimer += unscaledDeltaTime();
+	if (explosionTimer > explosionDuration) {
+		Time::timeScale = 1;
+		enterScore();
 	}
 }
 
@@ -337,6 +411,9 @@ void gameStep() {
 			break;
 		case State::GAME:
 			processGame();
+			break;
+		case State::EXPLOSION:
+			processExplosion();
 			break;
 		case State::SCORE:
 			processScore();

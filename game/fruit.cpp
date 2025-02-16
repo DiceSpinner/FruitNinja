@@ -6,9 +6,9 @@
 #include "../rendering/camera.hpp"
 #include "../rendering/particle_system.hpp"
 #include "../settings/fruitspawn.hpp"
-#include "../state/cursor.hpp"
 #include "../state/state.hpp"
 #include "../core/object.hpp"
+#include "util.hpp"
 #include "fruitslice.hpp"
 
 #define GLM_ENABLE_EXPERIMENTAL
@@ -43,23 +43,13 @@ void Fruit::PlayVFX() const {
 	particleSystem->color = color;
 }
 
-bool Fruit::CursorInContact() { // Sphere collision check
-	glm::vec3 ray = getCursorRay();
-	glm::vec3 oc = Camera::main->transform.position() - transform.position();
-	float b = 2 * glm::dot(ray, oc);
-	glm::vec3 scale = transform.scale();
-	float c = glm::dot(oc, oc) - glm::pow(glm::max(scale.x, scale.y) * radius, 2);
-
-	return (glm::pow(b, 2) - 4 * c) > 0;
-}
-
 void Fruit::Update() {
 	glm::vec2 cursorDirection = getCursorPosDelta();
 	if (transform.position().y <= FRUIT_KILL_HEIGHT) {
 		if (this->reward > 0) {
 			Game::misses++;
 		}
-		if (clipOnMissed) {
+		if (Game::state == State::GAME && clipOnMissed) {
 			auto audioSourceObj = acquireAudioSource();
 			if (audioSourceObj) {
 				auto source = audioSourceObj->GetComponent<AudioSource>();
@@ -72,7 +62,7 @@ void Fruit::Update() {
 	}
 	if (!Game::mouseClicked || glm::length(cursorDirection) == 0) { return; }
 
-	if (CursorInContact()) {
+	if (isCursorInContact(transform, radius)) {
 		// cout << "Fruit Sliced\n";
 		PlayVFX();
 		if (Game::state == State::GAME) {
@@ -91,37 +81,39 @@ void Fruit::Update() {
 		// cout << "Score " << Game::score << "\n";
 		object->SetEnable(false);
 
-		shared_ptr<Object> slice1 = Object::Create();
-		slice1->AddComponent<Renderer>(this->slice1);
-		slice1->AddComponent<FruitSlice>();
-		auto r1 = slice1->AddComponent<Rigidbody>();
+		if (slice1 && slice2) {
+			shared_ptr<Object> topSlice = Object::Create();
+			topSlice->AddComponent<Renderer>(this->slice1);
+			topSlice->AddComponent<FruitSlice>();
+			auto r1 = topSlice->AddComponent<Rigidbody>();
 
-		shared_ptr<Object> slice2 = Object::Create();
-		slice2->AddComponent<Renderer>(this->slice2);
-		slice2->AddComponent<FruitSlice>();
-		auto r2 = slice2->AddComponent<Rigidbody>();
+			shared_ptr<Object> bottomSlice = Object::Create();
+			bottomSlice->AddComponent<Renderer>(this->slice2);
+			bottomSlice->AddComponent<FruitSlice>();
+			auto r2 = bottomSlice->AddComponent<Rigidbody>();
 
-		glm::vec3 sliceDirection = glm::vec3(cursorDirection, 0);
-		glm::vec3 up = glm::normalize(glm::cross(glm::vec3(0, 0, 1), sliceDirection));
-		
-		if (glm::dot(up, glm::vec3(0, 1, 0)) < 0) {
-			up = -up;
+			glm::vec3 sliceDirection = glm::vec3(cursorDirection, 0);
+			glm::vec3 up = glm::normalize(glm::cross(glm::vec3(0, 0, 1), sliceDirection));
+
+			if (glm::dot(up, glm::vec3(0, 1, 0)) < 0) {
+				up = -up;
+			}
+
+			Rigidbody* rb = GetComponent<Rigidbody>();
+			topSlice->transform.SetPosition(transform.position());
+			// slice1->transform.SetForward(transform.forward());
+			topSlice->transform.SetUp(up);
+			r1->velocity = rb->velocity;
+			r1->AddForce(FRUIT_SLICE_FORCE * up, ForceMode::Impulse);
+			r1->AddRelativeTorque(-180.0f * glm::vec3(1, 0, 0), ForceMode::Impulse);
+
+			bottomSlice->transform.SetPosition(transform.position());
+			// slice2->transform.SetForward(transform.forward());
+			bottomSlice->transform.SetUp(up);
+			r2->velocity = rb->velocity;
+			r2->AddForce(-FRUIT_SLICE_FORCE * up, ForceMode::Impulse);
+			r2->AddRelativeTorque(180.0f * glm::vec3(1, 0, 0), ForceMode::Impulse);
 		}
-
-		Rigidbody* rb = GetComponent<Rigidbody>();
-		slice1->transform.SetPosition(transform.position());
-		// slice1->transform.SetForward(transform.forward());
-		slice1->transform.SetUp(up);
-		r1->velocity = rb->velocity;
-		r1->AddForce(FRUIT_SLICE_FORCE * up, ForceMode::Impulse);
-		r1->AddRelativeTorque(-180.0f * glm::vec3(1, 0, 0), ForceMode::Impulse);
-
-		slice2->transform.SetPosition(transform.position());
-		// slice2->transform.SetForward(transform.forward());
-		slice2->transform.SetUp(up);
-		r2->velocity = rb->velocity;
-		r2->AddForce(-FRUIT_SLICE_FORCE * up, ForceMode::Impulse);
-		r2->AddRelativeTorque(180.0f * glm::vec3(1, 0, 0), ForceMode::Impulse);
 
 		if (clipOnSliced) {
 			auto audioSourceObj = acquireAudioSource();

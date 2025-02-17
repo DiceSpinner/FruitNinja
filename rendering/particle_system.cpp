@@ -21,16 +21,24 @@ static float randFloat(float min, float max) {
 }
 
 static glm::vec3 randomUnitVectorInCone(const glm::vec3& direction, float maxAngle) {
+	if (direction == glm::vec3(0, 0, 0)) {
+		return direction;
+	}
 	glm::vec3 result = glm::sphericalRand(1.0f);
-	while (glm::acos(glm::dot(result, direction)) > glm::radians(maxAngle)) {
+	auto allowance = glm::radians(maxAngle);
+	while (allowance && glm::acos(glm::dot(result, direction)) > glm::radians(maxAngle)) {
 		result = glm::sphericalRand(1.0f);
 	};
 	return result;
 }
 
 static glm::vec3 randomUnitVectorInCircle(const glm::vec3& direction, float maxAngle) {
+	if (direction == glm::vec3(0, 0, 0)) {
+		return direction;
+	}
 	glm::vec3 result = glm::vec3(glm::circularRand(1.0f), 0);
-	while (glm::acos(glm::dot(result, direction)) > glm::radians(maxAngle)) {
+	auto allowance = glm::radians(maxAngle);
+	while (allowance && glm::acos(glm::dot(result, direction)) > glm::radians(maxAngle)) {
 		result = glm::vec3(glm::circularRand(1.0f), 0);
 	};
 	return result;
@@ -42,12 +50,12 @@ void ParticleSystem::DrawParticles(Shader& shader) {
 	}
 }
 
-ParticleSystem::ParticleSystem(unordered_map<type_index, unique_ptr<Component>>& collection, Transform& transform, Object* object, unsigned int maxParticleCount, function<void(Particle&)> particleModifier)
+ParticleSystem::ParticleSystem(unordered_map<type_index, vector<unique_ptr<Component>>>& collection, Transform& transform, Object* object, unsigned int maxParticleCount, function<void(Particle&, ParticleSystem&)> particleModifier)
 	: Component(collection, transform, object), maxCount(maxParticleCount), minLifeTime(1), maxLifeTime(1), particleModifier(particleModifier), init(true),
 	inactiveParticles(maxParticleCount), activeParticles(0), texture(0), useGravity(true), is3D(true), disableOnFinish(false),
 	offsetFromObject(0), maxSpawnDirectionDeviation(45), spawnDirection(0, 1, 0), color(1, 1, 1, 1),
 	spawnFrequency(1), spawnCounter(0), scale(1, 1, 1), spawnAmount(0),
-	VAO(0), positionVertexBuffer(0), quadBuffer(0), localScaleBuffer(0)
+	VAO(0), positionVertexBuffer(0), quadBuffer(0), localScaleBuffer(0), upDirectionBuffer(0)
 {
 	glGenVertexArrays(1, &VAO);
 	glBindVertexArray(VAO);
@@ -75,11 +83,18 @@ ParticleSystem::ParticleSystem(unordered_map<type_index, unique_ptr<Component>>&
 	glBindBuffer(GL_ARRAY_BUFFER, colorModifierBuffer);
 	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 4 * maxCount, nullptr, GL_DYNAMIC_DRAW);
 	glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, 0, (void*)0);
+
+	glEnableVertexAttribArray(4);
+	glGenBuffers(1, &upDirectionBuffer);
+	glBindBuffer(GL_ARRAY_BUFFER, upDirectionBuffer);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 2 * maxCount, nullptr, GL_DYNAMIC_DRAW);
+	glVertexAttribPointer(4, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
 	
 	glVertexAttribDivisor(0, 0);
 	glVertexAttribDivisor(1, 1);
 	glVertexAttribDivisor(2, 1);
 	glVertexAttribDivisor(3, 1);
+	glVertexAttribDivisor(4, 1);
 
 	glBindVertexArray(0);
 }
@@ -91,15 +106,20 @@ void ParticleSystem::SetParticleLifeTime(float min, float max) {
 	}
 }
 
-void ParticleSystem::SpawnParticle(glm::vec3 pos, glm::vec3 velocity) {
+void ParticleSystem::SpawnParticle() {
 	if (!inactiveParticles.empty()) {
 		activeParticles.splice(activeParticles.end(), inactiveParticles, inactiveParticles.begin());
 		auto& particle = activeParticles.back();
 		particle.timeLived = 0;
 		particle.lifeTime = randFloat(minLifeTime, maxLifeTime);
-		particle.pos = pos;
-		particle.velocity = velocity;
+		particle.pos = transform.position() + glm::vec3(transform.rotation() * glm::vec4(offsetFromObject, 0));
+		particle.velocity = glm::length(spawnDirection) * randomUnitVectorInCone(transform.rotation() * glm::vec4(spawnDirection, 0), maxSpawnDirectionDeviation);
 		particle.color = glm::vec4(1, 1, 1, 0);
+		particle.up = particle.velocity;
+
+		if (particleModifier) {
+			particleModifier(particle, *this);
+		}
 	}
 }
 
@@ -107,7 +127,7 @@ void ParticleSystem::FixedUpdate() {
 	if (init) {
 		init = false;
 		for (auto i = 0; i < spawnAmount; i++) {
-			SpawnParticle(transform.position() + glm::vec3(transform.rotation() * glm::vec4(offsetFromObject, 0)), glm::length(spawnDirection) * randomUnitVectorInCone(transform.rotation() * glm::vec4(spawnDirection, 0), maxSpawnDirectionDeviation));
+			SpawnParticle();
 		}
 		return;
 	}
@@ -122,7 +142,7 @@ void ParticleSystem::FixedUpdate() {
 	auto spawnFreqRecp = spawnFrequency ? (1 / spawnFrequency) : 1;
 	while(spawnCounter >= spawnFreqRecp) {
 		for (auto i = 0; i < spawnAmount; i++) {
-			SpawnParticle(transform.position() + glm::vec3(transform.rotation() * glm::vec4(offsetFromObject, 0)), glm::length(spawnDirection) * randomUnitVectorInCone(transform.rotation() * glm::vec4(spawnDirection, 0), maxSpawnDirectionDeviation));
+			SpawnParticle();
 		}
 		spawnCounter -= spawnFreqRecp;
 	}
@@ -133,6 +153,8 @@ void ParticleSystem::FixedUpdate() {
 	glm::vec3* localScale = static_cast<glm::vec3*>(glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY));
 	glBindBuffer(GL_ARRAY_BUFFER, colorModifierBuffer);
 	glm::vec4* colorBuffer = static_cast<glm::vec4*>(glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY));
+	glBindBuffer(GL_ARRAY_BUFFER, upDirectionBuffer);
+	glm::vec2* upBuffer = static_cast<glm::vec2*>(glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY));
 	
 	// Update position and physics
 	unsigned int index = 0;
@@ -158,16 +180,19 @@ void ParticleSystem::FixedUpdate() {
 				i->color = color * glm::vec4(1, 1, 1, opacity);
 			}
 			else {
-				particleModifier(*i);
+				particleModifier(*i, *this);
 			}
 
 			position[index] = i->pos;
 			colorBuffer[index] = i->color;
+			upBuffer[index] = i->up;
 			localScale[index++] = i->scale;
 			i++;
 		}
 	}
 
+	glUnmapBuffer(GL_ARRAY_BUFFER);
+	glBindBuffer(GL_ARRAY_BUFFER, colorModifierBuffer);
 	glUnmapBuffer(GL_ARRAY_BUFFER);
 	glBindBuffer(GL_ARRAY_BUFFER, localScaleBuffer);
 	glUnmapBuffer(GL_ARRAY_BUFFER);

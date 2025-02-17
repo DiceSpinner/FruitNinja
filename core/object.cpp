@@ -17,7 +17,9 @@ void Object::ExecuteEarlyFixedUpdate() {
 	for (auto i = objectList.begin(); i != objectList.end();) {
 		auto& obj = *i;
 		for (auto& pair : obj->components) {
-			pair.second->EarlyFixedUpdate();
+			for (auto& cmp : pair.second) {
+				cmp->EarlyFixedUpdate();
+			}
 		}
 		if (obj->IsActive()) {
 			i++;
@@ -32,7 +34,9 @@ void Object::ExecuteFixedUpdate() {
 	for (auto i = objectList.begin(); i != objectList.end();) {
 		auto& obj = *i;
 		for (auto& pair : obj->components) {
-			pair.second->FixedUpdate();
+			for (auto& cmp : pair.second) {
+				cmp->FixedUpdate();
+			}
 		}
 		if (obj->IsActive()) {
 			i++;
@@ -47,7 +51,9 @@ void Object::ExecuteUpdate() {
 	for (auto i = objectList.begin(); i != objectList.end();) {
 		auto& obj = *i;
 		for (auto& pair : obj->components) {
-			pair.second->Update();
+			for (auto& cmp : pair.second) {
+				cmp->Update();
+			}
 		}
 		if (obj->IsActive()) {
 			i++;
@@ -75,13 +81,17 @@ void Object::SetEnable(bool value) {
 	if (!enabled) {
 		newObjectSet.emplace(enable_shared_from_this::shared_from_this());
 		for (auto& item : components) {
-			item.second->OnEnabled();
+			for (auto& cmp : item.second) {
+				cmp->OnEnabled();
+			}
 		}
 	}
 	else {
 		newObjectSet.erase(enable_shared_from_this::shared_from_this());
 		for (auto& item : components) {
-			item.second->OnDisabled();
+			for (auto& cmp : item.second) {
+				cmp->OnDisabled();
+			}
 		}
 	}
 	enabled = value;

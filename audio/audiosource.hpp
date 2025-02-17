@@ -12,7 +12,7 @@ private:
 public:
 	bool disableWhileNotPlaying;
 
-	AudioSource(std::unordered_map<std::type_index, std::unique_ptr<Component>>& components, Transform& transform, Object* object);
+	AudioSource(std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& components, Transform& transform, Object* object);
 	void FixedUpdate() override;
 	void Update() override;
 	void SetAudioClip(std::shared_ptr<AudioClip>& clip);

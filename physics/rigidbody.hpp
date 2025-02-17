@@ -10,7 +10,7 @@ enum ForceMode {
 class Rigidbody : public Component {
 	static const glm::vec3 Gravity;
 public:
-	Rigidbody(std::unordered_map<std::type_index, std::unique_ptr<Component>>& components, Transform& transform, Object* object);
+	Rigidbody(std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& components, Transform& transform, Object* object);
 	glm::vec3 velocity;
 	glm::vec3 localAngularVelocity;
 	bool useGravity;

@@ -4,7 +4,7 @@
 
 class FruitSlice : public Component {
 public:
-	FruitSlice(std::unordered_map<std::type_index, std::unique_ptr<Component>>& components, Transform& transform, Object* object);
+	FruitSlice(std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& components, Transform& transform, Object* object);
 	void Update() override;
 };
 

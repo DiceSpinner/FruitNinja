@@ -14,11 +14,11 @@ class ComponentFactory;
 class Component {
 	template <typename T> friend class ComponentFactory;
 private:
-	std::unordered_map<std::type_index, std::unique_ptr<Component>>& componentMap;
+	std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& componentMap;
 public:
 	Object* object;
 	Transform& transform;
-	Component(std::unordered_map<std::type_index, std::unique_ptr<Component>>& collection, Transform& transform, Object* object);
+	Component(std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& collection, Transform& transform, Object* object);
 	void virtual Update();
 	void virtual Initialize();
 	void virtual EarlyFixedUpdate();
@@ -28,10 +28,10 @@ public:
 	virtual ~Component() = default;
 
 	template<typename T>
-	T* GetComponent() {
+	T* GetComponent(size_t index = 0) {
 		auto item = componentMap.find(std::type_index(typeid(T)));
 		if (item != componentMap.end()) {
-			return dynamic_cast<T*>(item->second.get());
+			return dynamic_cast<T*>(item->second.at(index).get());
 		}
 		return nullptr;
 	}

@@ -6,7 +6,7 @@ using namespace std;
 Camera* Camera::main = nullptr;
 vector<Camera*>* Camera::cameras = new vector<Camera*>();
 
-Camera::Camera(std::unordered_map<std::type_index, std::unique_ptr<Component>>& components, Transform& transform, Object* object, float near, float far)
+Camera::Camera(unordered_map<type_index, vector<unique_ptr<Component>>>& components, Transform& transform, Object* object, float near, float far)
 	: Component(components, transform, object), near(near), far(far), isOrtho(false)
 {
 	if (SCR_HEIGHT > 0) {

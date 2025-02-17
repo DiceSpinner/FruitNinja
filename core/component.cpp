@@ -2,7 +2,7 @@
 
 using namespace std;
 
-Component::Component(unordered_map<std::type_index, unique_ptr<Component>>& collection, Transform& transform, Object* object) :
+Component::Component(std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& collection, Transform& transform, Object* object) :
 	componentMap(collection),
 	transform(transform),
 	object(object)

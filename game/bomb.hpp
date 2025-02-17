@@ -9,7 +9,7 @@ private:
 	std::shared_ptr<AudioClip> explosionSFX;
 	float radius;
 public:
-	Bomb(std::unordered_map<std::type_index, std::unique_ptr<Component>>& collection, Transform& transform, Object* object, 
+	Bomb(std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& collection, Transform& transform, Object* object,
 		std::shared_ptr<AudioClip> explosionSFX, float radius);
 	void Update() override;
 };

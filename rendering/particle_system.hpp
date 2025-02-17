@@ -9,6 +9,7 @@
 struct Particle {
 	glm::vec3 pos;
 	glm::vec3 velocity;
+	glm::vec2 up;
 	glm::vec3 scale;
 	glm::vec4 color;
 	float timeLived;
@@ -17,10 +18,10 @@ struct Particle {
 
 class ParticleSystem : public Component {
 private:
-	GLuint VAO, quadBuffer, positionVertexBuffer, localScaleBuffer, colorModifierBuffer;
+	GLuint VAO, quadBuffer, positionVertexBuffer, localScaleBuffer, colorModifierBuffer, upDirectionBuffer;
 	std::list<Particle> inactiveParticles;
 	std::list<Particle> activeParticles;
-	std::function<void(Particle&)> particleModifier;
+	std::function<void(Particle&, ParticleSystem&)> particleModifier;
 	unsigned int maxCount;
 	float maxLifeTime;
 	float minLifeTime;
@@ -40,10 +41,10 @@ public:
 	static void DrawParticles(Shader& shader);
 
 	ParticleSystem(
-		std::unordered_map<std::type_index, std::unique_ptr<Component>>& collection, Transform& transform, Object* object, 
-		unsigned int maxParticleCount, std::function<void(Particle&)> particleModifier = {}
+		std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& collection, Transform& transform, Object* object,
+		unsigned int maxParticleCount, std::function<void(Particle&, ParticleSystem&)> particleModifier = {}
 	);
-	void SpawnParticle(glm::vec3 pos, glm::vec3 velocity);
+	void SpawnParticle();
 	void SetParticleLifeTime(float min, float max);
 	void Draw(Shader& shader) const;
 	void FixedUpdate() override;

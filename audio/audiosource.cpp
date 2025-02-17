@@ -6,7 +6,7 @@ using namespace std;
 
 static list<ALuint>* sourcesToBeDeleted = new list<ALuint>;
 
-AudioSource::AudioSource(std::unordered_map<std::type_index, std::unique_ptr<Component>>& components, Transform& transform, Object* object)
+AudioSource::AudioSource(unordered_map<type_index, vector<unique_ptr<Component>>>& components, Transform& transform, Object* object)
 	: Component(components, transform, object), audioClip(), sourceID(0), loopEnabled(false), disableWhileNotPlaying(false)
 {
 	alGenSources(1, &sourceID);

@@ -17,7 +17,7 @@ private:
 	/// <summary>
 	/// A table of components, only 1 instance is allowed for each type
 	/// </summary>
-	std::unordered_map<std::type_index, std::unique_ptr<Component>> components;
+	std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>> components;
 	bool enabled;
 
 	Object(bool isEnabled);
@@ -34,27 +34,34 @@ public:
 
 	template<typename T, typename... Args>
 	T* AddComponent(Args&&... args) {
-		auto item = components.find(std::type_index(typeid(T)));
-		if (item == components.end()) {
-			std::unique_ptr<T> obj = ComponentFactory<T>::Construct(components, transform, this, std::forward<Args>(args)...);
-			if (obj) {
+		std::unique_ptr<T> obj = ComponentFactory<T>::Construct(components, transform, this, std::forward<Args>(args)...);
+		
+		if (obj) {
+			auto ptr = obj.get();
+			auto item = components.find(std::type_index(typeid(T)));
+			if (item == components.end()) {
+				auto pair = components.emplace(std::type_index(typeid(T)), std::vector<std::unique_ptr<Component>>());
+				pair.first->second.push_back(std::move(obj));
 				if (enabled) {
-					obj->OnEnabled();
+					pair.first->second.back()->OnEnabled();
 				}
-				auto ptr = obj.get();
-				auto pair = components.emplace(std::type_index(typeid(T)), std::move(obj));
-				return ptr;
 			}
-			return nullptr;
+			else {
+				item->second.push_back(std::move(obj));
+				if (enabled) {
+					item->second.back()->OnEnabled();
+				}
+			}
+			return ptr;
 		}
 		return nullptr;
 	}
 	
 	template<typename T>
-	T* GetComponent() {
+	T* GetComponent(size_t index = 0) {
 		auto item = components.find(std::type_index(typeid(T)));
 		if (item != components.end()) {
-			return dynamic_cast<T*>(item->second.get());
+			return dynamic_cast<T*>(item->second.at(index).get());
 		}
 		return nullptr;
 	}

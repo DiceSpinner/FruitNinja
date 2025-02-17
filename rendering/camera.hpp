@@ -16,7 +16,7 @@ public:
 
     bool isOrtho;
 
-    Camera(std::unordered_map<std::type_index, std::unique_ptr<Component>>& components, Transform& transform, Object* object,  float near, float far);
+    Camera(std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& components, Transform& transform, Object* object,  float near, float far);
     void SetPerspective(float near, float far);
 
     glm::mat4 Ortho() const;

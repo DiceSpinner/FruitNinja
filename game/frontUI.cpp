@@ -317,7 +317,8 @@ static void drawMouseTrail() {
 }
 
 void drawFrontUI(Shader& shader) {
-	
+	if (Game::state == State::EXPLOSION) { mousePositions.clear(); return; };
+
 	float halfWidth = SCR_WIDTH / 2.0f;
 	float halfHeight = SCR_HEIGHT / 2.0f;
 	if (Game::state == State::START) {
@@ -343,7 +344,7 @@ void drawFrontUI(Shader& shader) {
 			}
 		}
 	}
-	else if (Game::state == State::SCORE) {
+	else{
 		shader.SetVec4("textColor", restartColor);
 		restartButton.DrawInNDC(START_BUTTON_POS, shader);
 

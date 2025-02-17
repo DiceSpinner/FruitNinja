@@ -5,7 +5,7 @@
 
 class AudioListener : public Component {
 public:
-	AudioListener(std::unordered_map<std::type_index, std::unique_ptr<Component>>& components, Transform& transform, Object* object);
+	AudioListener(std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& components, Transform& transform, Object* object);
 	void FixedUpdate() override;
 };
 

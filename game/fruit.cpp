@@ -17,7 +17,7 @@
 using namespace std;
 
 Fruit::Fruit(
-	unordered_map<type_index, unique_ptr<Component>>& components, Transform& transform, Object* object,
+	unordered_map<type_index, vector<unique_ptr<Component>>>& components, Transform& transform, Object* object,
 	float radius, int score, 
 	ObjectPool<Object>& particlePool, 
 	shared_ptr<Model> slice1, 
@@ -44,6 +44,14 @@ void Fruit::PlayVFX() const {
 }
 
 void Fruit::Update() {
+	if (Game::state == State::EXPLOSION) {
+		return;
+	}
+	if (Game::state == State::SCORE && reward > 0) {
+		object->SetEnable(false);
+		return;
+	}
+
 	glm::vec2 cursorDirection = getCursorPosDelta();
 	if (transform.position().y <= FRUIT_KILL_HEIGHT) {
 		if (this->reward > 0) {
@@ -83,12 +91,14 @@ void Fruit::Update() {
 
 		if (slice1 && slice2) {
 			shared_ptr<Object> topSlice = Object::Create();
-			topSlice->AddComponent<Renderer>(this->slice1);
+			Renderer* renderer = topSlice->AddComponent<Renderer>(this->slice1);
+			renderer->drawOverlay = true;
 			topSlice->AddComponent<FruitSlice>();
 			auto r1 = topSlice->AddComponent<Rigidbody>();
 
 			shared_ptr<Object> bottomSlice = Object::Create();
-			bottomSlice->AddComponent<Renderer>(this->slice2);
+			renderer = bottomSlice->AddComponent<Renderer>(this->slice2);
+			renderer->drawOverlay = true;
 			bottomSlice->AddComponent<FruitSlice>();
 			auto r2 = bottomSlice->AddComponent<Rigidbody>();
 

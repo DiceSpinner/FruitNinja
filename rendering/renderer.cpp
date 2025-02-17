@@ -12,7 +12,7 @@ void Renderer::DrawObjects(Shader& shader) {
 	}
 }
 
-Renderer::Renderer(std::unordered_map<std::type_index, std::unique_ptr<Component>>& components, Transform& transform, Object* object,  shared_ptr<Model>& model)
+Renderer::Renderer(unordered_map<type_index, vector<unique_ptr<Component>>>& components, Transform& transform, Object* object,  shared_ptr<Model>& model)
 	: Component(components, transform, object), model(model), drawOverlay(false)
 {
 

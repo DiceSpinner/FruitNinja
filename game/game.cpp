@@ -90,9 +90,11 @@ static void loadModels() {
 
 static GLuint sliceParticleTexture;
 static GLuint sparkTexture;
+static GLuint smokeTexture;
 static void loadTextures() {
 	sliceParticleTexture = textureFromFile("droplet.png", "images");
 	sparkTexture = textureFromFile("spark.png", "images");
+	smokeTexture = textureFromFile("smoke3.png", "images");
 }
 
 static ObjectPool<Object>* fruitSliceParticlePool;
@@ -159,8 +161,24 @@ static void spawnWatermelon() {
 	spawnFruit(watermelonModel, watermelonTopModel, watermelonBottomModel, largeFruitSliceAudio, glm::vec4(1, 0, 0, 1), WATERMELON_SIZE);
 }
 
-static void sparkParticleModifier(Particle& particle) {
-	particle.color.a = 1;
+static void sparkModifier(Particle& particle, ParticleSystem& system) {
+	float quater = 0.1 * particle.lifeTime;
+	float remainder = 0.9 * particle.lifeTime;
+	float opacity = particle.timeLived < quater ? particle.timeLived / quater : (remainder - particle.timeLived + quater) / remainder;
+	float size = particle.timeLived < quater ? particle.timeLived / quater : (remainder - particle.timeLived + quater) / remainder;
+	particle.scale = glm::vec3(size, size, size);
+	particle.color = system.color * glm::vec4(1, 1, 1, opacity);
+}
+
+static void smokeModifier(Particle& particle, ParticleSystem& system) {
+	float quater = 0.1 * particle.lifeTime;
+	float remainder = 0.9 * particle.lifeTime;
+	float size = particle.timeLived < quater ? particle.timeLived / quater : 1;
+	float opacity = particle.timeLived < quater ? particle.timeLived / quater : (remainder - particle.timeLived + quater) / remainder;
+	particle.pos.z = 2;
+	particle.velocity = glm::vec3(0, 1, 0);
+	particle.scale = size * glm::vec3(1.2, 1.2, 1);
+	particle.color = system.color * glm::vec4(1, 1, 1, opacity);
 }
 
 static void spawnBomb() {
@@ -199,15 +217,27 @@ static void spawnBomb() {
 		source->Play();
 	}
 
-	ParticleSystem* system = bomb->AddComponent<ParticleSystem>(50);
-	system->SetParticleLifeTime(0.5, 0.5);
-	system->texture = sparkTexture;
-	system->spawnAmount = 4;
-	system->spawnFrequency = 10;
-	system->offsetFromObject = glm::vec3(0, 1, 0);
-	system->maxSpawnDirectionDeviation = 30;
-	system->useGravity = false;
-	system->spawnDirection = glm::vec3(0, 1, 0);
+	ParticleSystem* spark = bomb->AddComponent<ParticleSystem>(50, sparkModifier);
+	spark->SetParticleLifeTime(1, 1);
+	spark->texture = sparkTexture;
+	spark->spawnAmount = 1;
+	spark->spawnFrequency = 10;
+	spark->offsetFromObject = glm::vec3(0, 1, 0);
+	spark->maxSpawnDirectionDeviation = 15;
+	spark->useGravity = false;
+	spark->scale = 1.0f * glm::vec3(0.7, 1, 1);
+	spark->spawnDirection = glm::vec3(0, 4, 0);
+
+	ParticleSystem* smoke = bomb->AddComponent<ParticleSystem>(50, smokeModifier);
+	smoke->SetParticleLifeTime(1, 1);
+	smoke->texture = smokeTexture;
+	smoke->spawnAmount = 1;
+	smoke->spawnFrequency = 5;
+	smoke->offsetFromObject = glm::vec3(0, 1, 0);
+	smoke->maxSpawnDirectionDeviation = 0;
+	smoke->useGravity = false;
+	smoke->scale = glm::vec3(1, 1, 1);
+	smoke->spawnDirection = glm::vec3(0, 1, 0);
 }
 
 static vector<function<void()>> spawners = {spawnApple, spawnPineapple, spawnWatermelon, spawnBomb};

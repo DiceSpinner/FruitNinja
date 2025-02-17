@@ -20,7 +20,7 @@ public:
 	ObjectPool<Object>& particlePool;
 	GLuint slicedParticleTexture;
 
-	Fruit(std::unordered_map<std::type_index, std::unique_ptr<Component>>& components, Transform& transform, Object* object,
+	Fruit(std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& components, Transform& transform, Object* object,
 		float radius, int score,
 		ObjectPool<Object>& particlePool,
 		std::shared_ptr<Model> slice1 = {},

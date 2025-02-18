@@ -18,6 +18,10 @@ void onKeyPressed(GLFWwindow* window, int key, int scancode, int action, int mod
     if (key == GLFW_KEY_ESCAPE && action == GLFW_RELEASE) {
         glfwSetWindowShouldClose(window, true);
     }
+    if (key == GLFW_KEY_F && action == GLFW_RELEASE) {
+        Time::timeScale = !Time::timeScale;
+    }
+
     if (key == GLFW_KEY_R && action == GLFW_RELEASE) {
         lockedCamera = !lockedCamera;
         if (lockedCamera) {
@@ -97,17 +101,17 @@ void processInput(GLFWwindow* window)
         auto cameraUp = camera->transform.up();
         auto pos = camera->transform.position();
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-            pos += cameraSpeed * deltaTime() * cameraFront;
+            pos += cameraSpeed * unscaledDeltaTime() * cameraFront;
         if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-            pos -= cameraSpeed * deltaTime() * cameraFront;
+            pos -= cameraSpeed * unscaledDeltaTime() * cameraFront;
         if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-            pos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * deltaTime() * cameraSpeed;
+            pos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * unscaledDeltaTime() * cameraSpeed;
         if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-            pos += glm::normalize(glm::cross(cameraFront, cameraUp)) * deltaTime() * cameraSpeed;
+            pos += glm::normalize(glm::cross(cameraFront, cameraUp)) * unscaledDeltaTime() * cameraSpeed;
         if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
-            pos += cameraSpeed * deltaTime() * cameraUp;
+            pos += cameraSpeed * unscaledDeltaTime() * cameraUp;
         if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
-            pos -= cameraSpeed * deltaTime() * cameraUp;
+            pos -= cameraSpeed * unscaledDeltaTime() * cameraUp;
         camera->transform.SetPosition(pos);
     }
 }

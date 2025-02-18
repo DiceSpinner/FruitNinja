@@ -91,7 +91,7 @@ void Mesh::Draw(Shader& shader) {
 	int textureIndex = 0;
 	for (unsigned int i = 0; i < material.diffuse.size(); i++)
 	{
-		glActiveTexture(GL_TEXTURE0 + textureIndex); 
+		glActiveTexture(GL_TEXTURE0 + textureIndex);
 		shader.SetInt(("material.diffuse[" + to_string(i) + "]").c_str(), textureIndex++);
 		glBindTexture(GL_TEXTURE_2D, material.diffuse[i]);
 	}
@@ -117,7 +117,7 @@ void Mesh::Draw(Shader& shader) {
 	shader.SetVec4("material.ambientColor", material.ambientColor);
 	shader.SetInt("material.aArraySize", material.ambient.size());
 	glActiveTexture(GL_TEXTURE0);
-
+	
 	// draw mesh
 	glBindVertexArray(VAO);
 	glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);

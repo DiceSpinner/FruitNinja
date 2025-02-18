@@ -183,9 +183,12 @@ static void smokeModifier(Particle& particle, ParticleSystem& system) {
 
 static void spawnBomb() {
 	shared_ptr<Object> bomb = Object::Create();
+	bomb->transform.SetScale(0.7f * glm::vec3(1, 1, 1));
 
 	auto renderer = bomb->AddComponent<Renderer>(bombModel);
 	renderer->drawOverlay = true;
+	renderer->drawOutline = true;
+	renderer->outlineColor = glm::vec4(1, 0, 0, 1);
 	bomb->AddComponent<Bomb>(explosionAudio, BOMB_SIZE);
 
 	AudioSource* audioSource = bomb->AddComponent<AudioSource>();
@@ -206,7 +209,7 @@ static void spawnBomb() {
 
 	rb->AddRelativeTorque(torque, ForceMode::Impulse);
 	float startX = randFloat(FRUIT_SPAWN_CENTER - FRUIT_SPAWN_WIDTH / 2, FRUIT_SPAWN_CENTER + FRUIT_SPAWN_WIDTH / 2);
-	glm::vec3 position(startX, FRUIT_SPAWN_HEIGHT, 0);
+	glm::vec3 position(startX, FRUIT_SPAWN_HEIGHT, 5);
 	// cout << "Spawn at " << glm::to_string(position) << "\n";
 	rb->transform.SetPosition(position);
 
@@ -225,7 +228,7 @@ static void spawnBomb() {
 	spark->offsetFromObject = glm::vec3(0, 1, 0);
 	spark->maxSpawnDirectionDeviation = 15;
 	spark->useGravity = false;
-	spark->scale = 1.0f * glm::vec3(0.7, 1, 1);
+	spark->scale = 0.7f * glm::vec3(0.7, 1, 1);
 	spark->spawnDirection = glm::vec3(0, 4, 0);
 
 	ParticleSystem* smoke = bomb->AddComponent<ParticleSystem>(50, smokeModifier);
@@ -236,7 +239,7 @@ static void spawnBomb() {
 	smoke->offsetFromObject = glm::vec3(0, 1, 0);
 	smoke->maxSpawnDirectionDeviation = 0;
 	smoke->useGravity = false;
-	smoke->scale = glm::vec3(1, 1, 1);
+	smoke->scale = 0.5f * glm::vec3(1, 1, 1);
 	smoke->spawnDirection = glm::vec3(0, 1, 0);
 }
 
@@ -266,7 +269,9 @@ void initGame() {
 
 	// Start Game Button
 	startGame = Object::Create();
-	startGame->AddComponent<Renderer>(watermelonModel);
+	Renderer* renderer = startGame->AddComponent<Renderer>(watermelonModel);
+	renderer->drawOutline = true;
+	renderer->outlineColor = glm::vec4(0, 1, 0, 0.5);
 	startGame->AddComponent<Fruit>(WATERMELON_SIZE, 0, *fruitSliceParticlePool, watermelonTopModel, watermelonBottomModel);
 	Rigidbody* rigidbody = startGame->AddComponent<Rigidbody>();
 	rigidbody->useGravity = false;
@@ -279,7 +284,9 @@ void initGame() {
 
 	// Exit button
 	exitGame = Object::Create();
-	exitGame->AddComponent<Renderer>(bombModel);
+	renderer = exitGame->AddComponent<Renderer>(bombModel);
+	renderer->drawOutline = true;
+	renderer->outlineColor = glm::vec4(1, 0, 0, 0.5);
 	exitGame->AddComponent<Fruit>(BOMB_SIZE, 0, *fruitSliceParticlePool);
 	rigidbody = exitGame->AddComponent<Rigidbody>();
 	rigidbody->useGravity = false;

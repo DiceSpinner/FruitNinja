@@ -30,6 +30,8 @@ const char* uiVertPath = "shaders/ui.vert";
 const char* uiFragPath = "shaders/ui.frag";
 const char* particleVertPath = "shaders/particle.vert";
 const char* particleFragPath = "shaders/particle.frag";
+const char* outlineVertPath = "shaders/outline.vert";
+const char* outlineFragPath = "shaders/outline.frag";
 
 const char* unitCube = "models/unit_cube.obj";
 const char* unitSphere = "models/unit_sphere.obj";
@@ -40,6 +42,7 @@ int main() {
     Shader unlitShader(objVertexPath, unlitFrag);
     Shader uiShader(uiVertPath, uiFragPath);
     Shader particleShader(particleVertPath, particleFragPath);
+    Shader outlineShader(outlineVertPath, outlineFragPath);
     // Shader rayTracerShader(ui3DVertPath, uiFragPath);
 
     std::shared_ptr<Model> unitSphereModel = std::make_shared<Model>(unitSphere);
@@ -65,7 +68,7 @@ int main() {
         Time::updateTime();
         
         glClearColor(0.4f, 0.2f, 0, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
         glDisable(GL_DEPTH_TEST);
         uiShader.Use();
         glUniformMatrix4fv(glGetUniformLocation(uiShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(Camera::main->Ortho()));
@@ -85,6 +88,9 @@ int main() {
         glEnable(GL_DEPTH_TEST);
         unlitShader.Use();
         glm::vec3 lightPos = glm::vec3(0, 0, 10);
+        glProgramUniformMatrix4fv(outlineShader.ID, glGetUniformLocation(outlineShader.ID, "view"), 1, GL_FALSE, glm::value_ptr(Camera::main->View()));
+        glProgramUniformMatrix4fv(outlineShader.ID, glGetUniformLocation(outlineShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(Camera::main->Perspective()));
+
         glUniformMatrix4fv(glGetUniformLocation(unlitShader.ID, "view"), 1, GL_FALSE, glm::value_ptr(Camera::main->View()));
         glUniformMatrix4fv(glGetUniformLocation(unlitShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(Camera::main->Perspective()));
         glUniform3fv(glGetUniformLocation(unlitShader.ID, "light.position"), 1, glm::value_ptr(lightPos));
@@ -92,7 +98,7 @@ int main() {
         glUniform4fv(glGetUniformLocation(unlitShader.ID, "light.ambient"), 1, glm::value_ptr(lightAmbient));
         glUniform4fv(glGetUniformLocation(unlitShader.ID, "light.specular"), 1, glm::value_ptr(lightSpecular));
         glUniform3fv(glGetUniformLocation(unlitShader.ID, "cameraPosition"), 1, glm::value_ptr(Camera::main->transform.position()));
-        Renderer::DrawObjects(unlitShader);
+        Renderer::DrawObjects(unlitShader, outlineShader);
 
         /*glDisable(GL_DEPTH_TEST);
         if (lockedCamera) {

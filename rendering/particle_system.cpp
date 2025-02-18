@@ -21,24 +21,24 @@ static float randFloat(float min, float max) {
 }
 
 static glm::vec3 randomUnitVectorInCone(const glm::vec3& direction, float maxAngle) {
-	if (direction == glm::vec3(0, 0, 0)) {
+	if (direction == glm::vec3(0, 0, 0) || maxAngle == 0) {
 		return direction;
 	}
 	glm::vec3 result = glm::sphericalRand(1.0f);
 	auto allowance = glm::radians(maxAngle);
-	while (allowance && glm::acos(glm::dot(result, direction)) > glm::radians(maxAngle)) {
+	while (glm::acos(glm::dot(result, direction)) > allowance) {
 		result = glm::sphericalRand(1.0f);
 	};
 	return result;
 }
 
 static glm::vec3 randomUnitVectorInCircle(const glm::vec3& direction, float maxAngle) {
-	if (direction == glm::vec3(0, 0, 0)) {
+	if (direction == glm::vec3(0, 0, 0) || maxAngle == 0) {
 		return direction;
 	}
 	glm::vec3 result = glm::vec3(glm::circularRand(1.0f), 0);
 	auto allowance = glm::radians(maxAngle);
-	while (allowance && glm::acos(glm::dot(result, direction)) > glm::radians(maxAngle)) {
+	while (glm::acos(glm::dot(result, direction)) > allowance) {
 		result = glm::vec3(glm::circularRand(1.0f), 0);
 	};
 	return result;

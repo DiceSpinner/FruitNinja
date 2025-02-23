@@ -3,6 +3,7 @@
 #include <AL/al.h>
 #include "../audio/audiosource_pool.hpp"
 #include "../core/component.hpp"
+#include "../rendering/particle_system.hpp"
 
 class Bomb : public Component {
 private:

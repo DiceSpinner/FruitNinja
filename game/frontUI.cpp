@@ -19,11 +19,12 @@ static glm::vec4 restartColor(1, 1, 0, 1);
 
 static UI scoreBoard;
 static UI largeScoreBoard;
-static UI startButtom;
+static UI startButton;
 static UI exitButton;
 static UI restartButton;
 static UI redCrosses[3];
 static UI emptyCrosses[3];
+static UI fadeOutEffect;
 
 static unique_ptr<Shader> trailShader;
 static GLuint trailTexture;
@@ -120,11 +121,22 @@ static void OnLeftReleased() {
 }
 
 void initFrontUI() {
+	GLuint fadeTexture = textureFromFile("fading_circle_opaque_center.png", "images");
+	fadeOutEffect = UI(fadeTexture);
 	scoreBoard = UI(0, "Score: ");
+	scoreBoard.textColor = glm::vec4(1, 1, 0, 1);
+
 	largeScoreBoard = UI(0, "Score", 70);
-	startButtom = UI(0, "Start");
+	largeScoreBoard.textColor = glm::vec4(1, 1, 0, 1);
+
+	startButton = UI(0, "Start");
+	startButton.textColor = glm::vec4(0, 1, 0, 1);
+
 	exitButton = UI(0, "Exit");
+	exitButton.textColor = glm::vec4(1, 0, 0, 1);
+
 	restartButton = UI(0, "Restart");
+	restartButton.textColor = glm::vec4(1, 1, 0, 1);
 	restartButton.transform.SetPosition(FINAL_SCORE_POS);
 
 	GLuint emptyCross = textureFromFile("empty_cross.png", "images");
@@ -316,15 +328,31 @@ static void drawMouseTrail() {
 	glBindVertexArray(0);
 }
 
+static float fadeStart = 1;
+
 void drawFrontUI(Shader& shader) {
-	if (Game::state == State::EXPLOSION) { mousePositions.clear(); return; };
+	if (Game::state == State::EXPLOSION) { 
+		mousePositions.clear(); 
+		if (explosionTimer > fadeStart) {
+			fadeOutEffect.imageColor.a = 1;
+			fadeOutEffect.transform.SetScale((50 * (explosionTimer - fadeStart) / EXPLOSION_DURATION + 1e-6f) * glm::vec3(1, 1, 1));
+			fadeOutEffect.Draw(shader);
+		}
+		return; 
+	};
+
+	if (Game::state == State::SCORE && fadeOutEffect.imageColor.a > 0) {
+		fadeOutEffect.imageColor.a -= deltaTime();
+		if (fadeOutEffect.imageColor.a < 0) {
+			fadeOutEffect.imageColor.a = 0;
+		}
+		fadeOutEffect.Draw(shader);
+	}
 
 	float halfWidth = SCR_WIDTH / 2.0f;
 	float halfHeight = SCR_HEIGHT / 2.0f;
 	if (Game::state == State::START) {
-		shader.SetVec4("textColor", startColor);
-		startButtom.DrawInNDC(START_BUTTON_POS, shader);
-		shader.SetVec4("textColor", exitColor);
+		startButton.DrawInNDC(START_BUTTON_POS, shader);
 		exitButton.DrawInNDC(EXIT_BUTTON_POS, shader);
 	}
 	else if (Game::state == State::GAME) {

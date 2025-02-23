@@ -6,6 +6,8 @@ class Renderer : public Component {
 private:
 	std::shared_ptr<Model> model;
 public:
+	static GLuint white;
+
 	bool drawOverlay;
 	bool drawOutline;
 	glm::vec4 outlineColor;

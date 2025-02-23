@@ -7,4 +7,6 @@ namespace Game {
 	int recovery = 0;
 	bool bombHit = false;
 	bool recentlyRecovered = false;
+	glm::vec3 explosionPosition(0, 0, 0);
+	float explosionTimer = 0;
 }

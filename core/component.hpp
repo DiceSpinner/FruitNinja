@@ -16,7 +16,7 @@ class Component {
 private:
 	std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& componentMap;
 public:
-	Object* object;
+	Object* const object;
 	Transform& transform;
 	Component(std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& collection, Transform& transform, Object* object);
 	void virtual Update();

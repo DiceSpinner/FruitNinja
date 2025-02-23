@@ -4,7 +4,10 @@
 
 using namespace std;
 
-UI::UI(GLuint texture, string text, int textSize) : texture(texture), transform(), textSize(textSize), textureSize(0), isEnabled(true) {
+UI::UI(GLuint texture, string text, int textSize) 
+	: texture(texture), transform(), textSize(textSize), textureSize(0), 
+	textColor(1, 1, 1, 1), imageColor(1, 1, 1, 1), isEnabled(true)
+{
 	glGenVertexArrays(1, &VAO);
 	glGenBuffers(1, &VBO);
 	glGenBuffers(1, &EBO);
@@ -103,6 +106,8 @@ UI::UI(GLuint texture, string text, int textSize) : texture(texture), transform(
 }
 
 void UI::Draw(Shader& shader) const {
+	shader.SetVec4("textColor", textColor);
+	shader.SetVec4("imageColor", imageColor);
 	if (texture != 0) {
 		glActiveTexture(GL_TEXTURE0);
 		shader.SetInt("image", 0);

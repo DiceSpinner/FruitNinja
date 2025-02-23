@@ -92,13 +92,13 @@ void Fruit::Update() {
 		if (slice1 && slice2) {
 			shared_ptr<Object> topSlice = Object::Create();
 			Renderer* renderer = topSlice->AddComponent<Renderer>(this->slice1);
-			renderer->drawOverlay = true;
+			// renderer->drawOverlay = true;
 			topSlice->AddComponent<FruitSlice>();
 			auto r1 = topSlice->AddComponent<Rigidbody>();
 
 			shared_ptr<Object> bottomSlice = Object::Create();
 			renderer = bottomSlice->AddComponent<Renderer>(this->slice2);
-			renderer->drawOverlay = true;
+			// renderer->drawOverlay = true;
 			bottomSlice->AddComponent<FruitSlice>();
 			auto r2 = bottomSlice->AddComponent<Rigidbody>();
 

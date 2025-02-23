@@ -5,6 +5,7 @@
 using namespace std;
 
 static vector<Renderer*>* activeRenderers = new vector<Renderer*>();
+GLuint Renderer::white(0);
 
 void Renderer::DrawObjects(Shader& shader, Shader& outlineShader) {
 	for (auto renderer : *activeRenderers) {

@@ -4,6 +4,7 @@
 #include "../state/window.hpp"
 #include "../rendering/camera.hpp"
 #include "../rendering/font.hpp"
+#include "../rendering/renderer.hpp"
 #include "../audio/audio_context.hpp"
 #include "input.hpp"
 
@@ -117,11 +118,20 @@ void initContext() {
     glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE);
     glStencilFunc(GL_ALWAYS, 0, 0xFF);
     glfwSwapInterval(0);
+
     initFont();
 
     initALContext();
 
     srand(time(NULL));
+
+    glm::vec4 white(1, 1, 1, 1);
+    glGenTextures(1, &Renderer::white);
+    glBindTexture(GL_TEXTURE_2D, Renderer::white);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, glm::value_ptr(white));
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glBindTexture(GL_TEXTURE_2D, 0);
 }
 void destroyContext() {
     deinitFont();

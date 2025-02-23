@@ -120,7 +120,7 @@ static void spawnFruit(shared_ptr<Model>& fruitModel, shared_ptr<Model>& slice1M
 	shared_ptr<Object> fruit = Object::Create();
 
 	auto renderer = fruit->AddComponent<Renderer>(fruitModel);
-	renderer->drawOverlay = true;
+	// renderer->drawOverlay = true;
 	Fruit* ft = fruit->AddComponent<Fruit>(radius, score, *fruitSliceParticlePool, slice1Model, slice2Model, sliceAudio, fruitMissAudio);
 	ft->slicedParticleTexture = sliceParticleTexture;
 	ft->color = color;
@@ -140,13 +140,6 @@ static void spawnFruit(shared_ptr<Model>& fruitModel, shared_ptr<Model>& slice1M
 	glm::vec3 position(startX, FRUIT_SPAWN_HEIGHT, 0);
 	// cout << "Spawn at " << glm::to_string(position) << "\n";
 	rb->transform.SetPosition(position);
-
-	auto audioSourceObj = acquireAudioSource();
-	if (audioSourceObj) {
-		auto source = audioSourceObj->GetComponent<AudioSource>();
-		source->SetAudioClip(fruitSpawnAudio);
-		source->Play();
-	}
 }
 
 static void spawnApple() {
@@ -175,7 +168,6 @@ static void smokeModifier(Particle& particle, ParticleSystem& system) {
 	float remainder = 0.9 * particle.lifeTime;
 	float size = particle.timeLived < quater ? particle.timeLived / quater : 1;
 	float opacity = particle.timeLived < quater ? particle.timeLived / quater : (remainder - particle.timeLived + quater) / remainder;
-	particle.pos.z = 2;
 	particle.velocity = glm::vec3(0, 1, 0);
 	particle.scale = size * glm::vec3(1.2, 1.2, 1);
 	particle.color = system.color * glm::vec4(1, 1, 1, opacity);
@@ -186,7 +178,7 @@ static void spawnBomb() {
 	bomb->transform.SetScale(0.7f * glm::vec3(1, 1, 1));
 
 	auto renderer = bomb->AddComponent<Renderer>(bombModel);
-	renderer->drawOverlay = true;
+	// renderer->drawOverlay = true;
 	renderer->drawOutline = true;
 	renderer->outlineColor = glm::vec4(1, 0, 0, 1);
 	bomb->AddComponent<Bomb>(explosionAudio, BOMB_SIZE);
@@ -225,7 +217,7 @@ static void spawnBomb() {
 	spark->texture = sparkTexture;
 	spark->spawnAmount = 1;
 	spark->spawnFrequency = 10;
-	spark->offsetFromObject = glm::vec3(0, 1, 0);
+	spark->relativeOffset = glm::vec3(0, 1, 0);
 	spark->maxSpawnDirectionDeviation = 15;
 	spark->useGravity = false;
 	spark->scale = 0.7f * glm::vec3(0.7, 1, 1);
@@ -235,10 +227,11 @@ static void spawnBomb() {
 	smoke->SetParticleLifeTime(1, 1);
 	smoke->texture = smokeTexture;
 	smoke->spawnAmount = 1;
-	smoke->spawnFrequency = 5;
-	smoke->offsetFromObject = glm::vec3(0, 1, 0);
+	smoke->spawnFrequency = 20;
+	smoke->relativeOffset = glm::vec3(0, 1, 0);
 	smoke->maxSpawnDirectionDeviation = 0;
 	smoke->useGravity = false;
+	smoke->is3D = false;
 	smoke->scale = 0.5f * glm::vec3(1, 1, 1);
 	smoke->spawnDirection = glm::vec3(0, 1, 0);
 }
@@ -248,15 +241,11 @@ static vector<function<void()>> spawners = {spawnApple, spawnPineapple, spawnWat
 static float spawnCooldown = 1;
 static float spawnTimer = 0;
 
-static float explosionDuration = 2;
-static float explosionTimer = 0;
-
 static shared_ptr<Object> startGame;
 static shared_ptr<Object> exitGame;
 static shared_ptr<Object> restart;
 
 static shared_ptr<Object> camera;
-static shared_ptr<Object> explosionParticle;
 
 void initGame() {
 	loadAudio();
@@ -353,7 +342,6 @@ static void enterGame() {
 	}
 }
 
-
 static void enterExplosion(){
 	state = State::EXPLOSION;
 	Time::timeScale = 0;
@@ -405,6 +393,13 @@ static void processGame() {
 		}
 		spawnCooldown = round(randFloat(SPAWN_COOLDOWN_MIN, SPAWN_COOLDOWN_MAX));
 		spawnTimer = 0;
+
+		auto audioSourceObj = acquireAudioSource();
+		if (audioSourceObj) {
+			auto source = audioSourceObj->GetComponent<AudioSource>();
+			source->SetAudioClip(fruitSpawnAudio);
+			source->Play();
+		}
 	}
 	if (bombHit) {
 		enterExplosion();
@@ -426,7 +421,7 @@ static void processGame() {
 
 static void processExplosion() {
 	explosionTimer += unscaledDeltaTime();
-	if (explosionTimer > explosionDuration) {
+	if (explosionTimer > EXPLOSION_DURATION) {
 		Time::timeScale = 1;
 		enterScore();
 	}

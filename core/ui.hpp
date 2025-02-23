@@ -17,6 +17,8 @@ private:
 	glm::ivec2 textureSize{0, 0};
 public:
 	bool isEnabled = true;
+	glm::vec4 textColor;
+	glm::vec4 imageColor;
 	Transform transform;
 
 	UI(GLuint texture, std::string text="", int textSize = 50);

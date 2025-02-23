@@ -14,8 +14,8 @@
 #include "rendering/camera.hpp"
 #include "rendering/renderer.hpp"
 #include "rendering/particle_system.hpp"
-#include "game/fruit.hpp"
 #include "settings/fruitsize.hpp"
+#include "game/vfx.hpp"
 #include "game/game.hpp"
 #include "game/frontUI.hpp"
 #include "game/backUI.hpp"
@@ -43,6 +43,7 @@ int main() {
     Shader uiShader(uiVertPath, uiFragPath);
     Shader particleShader(particleVertPath, particleFragPath);
     Shader outlineShader(outlineVertPath, outlineFragPath);
+    Shader vfxShader("shaders/simple.vert", "shaders/simple.frag");
     // Shader rayTracerShader(ui3DVertPath, uiFragPath);
 
     std::shared_ptr<Model> unitSphereModel = std::make_shared<Model>(unitSphere);
@@ -59,6 +60,7 @@ int main() {
     glBindVertexArray(0);
 
     initGame();
+    initVFX();
     initFrontUI();
     initBackUI();
 
@@ -106,12 +108,19 @@ int main() {
         }*/
 
         glDepthMask(GL_FALSE);
+        vfxShader.Use();
+        glUniformMatrix4fv(glGetUniformLocation(vfxShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(Camera::main->Perspective()));
+        glUniformMatrix4fv(glGetUniformLocation(vfxShader.ID, "view"), 1, GL_FALSE, glm::value_ptr(Camera::main->View()));
+        drawVFX(vfxShader);
+
         particleShader.Use();
         glUniform3fv(glGetUniformLocation(particleShader.ID, "cameraPos"), 1, glm::value_ptr(Camera::main->transform.position()));
         glUniformMatrix4fv(glGetUniformLocation(particleShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(Camera::main->Perspective()));
         glUniformMatrix4fv(glGetUniformLocation(particleShader.ID, "view"), 1, GL_FALSE, glm::value_ptr(Camera::main->View()));
         ParticleSystem::DrawParticles(particleShader);
+
         glDepthMask(GL_TRUE);
+        
 
         glDisable(GL_DEPTH_TEST);
         uiShader.Use();

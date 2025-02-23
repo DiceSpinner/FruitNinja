@@ -7,7 +7,6 @@ static float cdeltaTime = 0;
 static float usDeltaTime = 0;
 static bool init = true;
 static float fixedUpdateDelta = 0;
-static float lastFixedUpdate = 0;
 static float fixedUpdateAccumulator = 0;
 static bool shouldPhysicsUpdate = false;
 
@@ -27,9 +26,14 @@ namespace Time {
 		cdeltaTime *= timeScale;
 		currTime = currentTime;
 		fixedUpdateAccumulator += cdeltaTime;
+
+		// Has upadted physics last frame, reset fixedUpdateDelta
+		if (shouldPhysicsUpdate) {
+			fixedUpdateDelta = 0;
+		}
+		fixedUpdateDelta += cdeltaTime;
+		
 		if (fixedUpdateAccumulator >= 1.0f / PHYSICS_FPS) {
-			fixedUpdateDelta = currTime - lastFixedUpdate;
-			lastFixedUpdate = currTime;
 			fixedUpdateAccumulator -= 1.0f / PHYSICS_FPS;
 			shouldPhysicsUpdate = true;
 		}

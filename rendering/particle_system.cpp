@@ -1,6 +1,7 @@
 #include <glm/ext.hpp>
 #include "../state/time.hpp"
 #include "particle_system.hpp"
+#include "renderer.hpp"
 #include "../core/object.hpp"
 
 using namespace std;
@@ -53,8 +54,8 @@ void ParticleSystem::DrawParticles(Shader& shader) {
 ParticleSystem::ParticleSystem(unordered_map<type_index, vector<unique_ptr<Component>>>& collection, Transform& transform, Object* object, unsigned int maxParticleCount, function<void(Particle&, ParticleSystem&)> particleModifier)
 	: Component(collection, transform, object), maxCount(maxParticleCount), minLifeTime(1), maxLifeTime(1), particleModifier(particleModifier), init(true),
 	inactiveParticles(maxParticleCount), activeParticles(0), texture(0), useGravity(true), is3D(true), disableOnFinish(false),
-	offsetFromObject(0), maxSpawnDirectionDeviation(45), spawnDirection(0, 1, 0), color(1, 1, 1, 1),
-	spawnFrequency(1), spawnCounter(0), scale(1, 1, 1), spawnAmount(0),
+	relativeOffset(0), maxSpawnDirectionDeviation(45), spawnDirection(0, 1, 0), color(1, 1, 1, 1),
+	spawnFrequency(1), spawnCounter(0), scale(1, 1, 1), spawnAmount(0), absoluteOffset(0),
 	VAO(0), positionVertexBuffer(0), quadBuffer(0), localScaleBuffer(0), upDirectionBuffer(0)
 {
 	glGenVertexArrays(1, &VAO);
@@ -112,7 +113,7 @@ void ParticleSystem::SpawnParticle() {
 		auto& particle = activeParticles.back();
 		particle.timeLived = 0;
 		particle.lifeTime = randFloat(minLifeTime, maxLifeTime);
-		particle.pos = transform.position() + glm::vec3(transform.rotation() * glm::vec4(offsetFromObject, 0));
+		particle.pos = transform.position() + absoluteOffset + glm::vec3(transform.rotation() * glm::vec4(relativeOffset, 0));
 		particle.velocity = glm::length(spawnDirection) * randomUnitVectorInCone(transform.rotation() * glm::vec4(spawnDirection, 0), maxSpawnDirectionDeviation);
 		particle.color = glm::vec4(1, 1, 1, 0);
 		particle.up = particle.velocity;
@@ -201,12 +202,15 @@ void ParticleSystem::FixedUpdate() {
 }
 
 void ParticleSystem::Draw(Shader& shader) const {
-	if (!texture) {
-		return;
+	if (texture) {
+		glActiveTexture(GL_TEXTURE0);
+		shader.SetInt("image", 0);
+		glBindTexture(GL_TEXTURE_2D, texture);
 	}
-	glActiveTexture(GL_TEXTURE0);
-	shader.SetInt("image", 0);
-	glBindTexture(GL_TEXTURE_2D, texture);
+	else {
+		shader.SetInt("image", Renderer::white);
+	}
+	
 	glUniform3fv(glGetUniformLocation(shader.ID, "scale"), 1, glm::value_ptr(scale));
 
 	glBindVertexArray(VAO);

@@ -9,7 +9,7 @@ using namespace std;
 Bomb::Bomb(unordered_map<type_index, vector<unique_ptr<Component>>>& collection, Transform& transform, Object* object, shared_ptr<AudioClip> explosionSFX, float radius)
 	: Component(collection, transform, object), explosionSFX(explosionSFX), radius(radius)
 {
-
+	
 }
 
 void Bomb::Update() {
@@ -44,5 +44,7 @@ void Bomb::Update() {
 				source->Play();
 			}
 		}
+
+		Game::explosionPosition = transform.position();
 	}
 }

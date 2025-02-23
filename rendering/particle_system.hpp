@@ -5,6 +5,7 @@
 #include <functional>
 #include "mesh.hpp"
 #include "../core/component.hpp"
+#include "renderer.hpp"
 
 struct Particle {
 	glm::vec3 pos;
@@ -28,7 +29,8 @@ private:
 	float spawnCounter;
 	bool init;
 public:
-	glm::vec3 offsetFromObject;
+	glm::vec3 relativeOffset;
+	glm::vec3 absoluteOffset;
 	GLuint texture;
 	bool useGravity, is3D, disableOnFinish;
 	float spawnFrequency;

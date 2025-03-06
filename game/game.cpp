@@ -8,8 +8,6 @@
 #include "fruit.hpp"
 #include "bomb.hpp"
 #include "../audio/audio_clip.hpp"
-#include "../settings/fruitsize.hpp"
-#include "../settings/fruitspawn.hpp"
 #include "../audio/audiosource_pool.hpp"
 #include "../audio/audiolistener.hpp"
 #include "../physics/rigidbody.hpp"
@@ -17,438 +15,370 @@
 #include "../rendering/camera.hpp"
 #include "../rendering/model.hpp"
 #include "../rendering/particle_system.hpp"
+#include "../state/cursor.hpp"
 #include "../state/time.hpp"
-#include "../state/state.hpp"
 #include "../state/window.hpp"
-#include "frontUI.hpp"
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
 
 using namespace std;
-using namespace Game;
-using namespace Time;
 
-// Resource path
-static const char* unitCube = "models/unit_cube.obj";
-static const char* unitSphere = "models/unit_sphere.obj";
+// Given three collinear points p, q, r, the function checks if 
+// point q lies on line segment 'pr' 
+static bool onSegment(glm::vec2 p, glm::vec2 q, glm::vec2 r)
+{
+	if (q.x <= max(p.x, r.x) && q.x >= min(p.x, r.x) &&
+		q.y <= max(p.y, r.y) && q.y >= min(p.y, r.y))
+		return true;
 
-// Audio
-static shared_ptr<AudioClip> fruitSliceAudio;
-static shared_ptr<AudioClip> largeFruitSliceAudio;
-static shared_ptr<AudioClip> startMenuAudio;
-static shared_ptr<AudioClip> gameStartAudio;
-static shared_ptr<AudioClip> gameOverAudio;
-static shared_ptr<AudioClip> fruitMissAudio;
-static shared_ptr<AudioClip> fruitSpawnAudio;
-static shared_ptr<AudioClip> recoveryAudio;
-static shared_ptr<AudioClip> explosionAudio;
-static shared_ptr<AudioClip> fuseAudio;
-
-static void loadAudio() {
-	fruitSliceAudio = make_shared<AudioClip>("sounds/onhit.wav");
-	largeFruitSliceAudio = make_shared<AudioClip>("sounds/onhit2.wav");
-	startMenuAudio = make_shared<AudioClip>("sounds/StartMenu.wav");
-	gameStartAudio = make_shared<AudioClip>("sounds/Game-start.wav");
-	gameOverAudio = make_shared<AudioClip>("sounds/Game-over.wav");
-	fruitMissAudio = make_shared<AudioClip>("sounds/gank.wav");
-	fruitSpawnAudio = make_shared<AudioClip>("sounds/Throw-fruit.wav");
-	recoveryAudio = make_shared<AudioClip>("sounds/extra-life.wav");
-	explosionAudio = make_shared<AudioClip>("sounds/Bomb-explode.wav");
-	fuseAudio = make_shared<AudioClip>("sounds/Bomb-Fuse.wav");
+	return false;
 }
 
-// Models
-static shared_ptr<Model> appleModel;
-static shared_ptr<Model> appleTopModel;
-static shared_ptr<Model> appleBottomModel;
+// To find orientation of ordered triplet (p, q, r). 
+// The function returns following values 
+// 0 --> p, q and r are collinear 
+// 1 --> Clockwise 
+// 2 --> Counterclockwise 
+static int orientation(glm::vec2 p, glm::vec2 q, glm::vec2 r)
+{
+	// See https://www.geeksforgeeks.org/orientation-3-ordered-points/ 
+	// for details of below formula. 
+	int val = (q.y - p.y) * (r.x - q.x) -
+		(q.x - p.x) * (r.y - q.y);
 
-static shared_ptr<Model> pineappleModel;
-static shared_ptr<Model> pineappleTopModel;
-static shared_ptr<Model> pineappleBottomModel;
+	if (val == 0) return 0;  // collinear 
 
-static shared_ptr<Model> watermelonModel;
-static shared_ptr<Model> watermelonTopModel;
-static shared_ptr<Model> watermelonBottomModel;
-
-static shared_ptr<Model> bombModel;
-
-static void loadModels() {
-	bombModel = make_shared<Model>("models/bomb.obj");
-
-	appleModel = make_shared<Model>("models/fruits/apple.obj");
-	appleTopModel = make_shared<Model>("models/fruits/apple_top.obj");
-	appleBottomModel = make_shared<Model>("models/fruits/apple_bottom.obj");
-
-	pineappleModel = make_shared<Model>("models/fruits/pineapple.obj");
-	pineappleTopModel = make_shared<Model>("models/fruits/pineapple_top.obj");
-	pineappleBottomModel = make_shared<Model>("models/fruits/pineapple_bottom.obj");
-
-	watermelonModel = make_shared<Model>("models/fruits/watermelon.obj");
-	watermelonTopModel = make_shared<Model>("models/fruits/watermelon_top.obj");
-	watermelonBottomModel = make_shared<Model>("models/fruits/watermelon_bottom.obj");
+	return (val > 0) ? 1 : 2; // clock or counterclock wise 
 }
 
-static GLuint sliceParticleTexture;
-static GLuint sparkTexture;
-static GLuint smokeTexture;
-static void loadTextures() {
-	sliceParticleTexture = textureFromFile("droplet.png", "images");
-	sparkTexture = textureFromFile("spark.png", "images");
-	smokeTexture = textureFromFile("smoke3.png", "images");
+// The main function that returns true if line segment 'p1q1' 
+// and 'p2q2' intersect. 
+static bool doIntersect(glm::vec2 p1, glm::vec2 q1, glm::vec2 p2, glm::vec2 q2)
+{
+	// Find the four orientations needed for general and 
+	// special cases 
+	int o1 = orientation(p1, q1, p2);
+	int o2 = orientation(p1, q1, q2);
+	int o3 = orientation(p2, q2, p1);
+	int o4 = orientation(p2, q2, q1);
+
+	// General case 
+	if (o1 != o2 && o3 != o4)
+		return true;
+
+	// Special Cases 
+	// p1, q1 and p2 are collinear and p2 lies on segment p1q1 
+	if (o1 == 0 && onSegment(p1, p2, q1)) return true;
+
+	// p1, q1 and q2 are collinear and q2 lies on segment p1q1 
+	if (o2 == 0 && onSegment(p1, q2, q1)) return true;
+
+	// p2, q2 and p1 are collinear and p1 lies on segment p2q2 
+	if (o3 == 0 && onSegment(p2, p1, q2)) return true;
+
+	// p2, q2 and q1 are collinear and q1 lies on segment p2q2 
+	if (o4 == 0 && onSegment(p2, q1, q2)) return true;
+
+	return false; // Doesn't fall in any of the above cases 
 }
 
-static ObjectPool<Object>* fruitSliceParticlePool;
-static Object* createFruitParticle() {
-	Object* obj = new Object();
-	ParticleSystem* system = obj->AddComponent<ParticleSystem>(100);
-	system->disableOnFinish = true;
-	system->maxSpawnDirectionDeviation = 180;
-	system->spawnAmount = 22;
-	system->spawnDirection = glm::vec3(0, 25, 0);
-	system->scale = glm::vec3(0.3, 0.3, 0.3);
-	system->spawnFrequency = 0;
-	system->useGravity = true;
+static void insertTrailArrow(char* currVBO, int* currEBO, glm::vec2 left, glm::vec2 right, glm::vec2 tangent, int index, MouseTrailSetting& trailSetting) {
+	glm::vec3 backLeftPos(left, -0.8f);
+	glm::vec3 backRightPos(right, -0.8f);
+	glm::vec2 backLeftUV(0, 1);
+	memcpy(currVBO, glm::value_ptr(backLeftPos), sizeof(backLeftPos));
+	currVBO += sizeof(glm::vec3);
+	memcpy(currVBO, glm::value_ptr(backLeftUV), sizeof(backLeftUV));
+	currVBO += sizeof(glm::vec2);
 
-	return obj;
+	glm::vec2 backRightUV(0, 0);
+	memcpy(currVBO, glm::value_ptr(backRightPos), sizeof(backRightPos));
+	currVBO += sizeof(glm::vec3);
+	memcpy(currVBO, glm::value_ptr(backRightUV), sizeof(backRightUV));
+	currVBO += sizeof(glm::vec2);
+
+	auto offset = trailSetting.arrowSize * glm::normalize(glm::vec3(tangent, 0));
+
+	glm::vec3 frontLeftPos = backLeftPos + offset;
+	glm::vec2 frontLeftUV(1, 1);
+	memcpy(currVBO, glm::value_ptr(frontLeftPos), sizeof(frontLeftPos));
+	currVBO += sizeof(glm::vec3);
+	memcpy(currVBO, glm::value_ptr(frontLeftUV), sizeof(frontLeftUV));
+	currVBO += sizeof(glm::vec2);
+
+	glm::vec3 frontRightPos = backRightPos + offset;
+	glm::vec2 frontRightUV(1, 0);
+	memcpy(currVBO, glm::value_ptr(frontRightPos), sizeof(frontRightPos));
+	currVBO += sizeof(glm::vec3);
+	memcpy(currVBO, glm::value_ptr(frontRightUV), sizeof(frontRightUV));
+	currVBO += sizeof(glm::vec2);
+	currEBO[0] = index;
+	currEBO[1] = index + 1;
+	currEBO[2] = index + 2;
+	currEBO[3] = index + 3;
+	currEBO[4] = index + 2;
+	currEBO[5] = index + 1;
 }
 
 static float randFloat(float min, float max) {
 	return rand() / static_cast<float>(RAND_MAX) * (max - min) + min;
 }
 
-static void spawnFruit(shared_ptr<Model>& fruitModel, shared_ptr<Model>& slice1Model, shared_ptr<Model>& slice2Model, shared_ptr<AudioClip> sliceAudio, glm::vec4 color, float radius=1, int score = 1) {
-	shared_ptr<Object> fruit = Object::Create();
+GameMode::GameMode(Game* game) : game(game) { }
 
-	auto renderer = fruit->AddComponent<Renderer>(fruitModel);
-	// renderer->drawOverlay = true;
-	Fruit* ft = fruit->AddComponent<Fruit>(radius, score, *fruitSliceParticlePool, slice1Model, slice2Model, sliceAudio, fruitMissAudio);
-	ft->slicedParticleTexture = sliceParticleTexture;
-	ft->color = color;
-	Rigidbody* rb = fruit->AddComponent<Rigidbody>();
-	float upForce = randFloat(FRUIT_UP_MIN, FRUIT_UP_MAX);
-	float horizontalForce = randFloat(FRUIT_HORIZONTAL_MIN, FRUIT_HORIZONTAL_MAX);
-	rb->AddForce(glm::vec3(horizontalForce, upForce, 0), ForceMode::Impulse);
+Game::Game() : currMode(0), textures() {
+	trailShader = make_unique<Shader>("shaders/mouse_trail.vert", "shaders/mouse_trail.frag");
+	trailTexture = textureFromFile("FruitNinja_blade0.png", "images");
+	trailArrow = textureFromFile("blade0_arrow.png", "images");
+	player = Object::Create();
 
-	glm::vec3 torque(
-		randFloat(SPAWN_X_ROT_MIN, SPAWN_X_ROT_MAX),
-		randFloat(SPAWN_Y_ROT_MIN, SPAWN_Y_ROT_MAX),
-		randFloat(SPAWN_Z_ROT_MIN, SPAWN_Z_ROT_MAX)
-	);
+	// Configure mouse trailing (shared by all game modes)
+	Cursor::OnMousePositionUpdated.push_back(bind(&Game::OnMouseUpdate, this, placeholders::_1));
+	Cursor::OnLeftClickReleased.push_back(bind(&Game::OnLeftReleased, this));
+	glGenBuffers(1, &mouseTrailVBO);
+	glGenBuffers(1, &mouseTrailEBO);
+	glGenVertexArrays(1, &mouseTrailVAO);
 
-	rb->AddRelativeTorque(torque, ForceMode::Impulse);
-	float startX =  randFloat(FRUIT_SPAWN_CENTER - FRUIT_SPAWN_WIDTH / 2, FRUIT_SPAWN_CENTER + FRUIT_SPAWN_WIDTH / 2);
-	glm::vec3 position(startX, FRUIT_SPAWN_HEIGHT, 0);
-	// cout << "Spawn at " << glm::to_string(position) << "\n";
-	rb->transform.SetPosition(position);
+	glBindVertexArray(mouseTrailVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, mouseTrailVBO);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, mouseTrailEBO);
+
+	glBufferData(GL_ARRAY_BUFFER, 4 * mouseTrailSetting.maxMousePosSize * 5 * sizeof(float), nullptr, GL_DYNAMIC_DRAW);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, mouseTrailSetting.maxMousePosSize * 6 * sizeof(int), nullptr, GL_DYNAMIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float) * 5, (void*)0);
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 5, (void*)sizeof(glm::vec3));
+	glBindVertexArray(0);
 }
 
-static void spawnApple() {
-	spawnFruit(appleModel, appleTopModel, appleBottomModel, fruitSliceAudio, glm::vec4(1, 1, 1, 1), APPLE_SIZE);
+Game::~Game() {
+	glDeleteVertexArrays(1, &mouseTrailVAO);
+	glDeleteBuffers(1, &mouseTrailVBO);
+	glDeleteBuffers(1, &mouseTrailEBO);
 }
 
-static void spawnPineapple() {
-	spawnFruit(pineappleModel, pineappleTopModel, pineappleBottomModel, fruitSliceAudio, glm::vec4(1, 1, 0, 1), PINEAPPLE_SIZE);
-}
-
-static void spawnWatermelon() {
-	spawnFruit(watermelonModel, watermelonTopModel, watermelonBottomModel, largeFruitSliceAudio, glm::vec4(1, 0, 0, 1), WATERMELON_SIZE);
-}
-
-static void sparkModifier(Particle& particle, ParticleSystem& system) {
-	float quater = 0.1 * particle.lifeTime;
-	float remainder = 0.9 * particle.lifeTime;
-	float opacity = particle.timeLived < quater ? particle.timeLived / quater : (remainder - particle.timeLived + quater) / remainder;
-	float size = particle.timeLived < quater ? particle.timeLived / quater : (remainder - particle.timeLived + quater) / remainder;
-	particle.scale = glm::vec3(size, size, size);
-	particle.color = system.color * glm::vec4(1, 1, 1, opacity);
-}
-
-static void smokeModifier(Particle& particle, ParticleSystem& system) {
-	float quater = 0.1 * particle.lifeTime;
-	float remainder = 0.9 * particle.lifeTime;
-	float size = particle.timeLived < quater ? particle.timeLived / quater : 1;
-	float opacity = particle.timeLived < quater ? particle.timeLived / quater : (remainder - particle.timeLived + quater) / remainder;
-	particle.velocity = glm::vec3(0, 1, 0);
-	particle.scale = size * glm::vec3(1.2, 1.2, 1);
-	particle.color = system.color * glm::vec4(1, 1, 1, opacity);
-}
-
-static void spawnBomb() {
-	shared_ptr<Object> bomb = Object::Create();
-	bomb->transform.SetScale(0.7f * glm::vec3(1, 1, 1));
-
-	auto renderer = bomb->AddComponent<Renderer>(bombModel);
-	// renderer->drawOverlay = true;
-	renderer->drawOutline = true;
-	renderer->outlineColor = glm::vec4(1, 0, 0, 1);
-	bomb->AddComponent<Bomb>(explosionAudio, BOMB_SIZE);
-
-	AudioSource* audioSource = bomb->AddComponent<AudioSource>();
-	audioSource->SetAudioClip(fuseAudio);
-	audioSource->SetLoopEnabled(true);
-	audioSource->Play();
-
-	Rigidbody* rb = bomb->AddComponent<Rigidbody>();
-	float upForce = randFloat(FRUIT_UP_MIN, FRUIT_UP_MAX);
-	float horizontalForce = randFloat(FRUIT_HORIZONTAL_MIN, FRUIT_HORIZONTAL_MAX);
-	rb->AddForce(glm::vec3(horizontalForce, upForce, 0), ForceMode::Impulse);
-
-	glm::vec3 torque(
-		randFloat(SPAWN_X_ROT_MIN, SPAWN_X_ROT_MAX),
-		randFloat(SPAWN_Y_ROT_MIN, SPAWN_Y_ROT_MAX),
-		randFloat(SPAWN_Z_ROT_MIN, SPAWN_Z_ROT_MAX)
-	);
-
-	rb->AddRelativeTorque(torque, ForceMode::Impulse);
-	float startX = randFloat(FRUIT_SPAWN_CENTER - FRUIT_SPAWN_WIDTH / 2, FRUIT_SPAWN_CENTER + FRUIT_SPAWN_WIDTH / 2);
-	glm::vec3 position(startX, FRUIT_SPAWN_HEIGHT, 5);
-	// cout << "Spawn at " << glm::to_string(position) << "\n";
-	rb->transform.SetPosition(position);
-
-	auto audioSourceObj = acquireAudioSource();
-	if (audioSourceObj) {
-		auto source = audioSourceObj->GetComponent<AudioSource>();
-		source->SetAudioClip(fruitSpawnAudio);
-		source->Play();
-	}
-
-	ParticleSystem* spark = bomb->AddComponent<ParticleSystem>(50, sparkModifier);
-	spark->SetParticleLifeTime(1, 1);
-	spark->texture = sparkTexture;
-	spark->spawnAmount = 1;
-	spark->spawnFrequency = 10;
-	spark->relativeOffset = glm::vec3(0, 1, 0);
-	spark->maxSpawnDirectionDeviation = 15;
-	spark->useGravity = false;
-	spark->scale = 0.7f * glm::vec3(0.7, 1, 1);
-	spark->spawnDirection = glm::vec3(0, 4, 0);
-
-	ParticleSystem* smoke = bomb->AddComponent<ParticleSystem>(50, smokeModifier);
-	smoke->SetParticleLifeTime(1, 1);
-	smoke->texture = smokeTexture;
-	smoke->spawnAmount = 1;
-	smoke->spawnFrequency = 20;
-	smoke->relativeOffset = glm::vec3(0, 1, 0);
-	smoke->maxSpawnDirectionDeviation = 0;
-	smoke->useGravity = false;
-	smoke->is3D = false;
-	smoke->scale = 0.5f * glm::vec3(1, 1, 1);
-	smoke->spawnDirection = glm::vec3(0, 1, 0);
-}
-
-static vector<function<void()>> spawners = {spawnApple, spawnPineapple, spawnWatermelon, spawnBomb};
-
-static float spawnCooldown = 1;
-static float spawnTimer = 0;
-
-static shared_ptr<Object> startGame;
-static shared_ptr<Object> exitGame;
-static shared_ptr<Object> restart;
-
-static shared_ptr<Object> camera;
-
-void initGame() {
-	loadAudio();
-	loadTextures();
-	loadModels();
-
-	fruitSliceParticlePool = new ObjectPool<Object>(50, createFruitParticle);
-
-	state = State::START;
-
-	// Start Game Button
-	startGame = Object::Create();
-	Renderer* renderer = startGame->AddComponent<Renderer>(watermelonModel);
-	renderer->drawOutline = true;
-	renderer->outlineColor = glm::vec4(0, 1, 0, 0.5);
-	startGame->AddComponent<Fruit>(WATERMELON_SIZE, 0, *fruitSliceParticlePool, watermelonTopModel, watermelonBottomModel);
-	Rigidbody* rigidbody = startGame->AddComponent<Rigidbody>();
-	rigidbody->useGravity = false;
-	glm::vec3 torque(
-		randFloat(SPAWN_X_ROT_MIN, SPAWN_X_ROT_MAX),
-		randFloat(SPAWN_Y_ROT_MIN, SPAWN_Y_ROT_MAX),
-		randFloat(SPAWN_Z_ROT_MIN, SPAWN_Z_ROT_MAX)
-	);
-	rigidbody->AddRelativeTorque(torque, ForceMode::Impulse);
-
-	// Exit button
-	exitGame = Object::Create();
-	renderer = exitGame->AddComponent<Renderer>(bombModel);
-	renderer->drawOutline = true;
-	renderer->outlineColor = glm::vec4(1, 0, 0, 0.5);
-	exitGame->AddComponent<Fruit>(BOMB_SIZE, 0, *fruitSliceParticlePool);
-	rigidbody = exitGame->AddComponent<Rigidbody>();
-	rigidbody->useGravity = false;
-	torque = glm::vec3(
-		randFloat(SPAWN_X_ROT_MIN, SPAWN_X_ROT_MAX),
-		randFloat(SPAWN_Y_ROT_MIN, SPAWN_Y_ROT_MAX),
-		randFloat(SPAWN_Z_ROT_MIN, SPAWN_Z_ROT_MAX)
-	);
-	rigidbody->AddRelativeTorque(torque, ForceMode::Impulse);
-	
-	// Reset Button
-	restart = Object::Create();
-	restart->SetEnable(false);
-	restart->AddComponent<Renderer>(pineappleModel);
-	restart->AddComponent<Fruit>(PINEAPPLE_SIZE, 0, *fruitSliceParticlePool, pineappleTopModel, pineappleBottomModel);
-	rigidbody = restart->AddComponent<Rigidbody>();
-	rigidbody->useGravity = false;
-	torque = glm::vec3(
-		randFloat(SPAWN_X_ROT_MIN, SPAWN_X_ROT_MAX),
-		randFloat(SPAWN_Y_ROT_MIN, SPAWN_Y_ROT_MAX),
-		randFloat(SPAWN_Z_ROT_MIN, SPAWN_Z_ROT_MAX)
-	);
-	rigidbody->AddRelativeTorque(torque, ForceMode::Impulse);
-
-	// Audio & Camera
-	camera = Object::Create();
-	camera->AddComponent<Camera>(1.0f, 300.0f);
-	camera->transform.SetPosition(glm::vec3(0, 0, 30));
-	camera->transform.LookAt(camera->transform.position() + glm::vec3(0, 0, -1), glm::vec3(0, 1, 0));
-	camera->AddComponent<AudioListener>();
-
-	AudioSource* audioSource = camera->AddComponent<AudioSource>();
-	audioSource->SetAudioClip(startMenuAudio);
-	audioSource->SetLoopEnabled(true);
-	audioSource->Play();
-	alDistanceModel(AL_NONE);
-
-	// Set Button position
-	glm::mat4 inverse = glm::inverse(Camera::main->Perspective() * Camera::main->View());
-	float z = Camera::main->ComputerNormalizedZ(30);
-	glm::vec4 startPos = inverse * glm::vec4(START_BUTTON_POS, z, 1);
-	startPos /= startPos.w;
-	startGame->transform.SetPosition(startPos);
-
-	glm::vec4 exitPos = inverse * glm::vec4(EXIT_BUTTON_POS, z, 1);
-	exitPos /= exitPos.w;
-	exitGame->transform.SetPosition(exitPos);
-}
-
-static void enterGame() {
-	state = State::GAME;
-	exitGame->GetComponent<Rigidbody>()->useGravity = true;
-	score = 0;
-	spawnTimer = 0;
-	misses = 0;
-	recovery = 0;
-	bombHit = false;
-	camera->GetComponent<AudioSource>()->Pause();
-	auto source = acquireAudioSource();
-	if (source) {
-		auto audioSource = source->GetComponent<AudioSource>();
-		audioSource->SetAudioClip(gameStartAudio);
-		audioSource->Play();
-	}
-}
-
-static void enterExplosion(){
-	state = State::EXPLOSION;
-	Time::timeScale = 0;
-	explosionTimer = 0;
-}
-
-static void enterScore() {
-	state = State::SCORE;
-	exitGame->SetEnable(true);
-	auto rb = exitGame->GetComponent<Rigidbody>();
-	rb->useGravity = false;
-	rb->velocity = glm::vec3(0);
-	restart->SetEnable(true);
-
-	glm::mat4 inverse = glm::inverse(Camera::main->Perspective() * Camera::main->View());
-	float z = Camera::main->ComputerNormalizedZ(30);
-	glm::vec4 startPos = inverse * glm::vec4(START_BUTTON_POS, z, 1);
-	startPos /= startPos.w;
-	restart->transform.SetPosition(startPos);
-
-	glm::vec4 exitPos = inverse * glm::vec4(EXIT_BUTTON_POS, z, 1);
-	exitPos /= exitPos.w;
-	exitGame->transform.SetPosition(exitPos);
-
-	auto source = acquireAudioSource();
-	if (source) {
-		auto audioSource = source->GetComponent<AudioSource>();
-		audioSource->SetAudioClip(gameOverAudio);
-		audioSource->Play();
-	}
-}
-
-static void processStart() {
-	if (!startGame->IsActive()) {
-		enterGame();
-	}
-	else if (!exitGame->IsActive()) {
-		glfwSetWindowShouldClose(window, true);
-	}
-}
-
-static void processGame() {
-	spawnTimer += deltaTime();
-	if (spawnTimer >= spawnCooldown) {
-		int spawnAmount = round(randFloat(SPAWN_AMOUNT_MIN, SPAWN_AMOUNT_MAX));
-		for (int i = 0; i < spawnAmount; i++) {
-			int index = round(randFloat(0, spawners.size() - 1));
-			spawners[index]();
+void Game::OnMouseUpdate(glm::vec2 position) {
+	if (Cursor::mouseClicked && enableMouseTrail) {
+		if (flushMousePositions) {
+			flushMousePositions = false;
+			mousePositions.clear();
 		}
-		spawnCooldown = round(randFloat(SPAWN_COOLDOWN_MIN, SPAWN_COOLDOWN_MAX));
-		spawnTimer = 0;
+		glm::vec2 expanded(position.x * SCR_WIDTH / 2, position.y * SCR_HEIGHT / 2);
+		if (!mousePositions.empty()) {
+			glm::vec2 lastPos = mousePositions.back();
+			if (glm::length(expanded - lastPos) < 12) {
+				return;
+			}
+		}
 
-		auto audioSourceObj = acquireAudioSource();
-		if (audioSourceObj) {
-			auto source = audioSourceObj->GetComponent<AudioSource>();
-			source->SetAudioClip(fruitSpawnAudio);
-			source->Play();
+		mousePositions.push_back(glm::vec3(expanded, mouseTrailSetting.mousePosKeepTime));
+		if (mousePositions.size() > mouseTrailSetting.maxMousePosSize) {
+			mousePositions.pop_front();
 		}
 	}
-	if (bombHit) {
-		enterExplosion();
+	if (!enableMouseTrail) {
+		mousePositions.clear();
 	}
-	else if (misses >= MISS_TOLERENCE) {
-		enterScore();
-	}
+}
 
-	if (recentlyRecovered) {
-		recentlyRecovered = false;
-		auto source = acquireAudioSource();
-		if (source) {
-			auto audioSource = source->GetComponent<AudioSource>();
-			audioSource->SetAudioClip(recoveryAudio);
-			audioSource->Play();
+void Game::OnLeftReleased() {
+	flushMousePositions = true;
+}
+
+void Game::Init() {
+	LoadAudios();
+	LoadTextures();
+	LoadModels();
+}
+
+void Game::LoadAudios() {
+	audios.fruitSliceAudio1 = make_shared<AudioClip>("sounds/onhit.wav");
+	audios.fruitSliceAudio2 = make_shared<AudioClip>("sounds/onhit2.wav");
+	audios.startMenuAudio = make_shared<AudioClip>("sounds/StartMenu.wav");
+	audios.gameStartAudio = make_shared<AudioClip>("sounds/Game-start.wav");
+	audios.gameOverAudio = make_shared<AudioClip>("sounds/Game-over.wav");
+	audios.fruitMissAudio = make_shared<AudioClip>("sounds/gank.wav");
+	audios.fruitSpawnAudio = make_shared<AudioClip>("sounds/Throw-fruit.wav");
+	audios.recoveryAudio = make_shared<AudioClip>("sounds/extra-life.wav");
+	audios.explosionAudio = make_shared<AudioClip>("sounds/Bomb-explode.wav");
+	audios.fuseAudio = make_shared<AudioClip>("sounds/Bomb-Fuse.wav");
+}
+
+void Game::LoadModels() {
+	models.bombModel = make_shared<Model>("models/bomb.obj");
+
+	models.appleModel = make_shared<Model>("models/fruits/apple.obj");
+	models.appleTopModel = make_shared<Model>("models/fruits/apple_top.obj");
+	models.appleBottomModel = make_shared<Model>("models/fruits/apple_bottom.obj");
+
+	models.pineappleModel = make_shared<Model>("models/fruits/pineapple.obj");
+	models.pineappleTopModel = make_shared<Model>("models/fruits/pineapple_top.obj");
+	models.pineappleBottomModel = make_shared<Model>("models/fruits/pineapple_bottom.obj");
+
+	models.watermelonModel = make_shared<Model>("models/fruits/watermelon.obj");
+	models.watermelonTopModel = make_shared<Model>("models/fruits/watermelon_top.obj");
+	models.watermelonBottomModel = make_shared<Model>("models/fruits/watermelon_bottom.obj");
+}
+
+void Game::LoadTextures() {
+	textures.sliceParticleTexture = textureFromFile("droplet.png", "images");
+	textures.sparkTexture = textureFromFile("spark.png", "images");
+	textures.smokeTexture = textureFromFile("smoke3.png", "images");
+	textures.backgroundTexture = textureFromFile("fruit_ninja_clean.png", "images");
+	textures.fadeTexture = textureFromFile("fading_circle_opaque_center.png", "images");
+	textures.emptyCross = textureFromFile("empty_cross.png", "images");
+	textures.redCross = textureFromFile("red_cross.png", "images");
+}
+
+void Game::Step() {
+	auto newMode = currMode->Step();
+	if (newMode && *newMode != typeid(currMode)) {
+		auto mode = gameModes.find(*newMode);
+		if (mode == gameModes.end()) {
+			cout << "Cannot switch to a mode that's not added to the game!\n";
+			return;
+		}
+		currMode->OnExit();
+		currMode = mode->second.get();
+		currMode->OnEnter();
+	}
+}
+
+void Game::DrawVFX(Shader& vfxShader) {
+	if (currMode) {
+		currMode->DrawVFX(vfxShader);
+	}
+}
+
+void Game::DrawBackUI(Shader& uiShader) {
+	if (currMode) {
+		currMode->DrawBackUI(uiShader);
+	}
+}
+
+void Game::DrawFrontUI(Shader& uiShader) {
+	if (currMode) {
+		currMode->DrawFrontUI(uiShader);
+	}
+	trailShader->Use();
+	DrawMouseTrailing();
+	uiShader.Use();
+}
+
+void Game::DrawMouseTrailing() {
+	float dt = Time::deltaTime();
+	for (auto i = mousePositions.begin(); i != mousePositions.end();) {
+		i->z -= dt;
+		if (i->z <= 0) {
+			i = mousePositions.erase(i);
+		}
+		else {
+			i++;
 		}
 	}
-}
 
-static void processExplosion() {
-	explosionTimer += unscaledDeltaTime();
-	if (explosionTimer > EXPLOSION_DURATION) {
-		Time::timeScale = 1;
-		enterScore();
-	}
-}
+	glBindVertexArray(mouseTrailVAO);
+	glBindBuffer(GL_ARRAY_BUFFER, mouseTrailVBO);
+	if (mousePositions.size() > 1) {
+		if (mousePositions.size() > 10) {
+			cout << "";
+		}
+		char* currVBO = (char*)glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
+		int* currEBO = (int*)glMapBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_WRITE_ONLY);
 
-static void processScore() {
-	if (!restart->IsActive()) {
-		enterGame();
-	}
-	else if (!exitGame->IsActive()) {
-		glfwSetWindowShouldClose(window, true);
-	}
-}
+		auto prev = mousePositions.begin();
+		auto curr = next(prev, 1);
+		glm::vec2 tangent{};
+		int index = 0;
+		int indices = 6;
+		glm::vec3 backLeftPos;
+		glm::vec3 backRightPos;
+		bool init = true;
+		while (curr != mousePositions.end()) {
+			glm::vec2 prevPos(*prev);
+			glm::vec2 currPos(*curr);
+			tangent = currPos - prevPos;
 
-void gameStep() {
-	switch (state) {
-		case State::START:
-			processStart();
-			break;
-		case State::GAME:
-			processGame();
-			break;
-		case State::EXPLOSION:
-			processExplosion();
-			break;
-		case State::SCORE:
-			processScore();
-			break;
+			glm::vec2 right = glm::normalize(glm::vec2(tangent.y, -tangent.x));
+			float prevLineSize = prev->z * mouseTrailSetting.maxTrailSize / mouseTrailSetting.mousePosKeepTime;
+			float currLineSize = curr->z * mouseTrailSetting.maxTrailSize / mouseTrailSetting.mousePosKeepTime;
+
+			glm::vec2 prevRight = prevLineSize * right;
+			glm::vec2 prevLeft = -prevLineSize * right;
+			glm::vec2 currRight = currLineSize * right;
+			glm::vec2 currLeft = -currLineSize * right;
+
+			if (init) {
+				init = false;
+				backLeftPos = glm::vec3(prevPos + prevLeft, -0.5);
+				backRightPos = glm::vec3(prevPos + prevRight, -0.5);
+			}
+
+			glm::vec2 backLeftUV(0, 1);
+			memcpy(currVBO, glm::value_ptr(backLeftPos), sizeof(backLeftPos));
+			currVBO += sizeof(glm::vec3);
+			memcpy(currVBO, glm::value_ptr(backLeftUV), sizeof(backLeftUV));
+			currVBO += sizeof(glm::vec2);
+
+			glm::vec2 backRightUV(0, 0);
+			memcpy(currVBO, glm::value_ptr(backRightPos), sizeof(backRightPos));
+			currVBO += sizeof(glm::vec3);
+			memcpy(currVBO, glm::value_ptr(backRightUV), sizeof(backRightUV));
+			currVBO += sizeof(glm::vec2);
+
+			glm::vec3 frontLeftPos(currPos + currLeft, -0.5);
+			glm::vec2 frontLeftUV(1, 1);
+			memcpy(currVBO, glm::value_ptr(frontLeftPos), sizeof(frontLeftPos));
+			currVBO += sizeof(glm::vec3);
+			memcpy(currVBO, glm::value_ptr(frontLeftUV), sizeof(frontLeftUV));
+			currVBO += sizeof(glm::vec2);
+
+			glm::vec3 frontRightPos(currPos + currRight, -0.5);
+			glm::vec2 frontRightUV(1, 0);
+			memcpy(currVBO, glm::value_ptr(frontRightPos), sizeof(frontRightPos));
+			currVBO += sizeof(glm::vec3);
+			memcpy(currVBO, glm::value_ptr(frontRightUV), sizeof(frontRightUV));
+			currVBO += sizeof(glm::vec2);
+
+			if (doIntersect(backLeftPos, backRightPos, frontLeftPos, frontRightPos)) {
+				currEBO[0] = index;
+				currEBO[1] = index + 1;
+				currEBO[2] = index + 2;
+				currEBO[3] = index + 1;
+				currEBO[4] = index;
+				currEBO[5] = index + 3;
+			}
+			else {
+				currEBO[0] = index;
+				currEBO[1] = index + 1;
+				currEBO[2] = index + 2;
+				currEBO[3] = index + 3;
+				currEBO[4] = index + 2;
+				currEBO[5] = index + 1;
+			}
+			backLeftPos = frontLeftPos;
+			backRightPos = frontRightPos;
+
+			currEBO += 6;
+			indices += 6;
+			curr++;
+			prev++;
+			index += 4;
+		}
+		insertTrailArrow(currVBO, currEBO, backLeftPos, backRightPos, tangent, index, mouseTrailSetting);
+
+		glUnmapBuffer(GL_ARRAY_BUFFER);
+		glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, trailTexture);
+		trailShader->SetInt("image", 0);
+		glActiveTexture(GL_TEXTURE0 + 1);
+		glBindTexture(GL_TEXTURE_2D, trailArrow);
+		trailShader->SetInt("arrow", 1);
+		glUniformMatrix4fv(glGetUniformLocation(trailShader->ID, "projection"), 1, GL_FALSE, glm::value_ptr(Camera::main->Ortho()));
+		glDrawElements(GL_TRIANGLES, indices, GL_UNSIGNED_INT, 0);
 	}
+
+	glBindVertexArray(0);
 }

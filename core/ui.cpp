@@ -6,7 +6,7 @@ using namespace std;
 
 UI::UI(GLuint texture, string text, int textSize) 
 	: texture(texture), transform(), textSize(textSize), textureSize(0), 
-	textColor(1, 1, 1, 1), imageColor(1, 1, 1, 1), isEnabled(true)
+	textColor(1, 1, 1, 1), imageColor(1, 1, 1, 1)
 {
 	glGenVertexArrays(1, &VAO);
 	glGenBuffers(1, &VBO);
@@ -217,6 +217,12 @@ void UI::UpdateText(string newText) {
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(float) * 5, (void*)sizeof(glm::vec3));
 
 	glBindVertexArray(0);
+}
+
+UI::~UI() {
+	glDeleteVertexArrays(1, &VAO);
+	glDeleteBuffers(1, &VBO);
+	glDeleteBuffers(1, &EBO);
 }
 
 string UI::text() const {

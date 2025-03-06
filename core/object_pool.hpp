@@ -29,6 +29,11 @@ public:
 		return {};
 	}
 
+	ObjectPool(const ObjectPool<T>& other) = delete;
+	ObjectPool(ObjectPool<T>&& other) = delete;
+	ObjectPool& operator =(const ObjectPool<T> other) = delete;
+	ObjectPool& operator =(ObjectPool<T>&& other) = delete;
+
 	~ObjectPool() {
 		while (!pool.empty()) {
 			delete pool.top();

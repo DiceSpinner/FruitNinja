@@ -1,40 +1,35 @@
 #include "bomb.hpp"
 #include "util.hpp"
 #include "../core/object.hpp"
-#include "../settings/fruitspawn.hpp"
-#include "../state/state.hpp"
 
 using namespace std;
 
-Bomb::Bomb(unordered_map<type_index, vector<unique_ptr<Component>>>& collection, Transform& transform, Object* object, shared_ptr<AudioClip> explosionSFX, float radius)
-	: Component(collection, transform, object), explosionSFX(explosionSFX), radius(radius)
+Bomb::Bomb(unordered_map<type_index, vector<unique_ptr<Component>>>& collection, Transform& transform, Object* object, shared_ptr<AudioClip> explosionSFX, float radius, BombChannel& control)
+	: Component(collection, transform, object), explosionSFX(explosionSFX), radius(radius), channel(control)
 {
 	
 }
 
 void Bomb::Update() {
-	if (Game::state == State::EXPLOSION) {
+	if (channel.disableAll) {
+		object->SetEnable(false);
+		return;
+	}
+	if (!channel.enableSlicing) {
 		return;
 	}
 
-	if (Game::state == State::SCORE) {
+	glm::vec2 cursorDirection = Cursor::getCursorPosDelta();
+	if (transform.position().y <= channel.killHeight) {
 		object->SetEnable(false);
 		return;
 	}
 
-	glm::vec2 cursorDirection = getCursorPosDelta();
-	if (transform.position().y <= BOMB_KILL_HEIGHT) {
-		object->SetEnable(false);
-		return;
-	}
+	if (!Cursor::mouseClicked || glm::length(cursorDirection) == 0) { return; }
 
-	if (!Game::mouseClicked || glm::length(cursorDirection) == 0) { return; }
-
-	if (Game::state == State::GAME && isCursorInContact(transform, radius)) {
+	if (isCursorInContact(transform, radius)) {
 		// cout << "Fruit Sliced\n";
-		if (Game::state == State::GAME) {
-			Game::bombHit = true;
-		}
+		channel.bombHit = true;
 
 		if (explosionSFX) {
 			auto audioSourceObj = acquireAudioSource();
@@ -45,6 +40,6 @@ void Bomb::Update() {
 			}
 		}
 
-		Game::explosionPosition = transform.position();
+		channel.explosionPosition = transform.position();
 	}
 }

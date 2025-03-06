@@ -5,7 +5,6 @@
 #include "../state/cursor.hpp"
 #include "../state/time.hpp"
 
-using namespace Game;
 using namespace Time;
 
 static double pitch = 0;
@@ -50,7 +49,7 @@ void cursorAim(GLFWwindow* window, double xpos, double ypos) {
     lastCursorX = xpos;
     lastCursorY = ypos;
 
-    updateCursorPosition(glm::vec2(xpos, ypos));
+    Cursor::updateCursorPosition(glm::vec2(xpos, ypos));
 
     if (lockedCamera) {
         return;
@@ -81,16 +80,16 @@ static bool wasMouseClicked;
 
 void processInput(GLFWwindow* window)
 {
-    wasMouseClicked = mouseClicked;
+    wasMouseClicked = Cursor::mouseClicked;
     if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
         
-        mouseClicked = true;
+        Cursor::mouseClicked = true;
     }
     else {
-        mouseClicked = false;
+        Cursor::mouseClicked = false;
     }
-    if (!mouseClicked && wasMouseClicked) {
-        for (auto& i : OnLeftClickReleased) {
+    if (!Cursor::mouseClicked && wasMouseClicked) {
+        for (auto& i : Cursor::OnLeftClickReleased) {
             i();
         }
     }

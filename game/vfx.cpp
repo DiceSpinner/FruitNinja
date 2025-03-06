@@ -2,16 +2,8 @@
 #include <vector>
 #include "vfx.hpp"
 #include "../core/transform.hpp"
-#include "../state/state.hpp"
 
-using namespace Game;
 using namespace std;
-
-static size_t numRays = 8;
-static GLuint VAO, posBuffer, colorBuffer;
-static Transform transform;
-static vector<glm::vec3> rayDirections;
-static float raySectorWidth = 8;
 
 static glm::vec3 randomUnitVectorNotInDoubleCone(const glm::vec3& direction, float maxAngle) {
 	if (direction == glm::vec3(0, 0, 0) || maxAngle == 0) {
@@ -22,7 +14,7 @@ static glm::vec3 randomUnitVectorNotInDoubleCone(const glm::vec3& direction, flo
 	while (glm::acos(glm::dot(result, direction)) <= allowance || glm::acos(glm::dot(result, -direction)) <= allowance) {
 		result = glm::sphericalRand(1.0f);
 	};
-	return result;
+	return glm::normalize(result);
 }
 
 static glm::vec3 randomUnitVectorInDoubleCone(const glm::vec3& direction, float maxAngle) {
@@ -34,10 +26,10 @@ static glm::vec3 randomUnitVectorInDoubleCone(const glm::vec3& direction, float 
 	while (glm::acos(glm::dot(result, direction)) > allowance && glm::acos(glm::dot(result, -direction)) > allowance) {
 		result = glm::sphericalRand(1.0f);
 	};
-	return result;
+	return glm::normalize(result);
 }
 
-void initVFX() {
+ExplosionVFX::ExplosionVFX() {
 	glGenVertexArrays(1, &VAO);
 	glBindVertexArray(VAO);
 
@@ -74,31 +66,34 @@ void initVFX() {
 	}
 }
 
-void drawVFX(Shader& shader) {
-	if (state == State::EXPLOSION) {
-		transform.SetPosition(explosionPosition);
-		glBindVertexArray(VAO);
-		glUniformMatrix4fv(glGetUniformLocation(shader.ID, "transform"), 1, GL_FALSE, glm::value_ptr(transform.matrix));
+ExplosionVFX::~ExplosionVFX() {
+	glDeleteVertexArrays(1, &VAO);
+	glDeleteBuffers(1, &posBuffer);
+	glDeleteBuffers(1, &colorBuffer);
+}
 
-		glBindBuffer(GL_ARRAY_BUFFER, posBuffer);
-		glm::vec3* posBuff = static_cast<glm::vec3*>(glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY));
-		glBindBuffer(GL_ARRAY_BUFFER, colorBuffer);
-		glm::vec4* colorBuff = static_cast<glm::vec4*>(glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY));
+void ExplosionVFX::Draw(Shader& shader) {
+	glBindVertexArray(VAO);
+	glUniformMatrix4fv(glGetUniformLocation(shader.ID, "transform"), 1, GL_FALSE, glm::value_ptr(transform.matrix));
 
-		for (auto i = 0; i < numRays;i++) {
-			posBuff[3 * i] = glm::vec3(0, 0, 0);
-			posBuff[3 * i + 1] = 500 * (explosionTimer / EXPLOSION_DURATION) * rayDirections[2 * i];
-			posBuff[3 * i + 2] = 500 * (explosionTimer / EXPLOSION_DURATION) * rayDirections[2 * i + 1];
+	glBindBuffer(GL_ARRAY_BUFFER, posBuffer);
+	glm::vec3* posBuff = static_cast<glm::vec3*>(glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY));
+	glBindBuffer(GL_ARRAY_BUFFER, colorBuffer);
+	glm::vec4* colorBuff = static_cast<glm::vec4*>(glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY));
 
-			colorBuff[3 * i] = glm::vec4(1, 1, 1, 1);
-			colorBuff[3 * i + 1] = (explosionTimer / 0.5f) * glm::vec4(1, 1, 1, 1);
-			colorBuff[3 * i + 2] = (explosionTimer / 0.5f) * glm::vec4(1, 1, 1, 1);
-		}
-		glUnmapBuffer(GL_ARRAY_BUFFER);
-		glBindBuffer(GL_ARRAY_BUFFER, posBuffer);
-		glUnmapBuffer(GL_ARRAY_BUFFER);
+	for (auto i = 0; i < numRays;i++) {
+		posBuff[3 * i] = glm::vec3(0, 0, 0);
+		posBuff[3 * i + 1] = rayLength* rayDirections[2 * i];
+		posBuff[3 * i + 2] = rayLength * rayDirections[2 * i + 1];
 
-		glDrawArrays(GL_TRIANGLES, 0, numRays * 3);
-		glBindVertexArray(0);
+		colorBuff[3 * i] = rayColor;
+		colorBuff[3 * i + 1] = rayOpacity * rayColor;
+		colorBuff[3 * i + 2] = rayOpacity * rayColor;
 	}
+	glUnmapBuffer(GL_ARRAY_BUFFER);
+	glBindBuffer(GL_ARRAY_BUFFER, posBuffer);
+	glUnmapBuffer(GL_ARRAY_BUFFER);
+
+	glDrawArrays(GL_TRIANGLES, 0, numRays * 3);
+	glBindVertexArray(0);
 }

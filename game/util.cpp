@@ -2,7 +2,7 @@
 #include "../rendering/camera.hpp"
 
 bool isCursorInContact(Transform transform, float radius) {
-	glm::vec3 ray = getCursorRay();
+	glm::vec3 ray = Cursor::getCursorRay();
 	glm::vec3 oc = Camera::main->transform.position() - transform.position();
 	float b = 2 * glm::dot(ray, oc);
 	glm::vec3 scale = transform.scale();

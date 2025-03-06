@@ -4,12 +4,13 @@
 #include <functional>
 #include "glm/glm.hpp"
 
-namespace Game {
+namespace Cursor {
 	extern bool mouseClicked;
 	extern std::vector<std::function<void(glm::vec2)>> OnMousePositionUpdated;
 	extern std::vector<std::function<void()>> OnLeftClickReleased;
+
+	void updateCursorPosition(glm::vec2 position);
+	glm::vec3 getCursorRay();
+	glm::vec2 getCursorPosDelta();
 }
-void updateCursorPosition(glm::vec2 position);
-glm::vec3 getCursorRay();
-glm::vec2 getCursorPosDelta();
 #endif

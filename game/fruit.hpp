@@ -1,32 +1,46 @@
 #ifndef FRUIT_H
 #define FRUIT_H
 #include <memory>
+#include <functional>
 #include "../core/component.hpp"
 #include "../rendering/model.hpp"
 #include "../audio/audio_clip.hpp"
 #include "../core/object_pool.hpp"
 
-class Fruit : public Component {
-private:
+struct FruitChannel {
+	int score = 0;
+	int miss = 0;
+	int recovery = 0;
+	bool recentlyRecovered = false;
+	bool enableSlicing = true;
+	bool disableNonUI = false;
+	float killHeight = 0;
+	std::unique_ptr<ObjectPool<Object>> particleSystemPool;
+};
+
+struct FruitAsset {
 	std::shared_ptr<Model> slice1;
 	std::shared_ptr<Model> slice2;
 	std::shared_ptr<AudioClip> clipOnSliced;
 	std::shared_ptr<AudioClip> clipOnMissed;
+};
+
+class Fruit : public Component {
+private:
 	void PlayVFX() const;
+	FruitChannel& channel;
+	FruitAsset coreAsset;
 public:
 	int reward;
 	float radius;
+	float sliceForce;
 	glm::vec4 color;
-	ObjectPool<Object>& particlePool;
 	GLuint slicedParticleTexture;
 
-	Fruit(std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& components, Transform& transform, Object* object,
-		float radius, int score,
-		ObjectPool<Object>& particlePool,
-		std::shared_ptr<Model> slice1 = {},
-		std::shared_ptr<Model> slice2 = {},
-		std::shared_ptr<AudioClip> clipOnSliced = {},
-		std::shared_ptr<AudioClip> clipOnMissed = {});
+	Fruit(
+		std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& components, Transform& transform, Object* object,
+		float radius, int score, float sliceForce, FruitChannel& channel, const FruitAsset& coreAsset
+	);
 	void Update() override;
 };
 

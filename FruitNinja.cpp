@@ -14,11 +14,8 @@
 #include "rendering/camera.hpp"
 #include "rendering/renderer.hpp"
 #include "rendering/particle_system.hpp"
-#include "settings/fruitsize.hpp"
-#include "game/vfx.hpp"
 #include "game/game.hpp"
-#include "game/frontUI.hpp"
-#include "game/backUI.hpp"
+#include "game/classic.hpp"
 
 using namespace std;
 
@@ -33,9 +30,6 @@ const char* particleFragPath = "shaders/particle.frag";
 const char* outlineVertPath = "shaders/outline.vert";
 const char* outlineFragPath = "shaders/outline.frag";
 
-const char* unitCube = "models/unit_cube.obj";
-const char* unitSphere = "models/unit_sphere.obj";
-
 int main() {
     initContext();
     Shader objectShader(objVertexPath, objFragPath);
@@ -44,13 +38,6 @@ int main() {
     Shader particleShader(particleVertPath, particleFragPath);
     Shader outlineShader(outlineVertPath, outlineFragPath);
     Shader vfxShader("shaders/simple.vert", "shaders/simple.frag");
-    // Shader rayTracerShader(ui3DVertPath, uiFragPath);
-
-    std::shared_ptr<Model> unitSphereModel = std::make_shared<Model>(unitSphere);
-    shared_ptr<Object> sphere = make_shared<Object>();
-    sphere->SetEnable(false);
-    sphere->AddComponent<Renderer>(unitSphereModel);
-    sphere->transform.SetScale(glm::vec3(WATERMELON_SIZE, WATERMELON_SIZE, WATERMELON_SIZE));
     
     glm::vec3 lightPosition = glm::vec3(0, 0, 0);
     glm::vec4 lightDiffuse(1, 1, 1, 1);
@@ -59,10 +46,9 @@ int main() {
 
     glBindVertexArray(0);
 
-    initGame();
-    initVFX();
-    initFrontUI();
-    initBackUI();
+    Game game;
+    game.Init();
+    game.AddGameModes<ClassicMode>();
 
     while (!glfwWindowShouldClose(window))
     {
@@ -74,7 +60,7 @@ int main() {
         glDisable(GL_DEPTH_TEST);
         uiShader.Use();
         glUniformMatrix4fv(glGetUniformLocation(uiShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(Camera::main->Ortho()));
-        drawBackUI(uiShader);
+        game.DrawBackUI(uiShader);
 
         Object::ActivateNewlyEnabledObjects();
 
@@ -85,7 +71,7 @@ int main() {
 
         Object::ExecuteUpdate();
 
-        gameStep();
+        game.Step();
 
         glEnable(GL_DEPTH_TEST);
         unlitShader.Use();
@@ -102,16 +88,11 @@ int main() {
         glUniform3fv(glGetUniformLocation(unlitShader.ID, "cameraPosition"), 1, glm::value_ptr(Camera::main->transform.position()));
         Renderer::DrawObjects(unlitShader, outlineShader);
 
-        /*glDisable(GL_DEPTH_TEST);
-        if (lockedCamera) {
-            sphere->GetComponent<Renderer>()->Draw(unlitShader);
-        }*/
-
         glDepthMask(GL_FALSE);
         vfxShader.Use();
         glUniformMatrix4fv(glGetUniformLocation(vfxShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(Camera::main->Perspective()));
         glUniformMatrix4fv(glGetUniformLocation(vfxShader.ID, "view"), 1, GL_FALSE, glm::value_ptr(Camera::main->View()));
-        drawVFX(vfxShader);
+        game.DrawVFX(vfxShader);
 
         particleShader.Use();
         glUniform3fv(glGetUniformLocation(particleShader.ID, "cameraPos"), 1, glm::value_ptr(Camera::main->transform.position()));
@@ -124,7 +105,7 @@ int main() {
 
         glDisable(GL_DEPTH_TEST);
         uiShader.Use();
-        drawFrontUI(uiShader);
+        game.DrawFrontUI(uiShader);
 
         glfwSwapBuffers(window);
 

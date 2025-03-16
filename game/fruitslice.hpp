@@ -1,7 +1,6 @@
 #ifndef FRUIT_SLICE_H
 #define FRUIT_SLICE_H
 #include "fruit.hpp"
-#include "../core/component.hpp"
 
 class FruitSlice : public Component {
 private:

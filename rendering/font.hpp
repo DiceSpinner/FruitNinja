@@ -3,15 +3,17 @@
 #include <glm/glm.hpp>
 #include "mesh.hpp"
 
-struct Character {
-	GLuint texture;
-	glm::vec2 uvBottomLeft;
-	glm::vec2 uvOffset;
-	glm::ivec2 size;
-	glm::ivec2 bearing;
-	long advance;
-};
+namespace Font {
+	struct Character {
+		GLuint texture;
+		glm::vec2 uvBottomLeft;
+		glm::vec2 uvOffset;
+		glm::ivec2 size;
+		glm::ivec2 bearing;
+		long advance;
+	};
 
-void initFont();
-void deinitFont();
-Character getChar(int size, char c);
+	void init();
+	void destroy();
+	Character getChar(int size, char c);
+}

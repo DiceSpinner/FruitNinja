@@ -14,7 +14,7 @@ void Renderer::DrawObjects(Shader& shader, Shader& outlineShader) {
 }
 
 Renderer::Renderer(unordered_map<type_index, vector<unique_ptr<Component>>>& components, Transform& transform, Object* object,  shared_ptr<Model>& model)
-	: Component(components, transform, object), model(model), drawOverlay(false), drawOutline(false), outlineColor(1, 1, 1, 1)
+	: Component(components, transform, object), model(model), drawOverlay(false), drawOutline(false), outlineColor(1, 1, 1, 1), color(1, 1, 1, 1)
 {
 
 }
@@ -26,6 +26,7 @@ void Renderer::Draw(Shader& shader, Shader& outlineShader) const {
 		glStencilFunc(GL_ALWAYS, 1, 0xFF);
 	}
 
+	shader.SetVec4("color", color);
 	glUniformMatrix4fv(glGetUniformLocation(shader.ID, "transform"), 1, GL_FALSE, glm::value_ptr(transform.matrix));
 	if (drawOverlay) {
 		glClear(GL_DEPTH_BUFFER_BIT);

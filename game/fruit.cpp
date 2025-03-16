@@ -1,11 +1,11 @@
 #include <iostream>
 #include "fruit.hpp"
-#include "../audio/audiosource_pool.hpp"
-#include "../physics/rigidbody.hpp"
-#include "../rendering/renderer.hpp"
-#include "../rendering/camera.hpp"
-#include "../rendering/particle_system.hpp"
-#include "../core/object.hpp"
+#include "audio/audiosource_pool.hpp"
+#include "physics/rigidbody.hpp"
+#include "rendering/renderer.hpp"
+#include "rendering/camera.hpp"
+#include "rendering/particle_system.hpp"
+#include "infrastructure/object.hpp"
 #include "util.hpp"
 #include "fruitslice.hpp"
 
@@ -21,7 +21,7 @@ Fruit::Fruit
 ) :
 	Component(components, transform, object), 
 	radius(radius), reward(score), sliceForce(sliceForce), color(1, 1, 1, 1), 
-	channel(channel), coreAsset(asset), 
+	channel(channel), assets(asset), 
 	slicedParticleTexture(0)
 {
 
@@ -50,11 +50,11 @@ void Fruit::Update() {
 		if (this->reward > 0) {
 			channel.miss++;
 		}
-		if (reward > 0 && coreAsset.clipOnMissed) {
+		if (reward > 0 && assets.clipOnMissed) {
 			auto audioSourceObj = acquireAudioSource();
 			if (audioSourceObj) {
 				auto source = audioSourceObj->GetComponent<AudioSource>();
-				source->SetAudioClip(coreAsset.clipOnMissed);
+				source->SetAudioClip(assets.clipOnMissed);
 				source->Play();
 			}
 		}
@@ -80,15 +80,15 @@ void Fruit::Update() {
 		// cout << "Score " << Game::score << "\n";
 		object->SetEnable(false);
 
-		if (coreAsset.slice1 && coreAsset.slice2) {
+		if (assets.slice1 && assets.slice2) {
 			shared_ptr<Object> topSlice = Object::Create();
-			Renderer* renderer = topSlice->AddComponent<Renderer>(coreAsset.slice1);
+			Renderer* renderer = topSlice->AddComponent<Renderer>(assets.slice1);
 			// renderer->drawOverlay = true;
 			topSlice->AddComponent<FruitSlice>(channel, reward == 0);
 			auto r1 = topSlice->AddComponent<Rigidbody>();
 
 			shared_ptr<Object> bottomSlice = Object::Create();
-			renderer = bottomSlice->AddComponent<Renderer>(coreAsset.slice2);
+			renderer = bottomSlice->AddComponent<Renderer>(assets.slice2);
 			// renderer->drawOverlay = true;
 			bottomSlice->AddComponent<FruitSlice>(channel, reward == 0);
 			auto r2 = bottomSlice->AddComponent<Rigidbody>();
@@ -116,11 +116,11 @@ void Fruit::Update() {
 			r2->AddRelativeTorque(180.0f * glm::vec3(1, 0, 0), ForceMode::Impulse);
 		}
 
-		if (coreAsset.clipOnSliced) {
+		if (assets.clipOnSliced) {
 			auto audioSourceObj = acquireAudioSource();
 			if (audioSourceObj) {
 				auto source = audioSourceObj->GetComponent<AudioSource>();
-				source->SetAudioClip(coreAsset.clipOnSliced);
+				source->SetAudioClip(assets.clipOnSliced);
 				source->Play();
 			}
 		}

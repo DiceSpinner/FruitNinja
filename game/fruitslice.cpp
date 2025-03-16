@@ -1,6 +1,6 @@
 #include "fruitslice.hpp"
-#include "../state/time.hpp"
-#include "../core/object.hpp"
+#include "state/time.hpp"
+#include "infrastructure/object.hpp"
 
 using namespace std;
 

@@ -1,7 +1,7 @@
 #ifndef RENDERER_H
 #define RENDERER_H
-#include "../rendering/model.hpp"
-#include "../core/component.hpp"
+#include "rendering/model.hpp"
+#include "infrastructure/component.hpp"
 class Renderer : public Component {
 private:
 	std::shared_ptr<Model> model;
@@ -10,6 +10,7 @@ public:
 
 	bool drawOverlay;
 	bool drawOutline;
+	glm::vec4 color;
 	glm::vec4 outlineColor;
 
 	static void DrawObjects(Shader& shader, Shader& outlineShader);

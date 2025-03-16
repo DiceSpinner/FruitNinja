@@ -1,6 +1,6 @@
 #include <list>
 #include "audiosource.hpp"
-#include "../core/object.hpp"
+#include "infrastructure/object.hpp"
 
 using namespace std;
 

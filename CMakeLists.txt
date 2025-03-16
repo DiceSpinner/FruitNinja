@@ -11,7 +11,7 @@ find_package(assimp CONFIG REQUIRED)
 find_package(OpenAL CONFIG REQUIRED)
 find_package(AudioFile CONFIG REQUIRED)
 
-include_directories("libraries")
+include_directories("libraries", ${CMAKE_SOURCE_DIR})
 
-add_executable(${CMAKE_PROJECT_NAME} "FruitNinja.cpp" "rendering/shader.cpp" "libraries/stb_image.cpp" "rendering/mesh.cpp" "rendering/model.cpp" "core/object.cpp"  "state/time.cpp" "core/ui.cpp" "core/transform.cpp" "core/component.cpp" "physics/rigidbody.cpp" "game/fruit.cpp"  "state/cursor.cpp" "core/ui3D.cpp" "game/fruitslice.cpp" "game/game.cpp" "rendering/font.cpp" "state/window.cpp"   "core/context.cpp" "game/input.cpp"   "audio/audiosource.cpp" "audio/audiolistener.cpp" "rendering/camera.cpp" "rendering/renderer.cpp" "audio/audio_context.cpp" "audio/audio_clip.cpp"   "rendering/particle_system.cpp"  "audio/audiosource_pool.cpp" "game/bomb.cpp" "game/util.cpp" "game/vfx.cpp" "game/classic.cpp") 
-target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE glm::glm glad::glad glfw assimp::assimp Freetype::Freetype OpenAL::OpenAL AudioFile)
+add_executable(${CMAKE_PROJECT_NAME} "FruitNinja.cpp" "rendering/shader.cpp" "libraries/stb_image.cpp" "rendering/mesh.cpp" "rendering/model.cpp" "infrastructure/object.cpp"  "state/time.cpp" "infrastructure/ui.cpp" "infrastructure/transform.cpp" "infrastructure/component.cpp" "physics/rigidbody.cpp" "game/fruit.cpp"  "state/cursor.cpp"  "game/fruitslice.cpp" "game/game.cpp" "rendering/font.cpp" "state/window.cpp"   "infrastructure/context.cpp" "game/input.cpp"   "audio/audiosource.cpp" "audio/audiolistener.cpp" "rendering/camera.cpp" "rendering/renderer.cpp" "audio/audio_context.cpp" "audio/audio_clip.cpp"   "rendering/particle_system.cpp"  "audio/audiosource_pool.cpp" "game/bomb.cpp" "game/util.cpp" "game/vfx.cpp" "game/modes/classic.cpp" "infrastructure/state_machine.cpp" "game/modes/classic_networking.cpp" "networking/networking.cpp" "game/state_selection.cpp" "infrastructure/coroutine.cpp") 
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ws2_32 glm::glm glad::glad glfw assimp::assimp Freetype::Freetype OpenAL::OpenAL AudioFile)

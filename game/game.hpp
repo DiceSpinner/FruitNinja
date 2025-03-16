@@ -7,9 +7,14 @@
 #include <unordered_map>
 #include <list>
 #include <typeindex>
-#include "../core/object.hpp"
-#include "../rendering/model.hpp"
-#include "../audio/audio_clip.hpp"
+#include <iostream>
+#include "state/window.hpp"
+#include "infrastructure/object.hpp"
+#include "infrastructure/state_machine.hpp"
+#include "infrastructure/coroutine.hpp"
+#include "rendering/model.hpp"
+#include "audio/audio_clip.hpp"
+#include "game/fruit.hpp"
 
 struct GameModels {
 	std::shared_ptr<Model> appleModel;
@@ -21,6 +26,9 @@ struct GameModels {
 	std::shared_ptr<Model> watermelonModel;
 	std::shared_ptr<Model> watermelonTopModel;
 	std::shared_ptr<Model> watermelonBottomModel;
+	std::shared_ptr<Model> coconutModel;
+	std::shared_ptr<Model> coconutTopModel;
+	std::shared_ptr<Model> coconutBottomModel;
 	std::shared_ptr<Model> bombModel;
 };
 
@@ -49,18 +57,81 @@ struct GameTextures {
 
 class Game;
 
-class GameMode {
+class GameState {
+private:
+	std::unordered_map<std::type_index, std::unique_ptr<GameState>> states = {};
+	CoroutineManager coroutineManager = {};
+	GameState* currSubState = nullptr;
+	std::optional<std::type_index> transition;
+	bool terminated;
+	GameState* enterSubState;
+
+	void Terminate();
 protected:
 	Game* game;
+
+	template<typename StateType>
+	std::optional<std::type_index> EnterSubState() {
+		if (terminated || currSubState) {
+			std::cout << "Cannot enter sub state while terminated/has active sub state" << std::endl;
+			return {};
+		}
+		auto type = std::type_index(typeid(StateType));
+		auto state = states.find(type);
+		if (state == states.end()) {
+			std::cout << "Cannot find substate" << std::endl;
+			return {};
+		}
+		enterSubState = state->second.get();
+		OnEnterSubState();
+		return Self();
+	}
+
+	template<typename StateType>
+	void SignalTransition() {
+		transition = type_index(typeid(StateType));
+	}
+	
+	virtual void OnEnterSubState();
+	virtual void OnExitSubState();
+	virtual void OnDrawVFX(Shader& vfxShader);
+	virtual void OnDrawBackUI(Shader& uiShader);
+	virtual void OnDrawFrontUI(Shader& uiShader);
+	virtual std::optional<std::type_index> Step();
+	void StartCoroutine(Coroutine&& coroutine);
+	inline std::type_index Self() const;
+
+	template<typename StateType>
+	inline std::type_index Transition() const {
+		return std::type_index(typeid(StateType));
+	}
 public:
-	GameMode(Game* game);
+	GameState(Game* game);
+
+	template<typename StateType, typename... Args>
+	StateType* AddSubState(Args&&... args) {
+		auto type = std::type_index(typeid(StateType));
+		auto state = states.find(type);
+		if (state != states.end()) {
+			return {};
+		}
+		auto& inserted = states.emplace(type, std::make_unique<StateType>(std::forward<Args>(args)...)).first->second;
+		inserted->Init();
+
+		return static_cast<StateType*>(inserted.get());
+	}
+
+	void DrawVFX(Shader& vfxShader);
+	void DrawBackUI(Shader& uiShader);
+	void DrawFrontUI(Shader& uiShader);
+	std::optional<std::type_index> Run();
+
 	virtual void Init() = 0;
 	virtual void OnEnter() = 0;
 	virtual void OnExit() = 0;
-	virtual std::optional<std::type_index> Step() = 0;
-	virtual void DrawVFX(Shader& vfxShader) = 0;
-	virtual void DrawBackUI(Shader& uiShader) = 0;
-	virtual void DrawFrontUI(Shader& uiShader) = 0;
+	
+	virtual bool AllowParentBackUI();
+	virtual bool AllowParentFrontUI();
 };
 
 struct MouseTrailSetting {
@@ -72,8 +143,7 @@ struct MouseTrailSetting {
 
 class Game {
 private:
-	std::unordered_map<std::type_index, std::unique_ptr<GameMode>> gameModes;
-	GameMode* currMode;
+	std::unique_ptr<GameState> gameState;
 	MouseTrailSetting mouseTrailSetting;
 	bool flushMousePositions = false;
 	std::unique_ptr<Shader> trailShader;
@@ -86,6 +156,21 @@ private:
 
 	void DrawMouseTrailing();
 public:
+	struct {
+		float sizeWatermelon = 1.5f;
+		float sizePineapple = 1.0f;
+		float sizeApple = 1.0f;
+		float sizeCoconut = 1.2f;
+		float sizeBomb = 0.8f;
+		float fruitSpawnCenter = 0;
+		float fruitKillHeight = -15;
+		float fruitSliceForce = 10;
+
+		FruitChannel control;
+		glm::vec3 spawnMinRotation = { 30, 30, 30 };
+		glm::vec3 spawnMaxRotation = { 90, 90, 90 };
+	} uiConfig;
+
 	std::shared_ptr<Object> player;
 	GameModels models;
 	GameAudios audios;
@@ -98,25 +183,17 @@ public:
 	~Game();
 	void Init();
 
-	template<typename Mode>
-	void AddGameMode() {
-		auto type = std::type_index(typeid(Mode));
-		auto mode = gameModes.find(type);
-		if (mode != gameModes.end()) {
-			return;
-		}
-		auto& inserted = gameModes.emplace(type, std::make_unique<Mode>(this)).first->second;
-		inserted->Init();
+	static Object* createFruitParticleSystem();
 
-		if(!currMode){
-			currMode = inserted.get();
-			currMode->OnEnter();
-		}
-	}
+	template<typename StateType>
+	void SetInitialGameState() {
+		if (gameState) return;
+		auto type = std::type_index(typeid(StateType));
+		if (std::type_index(typeid(gameState.get())) == type) return;
 
-	template<typename... Modes>
-	void AddGameModes() {
-		(AddGameMode<Modes>(), ...);
+		gameState = std::make_unique<StateType>(this);
+		gameState->Init();
+		gameState->OnEnter();
 	}
 
 	void OnMouseUpdate(glm::vec2 position);
@@ -128,5 +205,7 @@ public:
 	void DrawFrontUI(Shader& uiShader);
 	void DrawBackUI(Shader& uiShader);
 	void Step();
+	std::shared_ptr<Object> createUIObject(std::shared_ptr<Model> model) const;
+	std::shared_ptr<Object> createUIObject(std::shared_ptr<Model> model, glm::vec4 outlineColor) const;
 };
 #endif

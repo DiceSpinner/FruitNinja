@@ -1,6 +1,6 @@
 #include "audiosource_pool.hpp"
-#include "../core/object.hpp"
-#include "../core/object_pool.hpp"
+#include "infrastructure/object.hpp"
+#include "infrastructure/object_pool.hpp"
 
 using namespace std;
 static ObjectPool<Object>* pool;

@@ -5,17 +5,16 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
 #include <iostream>
-#include "core/context.hpp"
-#include "core/object.hpp"
-#include "core/input.hpp"
+#include "infrastructure/context.hpp"
+#include "infrastructure/object.hpp"
+#include "infrastructure/input.hpp"
 #include "state/time.hpp"
 #include "state/window.hpp"
 #include "rendering/shader.hpp"
 #include "rendering/camera.hpp"
 #include "rendering/renderer.hpp"
 #include "rendering/particle_system.hpp"
-#include "game/game.hpp"
-#include "game/classic.hpp"
+#include "game/state_selection.hpp"
 
 using namespace std;
 
@@ -48,12 +47,13 @@ int main() {
 
     Game game;
     game.Init();
-    game.AddGameModes<ClassicMode>();
+    game.SetInitialGameState<SelectionState>();
 
     while (!glfwWindowShouldClose(window))
     {
         glfwPollEvents();
         Time::updateTime();
+        processInput(window);
         
         glClearColor(0.4f, 0.2f, 0, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
@@ -99,17 +99,13 @@ int main() {
         glUniformMatrix4fv(glGetUniformLocation(particleShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(Camera::main->Perspective()));
         glUniformMatrix4fv(glGetUniformLocation(particleShader.ID, "view"), 1, GL_FALSE, glm::value_ptr(Camera::main->View()));
         ParticleSystem::DrawParticles(particleShader);
-
         glDepthMask(GL_TRUE);
         
-
         glDisable(GL_DEPTH_TEST);
         uiShader.Use();
         game.DrawFrontUI(uiShader);
 
         glfwSwapBuffers(window);
-
-        processInput(window);
     }
     destroyContext();
     return 0;

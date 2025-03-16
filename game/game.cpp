@@ -2,22 +2,22 @@
 #include <random>
 #include <iostream>
 #include <functional>
-#include "../core/object.hpp"
-#include "../core/object_pool.hpp"
+#include "infrastructure/object.hpp"
+#include "infrastructure/object_pool.hpp"
 #include "game.hpp"
 #include "fruit.hpp"
 #include "bomb.hpp"
-#include "../audio/audio_clip.hpp"
-#include "../audio/audiosource_pool.hpp"
-#include "../audio/audiolistener.hpp"
-#include "../physics/rigidbody.hpp"
-#include "../rendering/renderer.hpp"
-#include "../rendering/camera.hpp"
-#include "../rendering/model.hpp"
-#include "../rendering/particle_system.hpp"
-#include "../state/cursor.hpp"
-#include "../state/time.hpp"
-#include "../state/window.hpp"
+#include "audio/audio_clip.hpp"
+#include "audio/audiosource_pool.hpp"
+#include "audio/audiolistener.hpp"
+#include "physics/rigidbody.hpp"
+#include "rendering/renderer.hpp"
+#include "rendering/camera.hpp"
+#include "rendering/model.hpp"
+#include "rendering/particle_system.hpp"
+#include "state/cursor.hpp"
+#include "state/time.hpp"
+#include "state/window.hpp"
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
 
@@ -124,9 +124,77 @@ static float randFloat(float min, float max) {
 	return rand() / static_cast<float>(RAND_MAX) * (max - min) + min;
 }
 
-GameMode::GameMode(Game* game) : game(game) { }
+GameState::GameState(Game* game) : game(game), transition(), terminated(false), enterSubState() {}
+void GameState::Terminate() { terminated = true; OnExit(); }
+void GameState::DrawBackUI(Shader& uiShader) {
+	if (!currSubState) { OnDrawBackUI(uiShader); return; }
+	if (currSubState->AllowParentBackUI()) OnDrawBackUI(uiShader);
+	currSubState->DrawBackUI(uiShader);
+}
+void GameState::DrawFrontUI(Shader& uiShader) {
+	if (!currSubState) { OnDrawFrontUI(uiShader); return; }
+	if (currSubState->AllowParentFrontUI()) OnDrawFrontUI(uiShader);
+	currSubState->DrawFrontUI(uiShader);
+}
+void GameState::DrawVFX(Shader& vfxShader){
+	if (!currSubState) { OnDrawVFX(vfxShader); return; }
+	currSubState->DrawVFX(vfxShader);
+}
+void GameState::OnEnterSubState() {}
+void GameState::OnExitSubState() {}
+void GameState::OnDrawFrontUI(Shader& uiShader) {}
+void GameState::OnDrawBackUI(Shader& uiShader) {}
+void GameState::OnDrawVFX(Shader& vfxShader) {}
+bool GameState::AllowParentBackUI() { return true; }
+bool GameState::AllowParentFrontUI() { return true; }
+type_index GameState::Self() const { return type_index(typeid(*this)); }
+void GameState::StartCoroutine(Coroutine&& coroutine) {
+	coroutineManager.AddCoroutine(forward<Coroutine>(coroutine));
+}
+optional<type_index> GameState::Step() { return {}; };
+optional<type_index> GameState::Run() {
+	// Coroutines must be finished before states can be runned
+	if (!coroutineManager.Empty()) {
+		coroutineManager.Run();
+		return Self();
+	}
+	if (terminated) { terminated = false; return transition; }
 
-Game::Game() : currMode(0), textures() {
+	if (enterSubState) {
+		currSubState = std::exchange(enterSubState, {});
+		currSubState->OnEnter();
+	}
+
+	// Run current state if there's no substate
+	if (!currSubState) {
+		auto next = Step();
+		if (!next || next.value() != Self()) { 
+			transition = next;
+			Terminate(); return Self(); 
+		}
+		return next;
+	}
+	
+	// Run sub state
+	auto next = currSubState->Run();
+	if (!next) {
+		currSubState = {};
+		OnExitSubState();
+	}
+	else if(next.value() != type_index(typeid(*currSubState))) {
+		auto result = states.find(next.value());
+		if (result != states.end()) {
+			currSubState = result->second.get();
+			currSubState->OnEnter();
+		}
+		else {
+			cout << "State not found" << endl;
+		}
+	}
+	return Self();
+}
+
+Game::Game() : gameState(), textures() {
 	trailShader = make_unique<Shader>("shaders/mouse_trail.vert", "shaders/mouse_trail.frag");
 	trailTexture = textureFromFile("FruitNinja_blade0.png", "images");
 	trailArrow = textureFromFile("blade0_arrow.png", "images");
@@ -190,6 +258,9 @@ void Game::Init() {
 	LoadAudios();
 	LoadTextures();
 	LoadModels();
+
+	uiConfig.control.particleSystemPool = make_unique<ObjectPool<Object>>(50, createFruitParticleSystem);
+	uiConfig.control.killHeight = uiConfig.fruitKillHeight;
 }
 
 void Game::LoadAudios() {
@@ -219,6 +290,10 @@ void Game::LoadModels() {
 	models.watermelonModel = make_shared<Model>("models/fruits/watermelon.obj");
 	models.watermelonTopModel = make_shared<Model>("models/fruits/watermelon_top.obj");
 	models.watermelonBottomModel = make_shared<Model>("models/fruits/watermelon_bottom.obj");
+
+	models.coconutModel = make_shared<Model>("models/fruits/coconut.obj");
+	models.coconutTopModel = make_shared<Model>("models/fruits/coconut_top.obj");
+	models.coconutBottomModel = make_shared<Model>("models/fruits/coconut_bottom.obj");
 }
 
 void Game::LoadTextures() {
@@ -232,34 +307,26 @@ void Game::LoadTextures() {
 }
 
 void Game::Step() {
-	auto newMode = currMode->Step();
-	if (newMode && *newMode != typeid(currMode)) {
-		auto mode = gameModes.find(*newMode);
-		if (mode == gameModes.end()) {
-			cout << "Cannot switch to a mode that's not added to the game!\n";
-			return;
-		}
-		currMode->OnExit();
-		currMode = mode->second.get();
-		currMode->OnEnter();
+	if (!gameState->Run()) {
+		glfwSetWindowShouldClose(window, true);
 	}
 }
-
+	
 void Game::DrawVFX(Shader& vfxShader) {
-	if (currMode) {
-		currMode->DrawVFX(vfxShader);
+	if (gameState) {
+		gameState->DrawVFX(vfxShader);
 	}
 }
 
 void Game::DrawBackUI(Shader& uiShader) {
-	if (currMode) {
-		currMode->DrawBackUI(uiShader);
+	if (gameState) {
+		gameState->DrawBackUI(uiShader);
 	}
 }
 
 void Game::DrawFrontUI(Shader& uiShader) {
-	if (currMode) {
-		currMode->DrawFrontUI(uiShader);
+	if (gameState) {
+		gameState->DrawFrontUI(uiShader);
 	}
 	trailShader->Use();
 	DrawMouseTrailing();
@@ -381,4 +448,51 @@ void Game::DrawMouseTrailing() {
 	}
 
 	glBindVertexArray(0);
+}
+
+shared_ptr<Object> Game::createUIObject(std::shared_ptr<Model> model, glm::vec4 outlineColor) const {
+	auto obj = Object::Create(false);
+	Renderer* renderer = obj->AddComponent<Renderer>(model);
+	renderer->drawOutline = true;
+	renderer->outlineColor = outlineColor;
+
+	Rigidbody* rigidbody = obj->AddComponent<Rigidbody>();
+	rigidbody->useGravity = false;
+	glm::vec3 torque(
+		randFloat(uiConfig.spawnMinRotation.x, uiConfig.spawnMaxRotation.x),
+		randFloat(uiConfig.spawnMinRotation.y, uiConfig.spawnMaxRotation.y),
+		randFloat(uiConfig.spawnMinRotation.z, uiConfig.spawnMaxRotation.z)
+	);
+	rigidbody->AddRelativeTorque(torque, ForceMode::Impulse);
+	return obj;
+}
+
+shared_ptr<Object> Game::createUIObject(std::shared_ptr<Model> model) const {
+	auto obj = Object::Create(false);
+	Renderer* renderer = obj->AddComponent<Renderer>(model);
+	renderer->drawOutline = false;
+
+	Rigidbody* rigidbody = obj->AddComponent<Rigidbody>();
+	rigidbody->useGravity = false;
+	glm::vec3 torque(
+		randFloat(uiConfig.spawnMinRotation.x, uiConfig.spawnMaxRotation.x),
+		randFloat(uiConfig.spawnMinRotation.y, uiConfig.spawnMaxRotation.y),
+		randFloat(uiConfig.spawnMinRotation.z, uiConfig.spawnMaxRotation.z)
+	);
+	rigidbody->AddRelativeTorque(torque, ForceMode::Impulse);
+	return obj;
+}
+
+Object* Game::createFruitParticleSystem() {
+	Object* obj = new Object();
+	ParticleSystem* system = obj->AddComponent<ParticleSystem>(100);
+	system->disableOnFinish = true;
+	system->maxSpawnDirectionDeviation = 180;
+	system->spawnAmount = 22;
+	system->spawnDirection = glm::vec3(0, 25, 0);
+	system->scale = glm::vec3(0.3, 0.3, 0.3);
+	system->spawnFrequency = 0;
+	system->useGravity = true;
+
+	return obj;
 }

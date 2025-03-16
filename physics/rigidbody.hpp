@@ -1,6 +1,6 @@
 #ifndef RIGIDBODY_H
 #define RIGIDBODY_H
-#include "../core/component.hpp"
+#include "infrastructure/component.hpp"
 
 enum ForceMode {
 	Force,

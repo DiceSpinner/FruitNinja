@@ -25,6 +25,7 @@ struct Light {
 	vec4 specular;
 };
  
+uniform vec4 color;
 uniform Material material;
 uniform Light light;
 uniform vec3 cameraPosition;
@@ -71,5 +72,5 @@ void main()
 		specular = spec * specular1 * light.specular;
 	}
 
-	FragColor = ambient + diffuse + specular;
+	FragColor = color * (ambient + diffuse + specular);
 }

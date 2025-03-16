@@ -5,13 +5,14 @@
 #include "font.hpp"
 
 using namespace std;
+using namespace Font;
 
 static const char* fontPath = "fonts/history_of_wawa/History of Wawa.ttf";
 static FT_Library lib;
 static FT_Face face;
 static unordered_map<int, unordered_map<char, Character>> loadedFonts;
 
-void initFont() {
+void Font::init() {
 	if (FT_Init_FreeType(&lib)) {
 		cout << "Failed to initialize free type library" << std::endl;
 		exit(1);
@@ -26,12 +27,12 @@ void initFont() {
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 }
 
-void deinitFont() {
+void Font::destroy() {
     FT_Done_Face(face);
     FT_Done_FreeType(lib);
 }
 
-Character getChar(int size, char c) {
+Character Font::getChar(int size, char c) {
 	auto font = loadedFonts.find(size);
 	if (font != loadedFonts.end()) {
 		return font->second[c];

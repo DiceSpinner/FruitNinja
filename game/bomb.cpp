@@ -1,6 +1,6 @@
 #include "bomb.hpp"
 #include "util.hpp"
-#include "../core/object.hpp"
+#include "infrastructure/object.hpp"
 
 using namespace std;
 

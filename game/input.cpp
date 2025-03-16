@@ -1,9 +1,9 @@
 #include <iostream>
 #include <glm/ext.hpp>
-#include "../core/input.hpp"
-#include "../rendering/camera.hpp"
-#include "../state/cursor.hpp"
-#include "../state/time.hpp"
+#include "infrastructure/input.hpp"
+#include "rendering/camera.hpp"
+#include "state/cursor.hpp"
+#include "state/time.hpp"
 
 using namespace Time;
 

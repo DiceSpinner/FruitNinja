@@ -1,7 +1,7 @@
 #ifndef AUDIOLISTENER_H
 #define AUDIOLISTENER_H
 #include <iostream>
-#include "../core/component.hpp"
+#include "infrastructure/component.hpp"
 
 class AudioListener : public Component {
 public:

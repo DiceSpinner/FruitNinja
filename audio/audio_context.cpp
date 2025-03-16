@@ -64,7 +64,7 @@ static LPALGETPOINTEREXT alGetPointerEXT;
 static LPALGETPOINTERVEXT alGetPointervEXT;
 #endif
 
-void initALContext() {
+void Audio::initContext() {
 	device = alcOpenDevice(nullptr);
 
 	if (!device)
@@ -134,7 +134,7 @@ void initALContext() {
 	initializeAudioSourcePool();
 }
 
-void destroyALContext() {
+void Audio::destroyContext() {
 	alcMakeContextCurrent(nullptr);
 	alcDestroyContext(context);
 	alcCloseDevice(device);

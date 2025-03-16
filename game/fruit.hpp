@@ -2,10 +2,10 @@
 #define FRUIT_H
 #include <memory>
 #include <functional>
-#include "../core/component.hpp"
-#include "../rendering/model.hpp"
-#include "../audio/audio_clip.hpp"
-#include "../core/object_pool.hpp"
+#include "infrastructure/component.hpp"
+#include "rendering/model.hpp"
+#include "audio/audio_clip.hpp"
+#include "infrastructure/object_pool.hpp"
 
 struct FruitChannel {
 	int score = 0;
@@ -29,7 +29,7 @@ class Fruit : public Component {
 private:
 	void PlayVFX() const;
 	FruitChannel& channel;
-	FruitAsset coreAsset;
+	FruitAsset assets;
 public:
 	int reward;
 	float radius;
@@ -39,7 +39,7 @@ public:
 
 	Fruit(
 		std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& components, Transform& transform, Object* object,
-		float radius, int score, float sliceForce, FruitChannel& channel, const FruitAsset& coreAsset
+		float radius, int score, float sliceForce, FruitChannel& channel, const FruitAsset& assets
 	);
 	void Update() override;
 };

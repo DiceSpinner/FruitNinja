@@ -2,23 +2,28 @@
 #define CAMERA_H
 #include <vector>
 #include <glm/glm.hpp>
-#include "../core/component.hpp"
+#include "infrastructure/component.hpp"
 
 class Camera : public Component {
 private:
-    float near;
-    float far;
+    float nearClipPlane;
+    float farClipPlane;
     glm::mat4 ortho{ 1 };
     glm::mat4 perspective{ 1 };
+    float width;
 public:
     static Camera* main;
     static std::vector<Camera*>* cameras;
 
     bool isOrtho;
 
-    Camera(std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& components, Transform& transform, Object* object,  float near, float far);
-    void SetPerspective(float near, float far);
+    Camera(
+        std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& collection, Transform& transform, Object* object, 
+        float nearClipPlane, float farClipPlane
+    );
 
+    void SetPerspective(float nearClipPlane, float farClipPlane);
+    void SetOrthoWidth(float width);
     glm::mat4 Ortho() const;
     glm::mat4 Perspective() const;
     glm::mat4 Projection() const;

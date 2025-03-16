@@ -15,7 +15,7 @@ Rigidbody::Rigidbody(unordered_map<type_index, vector<unique_ptr<Component>>>& c
 
 void Rigidbody::AddForce(glm::vec3 force, ForceMode forcemode) {
 	if (forcemode == ForceMode::Force) {
-		velocity += deltaTime() * force;
+		velocity += fixedDeltaTime() * force;
 	}
 	else {
 		velocity += force;
@@ -27,7 +27,7 @@ void Rigidbody::AddTorque(glm::vec3 torque, ForceMode forcemode) {
 	force = glm::inverse(transform.matrix) * force;
 	glm::vec3 localTorque(force);
 	if (forcemode == ForceMode::Force) {
-		localAngularVelocity += deltaTime() * localTorque;
+		localAngularVelocity += fixedDeltaTime() * localTorque;
 	}
 	else {
 		localAngularVelocity += localTorque;
@@ -36,7 +36,7 @@ void Rigidbody::AddTorque(glm::vec3 torque, ForceMode forcemode) {
 
 void Rigidbody::AddRelativeTorque(glm::vec3 torque, ForceMode forcemode) {
 	if (forcemode == ForceMode::Force) {
-		localAngularVelocity += deltaTime() * torque;
+		localAngularVelocity += fixedDeltaTime() * torque;
 	}
 	else {
 		localAngularVelocity += torque;

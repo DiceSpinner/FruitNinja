@@ -1,9 +1,9 @@
 #ifndef BOMB_H
 #define BOMB_H
 #include <AL/al.h>
-#include "../audio/audiosource_pool.hpp"
-#include "../core/component.hpp"
-#include "../rendering/particle_system.hpp"
+#include "audio/audiosource_pool.hpp"
+#include "infrastructure/component.hpp"
+#include "rendering/particle_system.hpp"
 
 struct BombChannel {
 	float killHeight = 0;

@@ -4,7 +4,7 @@
 #include <list>
 #include <functional>
 #include "mesh.hpp"
-#include "../core/component.hpp"
+#include "infrastructure/component.hpp"
 #include "renderer.hpp"
 
 struct Particle {

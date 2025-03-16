@@ -1,8 +1,8 @@
 #include <glm/ext.hpp>
-#include "../state/time.hpp"
+#include "state/time.hpp"
 #include "particle_system.hpp"
 #include "renderer.hpp"
-#include "../core/object.hpp"
+#include "infrastructure/object.hpp"
 
 using namespace std;
 using namespace Time;

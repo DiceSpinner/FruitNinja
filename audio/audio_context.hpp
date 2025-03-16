@@ -2,6 +2,8 @@
 #define AUDIO_CONTEXT_H
 #include <al/al.h>
 
-void initALContext();
-void destroyALContext();
+namespace Audio {
+	void initContext();
+	void destroyContext();
+}
 #endif

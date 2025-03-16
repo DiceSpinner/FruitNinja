@@ -1,7 +1,7 @@
 #ifndef AUDIOSOURCE_H
 #define AUDIOSOURCE_H
 #include <memory>
-#include "../core/component.hpp"
+#include "infrastructure/component.hpp"
 #include "audio_clip.hpp"
 
 class AudioSource : public Component {

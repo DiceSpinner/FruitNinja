@@ -2,8 +2,8 @@
 #define VFX_H
 #include <glm/ext.hpp>
 #include <vector>
-#include "../core/transform.hpp"
-#include "../rendering/shader.hpp"
+#include "infrastructure/transform.hpp"
+#include "rendering/shader.hpp"
 class ExplosionVFX {
 private:
 	size_t numRays = 8;

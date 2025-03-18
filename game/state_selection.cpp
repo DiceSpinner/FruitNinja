@@ -11,7 +11,7 @@ SelectionState::SelectionState(Game* game) : GameState(game) {}
 
 void SelectionState::Init() {
 	// Camera
-	game->player->AddComponent<Camera>(1.0f, 300.0f);
+	auto camera = game->player->AddComponent<Camera>(1.0f, 300.0f);
 	game->player->transform.SetPosition(glm::vec3(0, 0, 30));
 	game->player->transform.LookAt(game->player->transform.position() + glm::vec3(0, 0, -1), glm::vec3(0, 1, 0));
 	game->player->AddComponent<AudioListener>();
@@ -150,7 +150,7 @@ optional<type_index> SelectionState::Step() {
 
 void SelectionState::PositionUI() {
 	// Set UI position
-	glm::mat4 inverse = glm::inverse(Camera::main->Perspective() * Camera::main->View());
+	glm::mat4 inverse = glm::inverse(Camera::main->Projection() * Camera::main->View());
 	float z = Camera::main->ComputerNormalizedZ(30);
 	glm::vec4 classicModePos = inverse * glm::vec4(-0.5, -0.5, z, 1);
 	classicModePos /= classicModePos.w;

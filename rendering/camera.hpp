@@ -24,6 +24,7 @@ public:
 
     void SetPerspective(float nearClipPlane, float farClipPlane);
     void SetOrthoWidth(float width);
+	float Width() const;  
     glm::mat4 Ortho() const;
     glm::mat4 Perspective() const;
     glm::mat4 Projection() const;

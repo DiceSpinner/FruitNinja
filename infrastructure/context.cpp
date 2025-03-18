@@ -22,6 +22,7 @@ static void onWindowResize(GLFWwindow* window, int width, int height)
     SCR_HEIGHT = height;
     for (auto& camera : *Camera::cameras) {
         camera->SetPerspective(0.1f, 300.0f);
+		camera->SetOrthoWidth(width);
     }
 }
 

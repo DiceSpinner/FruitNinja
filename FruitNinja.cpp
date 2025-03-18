@@ -77,10 +77,10 @@ int main() {
         unlitShader.Use();
         glm::vec3 lightPos = glm::vec3(0, 0, 10);
         glProgramUniformMatrix4fv(outlineShader.ID, glGetUniformLocation(outlineShader.ID, "view"), 1, GL_FALSE, glm::value_ptr(Camera::main->View()));
-        glProgramUniformMatrix4fv(outlineShader.ID, glGetUniformLocation(outlineShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(Camera::main->Perspective()));
+        glProgramUniformMatrix4fv(outlineShader.ID, glGetUniformLocation(outlineShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(Camera::main->Projection()));
 
         glUniformMatrix4fv(glGetUniformLocation(unlitShader.ID, "view"), 1, GL_FALSE, glm::value_ptr(Camera::main->View()));
-        glUniformMatrix4fv(glGetUniformLocation(unlitShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(Camera::main->Perspective()));
+        glUniformMatrix4fv(glGetUniformLocation(unlitShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(Camera::main->Projection()));
         glUniform3fv(glGetUniformLocation(unlitShader.ID, "light.position"), 1, glm::value_ptr(lightPos));
         glUniform4fv(glGetUniformLocation(unlitShader.ID, "light.diffuse"), 1, glm::value_ptr(lightDiffuse));
         glUniform4fv(glGetUniformLocation(unlitShader.ID, "light.ambient"), 1, glm::value_ptr(lightAmbient));
@@ -90,13 +90,13 @@ int main() {
 
         glDepthMask(GL_FALSE);
         vfxShader.Use();
-        glUniformMatrix4fv(glGetUniformLocation(vfxShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(Camera::main->Perspective()));
+        glUniformMatrix4fv(glGetUniformLocation(vfxShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(Camera::main->Projection()));
         glUniformMatrix4fv(glGetUniformLocation(vfxShader.ID, "view"), 1, GL_FALSE, glm::value_ptr(Camera::main->View()));
         game.DrawVFX(vfxShader);
 
         particleShader.Use();
         glUniform3fv(glGetUniformLocation(particleShader.ID, "cameraPos"), 1, glm::value_ptr(Camera::main->transform.position()));
-        glUniformMatrix4fv(glGetUniformLocation(particleShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(Camera::main->Perspective()));
+        glUniformMatrix4fv(glGetUniformLocation(particleShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(Camera::main->Projection()));
         glUniformMatrix4fv(glGetUniformLocation(particleShader.ID, "view"), 1, GL_FALSE, glm::value_ptr(Camera::main->View()));
         ParticleSystem::DrawParticles(particleShader);
         glDepthMask(GL_TRUE);

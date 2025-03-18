@@ -33,7 +33,7 @@ void ClassicMode::spawnFruit(shared_ptr<Model>& fruitModel, shared_ptr<Model>& s
 	};
 
 	auto renderer = fruit->AddComponent<Renderer>(fruitModel);
-	// renderer->drawOverlay = true;
+	renderer->drawOverlay = true;
 	Fruit* ft = fruit->AddComponent<Fruit>(radius, sinfrastructure, setting.fruitSliceForce, context.fruitChannel, asset);
 	ft->slicedParticleTexture = game->textures.sliceParticleTexture;
 	ft->color = color;
@@ -95,7 +95,7 @@ void ClassicMode::spawnBomb() {
 	bomb->transform.SetScale(0.7f * glm::vec3(1, 1, 1));
 
 	auto renderer = bomb->AddComponent<Renderer>(game->models.bombModel);
-	// renderer->drawOverlay = true;
+	renderer->drawOverlay = true;
 	renderer->drawOutline = true;
 	renderer->outlineColor = glm::vec4(1, 0, 0, 1);
 	bomb->AddComponent<Bomb>(game->audios.explosionAudio, setting.sizeBomb, context.bombChannel);

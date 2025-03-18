@@ -1,5 +1,5 @@
 #include <iostream>
-#include "../rendering/camera.hpp"
+#include "rendering/camera.hpp"
 #include "cursor.hpp"
 #include "window.hpp"
 #define GLM_ENABLE_EXPERIMENTAL
@@ -25,7 +25,7 @@ namespace Cursor {
 		cursorPosDelta = position - currPosition;
 		currPosition = position;
 
-		auto inverseProjection = glm::inverse(Camera::main->Projection());
+		auto inverseProjection = glm::inverse(Camera::main->Perspective());
 		auto inverseView = glm::inverse(Camera::main->View());
 
 		glm::vec4 viewRay = inverseProjection * glm::vec4(position, 0, 1);

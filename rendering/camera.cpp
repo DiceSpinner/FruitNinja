@@ -7,12 +7,12 @@ Camera* Camera::main = nullptr;
 vector<Camera*>* Camera::cameras = new vector<Camera*>();
 
 Camera::Camera(unordered_map<type_index, vector<unique_ptr<Component>>>& components, Transform& transform, Object* object, float nearClipPlane, float farClipPlane)
-	: Component(components, transform, object), nearClipPlane(nearClipPlane), farClipPlane(farClipPlane), isOrtho(false), width(20)
+	: Component(components, transform, object), nearClipPlane(nearClipPlane), farClipPlane(farClipPlane), isOrtho(false), width(SCR_WIDTH)
 {
 	if (SCR_HEIGHT > 0) {
 		perspective = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, nearClipPlane, farClipPlane);
-		float halfWidth = SCR_WIDTH / 2.0f;
-		float halfHeight = SCR_HEIGHT / 2.0f;
+		float halfWidth = width / 2.0f;
+		float halfHeight = (float)SCR_HEIGHT / SCR_WIDTH * halfWidth;
 		ortho = glm::ortho(-halfWidth, halfWidth, -halfHeight, halfHeight, nearClipPlane, farClipPlane);
 	}
 	if (!main) {
@@ -36,6 +36,10 @@ void Camera::SetOrthoWidth(float width) {
 	float halfWidth = width / 2;
 	float halfHeight = (float)SCR_HEIGHT / SCR_WIDTH * halfWidth;
 	ortho = glm::ortho(-halfWidth, halfWidth, -halfHeight, halfHeight);
+}
+
+float Camera::Width() const {
+	return width;
 }
 
 glm::mat4 Camera::Perspective() const {

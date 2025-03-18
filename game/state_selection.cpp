@@ -181,6 +181,11 @@ Coroutine SelectionState::FadeInUI(float duration) {
 		classic->color.a = opacity;
 		multiplayer->color.a = opacity;
 		exit->color.a = opacity;
+
+		classic->outlineColor.a = opacity;
+		multiplayer->outlineColor.a = opacity;
+		exit->outlineColor.a = opacity;
+
 		timer += Time::deltaTime();
 		co_yield{};
 	}
@@ -190,6 +195,10 @@ Coroutine SelectionState::FadeInUI(float duration) {
 	classic->color.a = 1;
 	multiplayer->color.a = 1;
 	exit->color.a = 1;
+	classic->outlineColor.a = 1;
+	multiplayer->outlineColor.a = 1;
+	exit->outlineColor.a = 1;
+
 	game->uiConfig.control.enableSlicing = true;
 }
 Coroutine SelectionState::FadeOutUI(float duration) {

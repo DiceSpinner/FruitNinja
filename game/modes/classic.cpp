@@ -173,13 +173,13 @@ void ClassicMode::Init() {
 	};
 
 	ui.startGame = game->createUIObject(game->models.watermelonModel, glm::vec4(0, 1, 0, 1));
-	auto slicable = ui.startGame->AddComponent<Fruit>(setting.sizeWatermelon, 0, setting.fruitSliceForce, context.fruitChannel, watermelonAsset);
+	auto slicable = ui.startGame->AddComponent<Fruit>(setting.sizeWatermelon, 0, setting.fruitSliceForce, game->uiConfig.control, watermelonAsset);
 	slicable->color = glm::vec4(1, 0, 0, 1);
 	slicable->slicedParticleTexture = game->textures.sliceParticleTexture;
 
 	// Exit button
 	ui.back = game->createUIObject(game->models.bombModel, glm::vec4(1, 0, 0, 1));
-	ui.back->AddComponent<Fruit>(setting.sizeBomb, 0, setting.fruitSliceForce, context.fruitChannel, FruitAsset{});
+	ui.back->AddComponent<Fruit>(setting.sizeBomb, 0, setting.fruitSliceForce, game->uiConfig.control, FruitAsset{});
 
 	// Reset Button
 	FruitAsset pineappleAsset = {
@@ -190,12 +190,9 @@ void ClassicMode::Init() {
 	};
 
 	ui.restart = game->createUIObject(game->models.pineappleModel);
-	slicable = ui.restart->AddComponent<Fruit>(setting.sizePineapple, 0, setting.fruitSliceForce, context.fruitChannel, pineappleAsset);
+	slicable = ui.restart->AddComponent<Fruit>(setting.sizePineapple, 0, setting.fruitSliceForce, game->uiConfig.control, pineappleAsset);
 	slicable->color = glm::vec4(1, 1, 0, 1);
 	slicable->slicedParticleTexture = game->textures.sliceParticleTexture;
-
-	// Set Button position
-	
 
 	// Front UI
 	ui.fadeOutEffect = make_unique<UI>(game->textures.fadeTexture);
@@ -336,6 +333,7 @@ void ClassicMode::OnExit() {
 void ClassicMode::enterGame() {
 	context.current = ClassicModeContext::Game;
 	context.fruitChannel.disableNonUI = false;
+	context.bombChannel.disableAll = false;
 
 	ui.back->GetComponent<Rigidbody>()->useGravity = true;
 	context.fruitChannel.score = 0;
@@ -394,7 +392,6 @@ void ClassicMode::exitExplosion() {
 }
 
 void ClassicMode::exitScore() {
-	context.bombChannel.disableAll = false;
 	StartCoroutine(FadeOutUI(0.7f));
 }
 
@@ -513,8 +510,11 @@ Coroutine ClassicMode::FadeInUI(float duration) {
 		time += Time::deltaTime();
 		float opacity = time / duration;
 		back->color.a = opacity;
+		back->outlineColor.a = opacity;
 		start->color.a = opacity;
+		start->outlineColor.a = opacity;
 		restart->color.a = opacity;
+		restart->outlineColor.a = opacity;
 
 		ui.backButton->textColor.a = opacity;
 		ui.startButton->textColor.a = opacity;
@@ -524,6 +524,9 @@ Coroutine ClassicMode::FadeInUI(float duration) {
 	back->color.a = 1;
 	start->color.a = 1;
 	restart->color.a = 1;
+	back->outlineColor.a = 1;
+	start->outlineColor.a = 1;
+	restart->outlineColor.a = 1;
 
 	ui.backButton->textColor.a = 1;
 	ui.startButton->textColor.a = 1;

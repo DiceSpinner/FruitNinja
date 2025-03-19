@@ -235,11 +235,9 @@ void ClassicMode::OnDrawVFX(Shader& vfxShader) {
 	}
 }
 
-void ClassicMode::OnDrawBackUI(Shader& uiuiShader) {
-	ui.background->Draw(uiuiShader);
-
+void ClassicMode::OnDrawBackUI(Shader& uiShader) {
 	if (context.current == ClassicModeContext::Start) {
-		ui.backgroundText->Draw(uiuiShader);
+		ui.backgroundText->Draw(uiShader);
 	}
 }
 

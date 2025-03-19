@@ -1,5 +1,5 @@
 #include "util.hpp"
-#include "../rendering/camera.hpp"
+#include "rendering/camera.hpp"
 
 bool isCursorInContact(Transform transform, float radius) {
 	glm::vec3 ray = Cursor::getCursorRay();

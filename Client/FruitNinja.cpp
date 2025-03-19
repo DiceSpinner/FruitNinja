@@ -18,16 +18,18 @@
 
 using namespace std;
 
-const char* objVertexPath = "shaders/object.vert";
-const char* objFragPath = "shaders/object.frag";
-const char* unlitFrag = "shaders/object_unlit.frag";
-const char* ui3DVertPath = "shaders/ui3D.vert";
-const char* uiVertPath = "shaders/ui.vert";
-const char* uiFragPath = "shaders/ui.frag";
-const char* particleVertPath = "shaders/particle.vert";
-const char* particleFragPath = "shaders/particle.frag";
-const char* outlineVertPath = "shaders/outline.vert";
-const char* outlineFragPath = "shaders/outline.frag";
+const char* objVertexPath = SHADER_DIR "object.vert";
+const char* objFragPath = SHADER_DIR "object.frag";
+const char* unlitFrag = SHADER_DIR "object_unlit.frag";
+const char* ui3DVertPath = SHADER_DIR "ui3D.vert";
+const char* uiVertPath = SHADER_DIR "ui.vert";
+const char* uiFragPath = SHADER_DIR "ui.frag";
+const char* particleVertPath = SHADER_DIR "particle.vert";
+const char* particleFragPath = SHADER_DIR "particle.frag";
+const char* outlineVertPath = SHADER_DIR "outline.vert";
+const char* outlineFragPath = SHADER_DIR "outline.frag";
+const char* vfxShaderVertPath = SHADER_DIR "simple.vert";
+const char* vfxShaderFragPath = SHADER_DIR "simple.frag";
 
 int main() {
     initContext();
@@ -36,7 +38,7 @@ int main() {
     Shader uiShader(uiVertPath, uiFragPath);
     Shader particleShader(particleVertPath, particleFragPath);
     Shader outlineShader(outlineVertPath, outlineFragPath);
-    Shader vfxShader("shaders/simple.vert", "shaders/simple.frag");
+    Shader vfxShader(vfxShaderVertPath, vfxShaderFragPath);
     
     glm::vec3 lightPosition = glm::vec3(0, 0, 0);
     glm::vec4 lightDiffuse(1, 1, 1, 1);

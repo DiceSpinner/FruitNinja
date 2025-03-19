@@ -41,5 +41,5 @@ public:
 	void Draw(Shader& shader);
 };
 
-GLuint textureFromFile(const char* path, std::string directory);
+GLuint textureFromFile(const std::string& filename);
 #endif

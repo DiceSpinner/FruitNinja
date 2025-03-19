@@ -120,7 +120,7 @@ vector<GLuint> Model::loadMaterialTextures(aiMaterial* material, aiTextureType t
 		aiString str;
 		material->GetTexture(type, i, &str);
 		string path = str.C_Str();
-		GLuint texture = textureFromFile(path.c_str(), directory);
+		GLuint texture = textureFromFile(directory + "/" + path);
 		if (texture != -1) {
 			textures.push_back(texture);
 		}

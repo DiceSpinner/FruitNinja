@@ -195,9 +195,9 @@ optional<type_index> GameState::Run() {
 }
 
 Game::Game() : gameState(), textures() {
-	trailShader = make_unique<Shader>("shaders/mouse_trail.vert", "shaders/mouse_trail.frag");
-	trailTexture = textureFromFile("FruitNinja_blade0.png", "images");
-	trailArrow = textureFromFile("blade0_arrow.png", "images");
+	trailShader = make_unique<Shader>(SHADER_DIR "mouse_trail.vert", SHADER_DIR "mouse_trail.frag");
+	trailTexture = textureFromFile(TEXTURE_DIR "FruitNinja_blade0.png");
+	trailArrow = textureFromFile(TEXTURE_DIR "blade0_arrow.png");
 	player = Object::Create();
 
 	// Configure mouse trailing (shared by all game modes)
@@ -264,46 +264,46 @@ void Game::Init() {
 }
 
 void Game::LoadAudios() {
-	audios.fruitSliceAudio1 = make_shared<AudioClip>("sounds/onhit.wav");
-	audios.fruitSliceAudio2 = make_shared<AudioClip>("sounds/onhit2.wav");
-	audios.startMenuAudio = make_shared<AudioClip>("sounds/StartMenu.wav");
-	audios.gameStartAudio = make_shared<AudioClip>("sounds/Game-start.wav");
-	audios.gameOverAudio = make_shared<AudioClip>("sounds/Game-over.wav");
-	audios.fruitMissAudio = make_shared<AudioClip>("sounds/gank.wav");
-	audios.fruitSpawnAudio = make_shared<AudioClip>("sounds/Throw-fruit.wav");
-	audios.recoveryAudio = make_shared<AudioClip>("sounds/extra-life.wav");
-	audios.explosionAudio = make_shared<AudioClip>("sounds/Bomb-explode.wav");
-	audios.fuseAudio = make_shared<AudioClip>("sounds/Bomb-Fuse.wav");
+	audios.fruitSliceAudio1 = make_shared<AudioClip>(AUDIO_DIR "onhit.wav");
+	audios.fruitSliceAudio2 = make_shared<AudioClip>(AUDIO_DIR "onhit2.wav");
+	audios.startMenuAudio = make_shared<AudioClip>(AUDIO_DIR "StartMenu.wav");
+	audios.gameStartAudio = make_shared<AudioClip>(AUDIO_DIR "Game-start.wav");
+	audios.gameOverAudio = make_shared<AudioClip>(AUDIO_DIR "Game-over.wav");
+	audios.fruitMissAudio = make_shared<AudioClip>(AUDIO_DIR "gank.wav");
+	audios.fruitSpawnAudio = make_shared<AudioClip>(AUDIO_DIR "Throw-fruit.wav");
+	audios.recoveryAudio = make_shared<AudioClip>(AUDIO_DIR "extra-life.wav");
+	audios.explosionAudio = make_shared<AudioClip>(AUDIO_DIR "Bomb-explode.wav");
+	audios.fuseAudio = make_shared<AudioClip>(AUDIO_DIR "Bomb-Fuse.wav");
 }
 
 void Game::LoadModels() {
-	models.bombModel = make_shared<Model>("models/bomb.obj");
+	models.bombModel = make_shared<Model>(MODEL_DIR "bomb.obj");
 
-	models.appleModel = make_shared<Model>("models/fruits/apple.obj");
-	models.appleTopModel = make_shared<Model>("models/fruits/apple_top.obj");
-	models.appleBottomModel = make_shared<Model>("models/fruits/apple_bottom.obj");
+	models.appleModel = make_shared<Model>(MODEL_DIR "fruits/apple.obj");
+	models.appleTopModel = make_shared<Model>(MODEL_DIR "fruits/apple_top.obj");
+	models.appleBottomModel = make_shared<Model>(MODEL_DIR "fruits/apple_bottom.obj");
 
-	models.pineappleModel = make_shared<Model>("models/fruits/pineapple.obj");
-	models.pineappleTopModel = make_shared<Model>("models/fruits/pineapple_top.obj");
-	models.pineappleBottomModel = make_shared<Model>("models/fruits/pineapple_bottom.obj");
+	models.pineappleModel = make_shared<Model>(MODEL_DIR "fruits/pineapple.obj");
+	models.pineappleTopModel = make_shared<Model>(MODEL_DIR "fruits/pineapple_top.obj");
+	models.pineappleBottomModel = make_shared<Model>(MODEL_DIR "fruits/pineapple_bottom.obj");
 
-	models.watermelonModel = make_shared<Model>("models/fruits/watermelon.obj");
-	models.watermelonTopModel = make_shared<Model>("models/fruits/watermelon_top.obj");
-	models.watermelonBottomModel = make_shared<Model>("models/fruits/watermelon_bottom.obj");
+	models.watermelonModel = make_shared<Model>(MODEL_DIR "fruits/watermelon.obj");
+	models.watermelonTopModel = make_shared<Model>(MODEL_DIR "fruits/watermelon_top.obj");
+	models.watermelonBottomModel = make_shared<Model>(MODEL_DIR "fruits/watermelon_bottom.obj");
 
-	models.coconutModel = make_shared<Model>("models/fruits/coconut.obj");
-	models.coconutTopModel = make_shared<Model>("models/fruits/coconut_top.obj");
-	models.coconutBottomModel = make_shared<Model>("models/fruits/coconut_bottom.obj");
+	models.coconutModel = make_shared<Model>(MODEL_DIR "fruits/coconut.obj");
+	models.coconutTopModel = make_shared<Model>(MODEL_DIR "fruits/coconut_top.obj");
+	models.coconutBottomModel = make_shared<Model>(MODEL_DIR "fruits/coconut_bottom.obj");
 }
 
 void Game::LoadTextures() {
-	textures.sliceParticleTexture = textureFromFile("droplet.png", "images");
-	textures.sparkTexture = textureFromFile("spark.png", "images");
-	textures.smokeTexture = textureFromFile("smoke3.png", "images");
-	textures.backgroundTexture = textureFromFile("fruit_ninja_clean.png", "images");
-	textures.fadeTexture = textureFromFile("fading_circle_opaque_center.png", "images");
-	textures.emptyCross = textureFromFile("empty_cross.png", "images");
-	textures.redCross = textureFromFile("red_cross.png", "images");
+	textures.sliceParticleTexture = textureFromFile(TEXTURE_DIR "droplet.png");
+	textures.sparkTexture = textureFromFile(TEXTURE_DIR "spark.png");
+	textures.smokeTexture = textureFromFile(TEXTURE_DIR "smoke3.png");
+	textures.backgroundTexture = textureFromFile(TEXTURE_DIR "fruit_ninja_clean.png");
+	textures.fadeTexture = textureFromFile(TEXTURE_DIR "fading_circle_opaque_center.png");
+	textures.emptyCross = textureFromFile(TEXTURE_DIR "empty_cross.png");
+	textures.redCross = textureFromFile(TEXTURE_DIR "red_cross.png");
 }
 
 void Game::Step() {

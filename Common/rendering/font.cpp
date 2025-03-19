@@ -7,7 +7,7 @@
 using namespace std;
 using namespace Font;
 
-static const char* fontPath = "fonts/history_of_wawa/History of Wawa.ttf";
+static const char* fontPath = FONT_DIR "history_of_wawa/History of Wawa.ttf";
 static FT_Library lib;
 static FT_Face face;
 static unordered_map<int, unordered_map<char, Character>> loadedFonts;

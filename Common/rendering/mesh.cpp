@@ -6,10 +6,8 @@
 
 using namespace std;
 
-GLuint textureFromFile(const char* path, string directory) {
+GLuint textureFromFile(const string& filename) {
 	static unordered_map<string, GLuint> loadedTextures;
-	string filename = string(path);
-	filename = directory + '/' + filename;
 
 	auto item = loadedTextures.find(filename);
 	if (item != loadedTextures.end()) {
@@ -54,7 +52,7 @@ GLuint textureFromFile(const char* path, string directory) {
 	}
 	else
 	{
-		std::cout << "Texture failed to load at path: " << path << std::endl;
+		std::cout << "Texture failed to load at path: " << filename << std::endl;
 		stbi_image_free(data);
 		texture = 0;
 	}

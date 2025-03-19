@@ -6,7 +6,7 @@
 #include "rendering/font.hpp"
 #include "rendering/renderer.hpp"
 #include "audio/audio_context.hpp"
-#include "input.hpp"
+#include "infrastructure/input.hpp"
 #include "networking/networking.hpp"
 
 using namespace std;

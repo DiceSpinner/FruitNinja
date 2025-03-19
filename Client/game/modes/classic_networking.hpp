@@ -116,20 +116,6 @@ public:
 	void OnDrawVFX(Shader& vfxShader) override;
 	void OnDrawBackUI(Shader& uiShader) override;
 	void OnDrawFrontUI(Shader& uiShader) override;
-
-	std::shared_ptr<Object> createUIObject(std::shared_ptr<Model> model) const;
-	std::shared_ptr<Object> createUIObject(std::shared_ptr<Model> model, glm::vec4 outlineColor) const;
-	void spawnApple();
-	void spawnPineapple();
-	void spawnWatermelon();
-	void spawnBomb();
-	void spawnFruit(
-		std::shared_ptr<Model>& fruitModel,
-		std::shared_ptr<Model>& slice1Model,
-		std::shared_ptr<Model>& slice2Model,
-		std::shared_ptr<AudioClip> sliceAudio,
-		glm::vec4 color, float radius = 1, int sinfrastructure = 1
-	);
 };
 
 #endif

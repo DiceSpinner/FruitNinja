@@ -1,18 +1,20 @@
 #include <iostream>
 #include <glm/ext.hpp>
-#include "infrastructure/input.hpp"
+#include "input.hpp"
 #include "rendering/camera.hpp"
 #include "state/cursor.hpp"
 #include "state/time.hpp"
+#include "state/window.hpp"
 
 using namespace Time;
+using namespace Input;
 
 static double pitch = 0;
 static double yaw = 0;
 static float cameraSpeed = 4;
-bool lockedCamera = true;
+bool Input::lockedCamera = true;
 
-void onKeyPressed(GLFWwindow* window, int key, int scancode, int action, int mods)
+void Input::onKeyPressed(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
     if (key == GLFW_KEY_ESCAPE && action == GLFW_RELEASE) {
         glfwSetWindowShouldClose(window, true);
@@ -42,7 +44,7 @@ void onKeyPressed(GLFWwindow* window, int key, int scancode, int action, int mod
 static double lastCursorX = 0;
 static double lastCursorY = 0;
 static const double mouseSensitivity = 0.1;
-void cursorAim(GLFWwindow* window, double xpos, double ypos) {
+void Input::cursorAim(GLFWwindow* window, double xpos, double ypos) {
     static bool init = true;
     double offsetX = xpos - lastCursorX;
     double offsetY = ypos - lastCursorY;
@@ -78,7 +80,7 @@ void cursorAim(GLFWwindow* window, double xpos, double ypos) {
 
 static bool wasMouseClicked;
 
-void processInput(GLFWwindow* window)
+void Input::processInput(GLFWwindow* window)
 {
     wasMouseClicked = Cursor::mouseClicked;
     if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
@@ -113,4 +115,9 @@ void processInput(GLFWwindow* window)
             pos -= cameraSpeed * unscaledDeltaTime() * cameraUp;
         camera->transform.SetPosition(pos);
     }
+}
+
+void Input::initInput() {
+    glfwSetKeyCallback(window, onKeyPressed);
+    glfwSetCursorPosCallback(window, cursorAim);
 }

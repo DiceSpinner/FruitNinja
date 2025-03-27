@@ -3,6 +3,7 @@
 namespace Time {
 	constexpr int PHYSICS_FPS = 60;
 	extern float timeScale;
+	void initTime();
 	void updateTime();
 	float deltaTime();
 	float unscaledDeltaTime();

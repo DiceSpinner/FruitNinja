@@ -2,11 +2,11 @@
 #include <memory>
 #include "infrastructure/context.hpp"
 #include "state/window.hpp"
+#include "state/time.hpp"
 #include "rendering/camera.hpp"
 #include "rendering/font.hpp"
 #include "rendering/renderer.hpp"
 #include "audio/audio_context.hpp"
-#include "infrastructure/input.hpp"
 #include "networking/networking.hpp"
 
 using namespace std;
@@ -101,8 +101,7 @@ void initContext() {
     glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
 
     glfwSetFramebufferSizeCallback(window, onWindowResize);
-    glfwSetKeyCallback(window, onKeyPressed);
-    glfwSetCursorPosCallback(window, cursorAim);
+    
     std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << std::endl;
     int flags; glGetIntegerv(GL_CONTEXT_FLAGS, &flags);
     if (flags & GL_CONTEXT_FLAG_DEBUG_BIT)
@@ -121,11 +120,6 @@ void initContext() {
     glStencilFunc(GL_ALWAYS, 0, 0xFF);
     glfwSwapInterval(0);
 
-    Font::init();
-    Audio::initContext();
-
-    srand(time(NULL));
-
     glm::vec4 white(1, 1, 1, 1);
     glGenTextures(1, &Renderer::white);
     glBindTexture(GL_TEXTURE_2D, Renderer::white);
@@ -134,6 +128,11 @@ void initContext() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glBindTexture(GL_TEXTURE_2D, 0);
 
+    srand(time(NULL));
+
+    Time::initTime();
+    Font::init();
+    Audio::initContext();
     Networking::init();
 }
 void destroyContext() {

@@ -1,7 +1,9 @@
-#include "GLFW/glfw3.h"
+#include <chrono>
 #include "time.hpp"
 
 using namespace std;
+
+static chrono::time_point<chrono::high_resolution_clock> timeAnchor;
 static float currTime = 0;
 static float cdeltaTime = 0;
 static float usDeltaTime = 0;
@@ -13,15 +15,13 @@ static bool shouldPhysicsUpdate = false;
 namespace Time {
 	float timeScale = 1;
 
+	void initTime() {
+		currTime = chrono::duration<float>(chrono::steady_clock::now() - timeAnchor).count();
+	}
+
 	void updateTime() {
-		float currentTime = glfwGetTime();
-		if (init) {
-			init = false;
-			cdeltaTime = 0;
-		}
-		else {
-			cdeltaTime = currentTime - currTime;
-		}
+		float currentTime = chrono::duration<float>(chrono::steady_clock::now() - timeAnchor).count();
+		cdeltaTime = currentTime - currTime;
 		usDeltaTime = cdeltaTime;
 		cdeltaTime *= timeScale;
 		currTime = currentTime;

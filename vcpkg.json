@@ -3,7 +3,7 @@
     {
       "name": "glad"
     },
-    "freetype", 
+    "freetype",
     "glfw3",
     "glm",
     "assimp",

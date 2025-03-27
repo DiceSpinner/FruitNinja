@@ -7,7 +7,7 @@
 #include <iostream>
 #include "infrastructure/context.hpp"
 #include "infrastructure/object.hpp"
-#include "infrastructure/input.hpp"
+#include "input.hpp"
 #include "state/time.hpp"
 #include "state/window.hpp"
 #include "rendering/shader.hpp"
@@ -33,6 +33,7 @@ const char* vfxShaderFragPath = SHADER_DIR "simple.frag";
 
 int main() {
     initContext();
+    Input::initInput();
     Shader objectShader(objVertexPath, objFragPath);
     Shader unlitShader(objVertexPath, unlitFrag);
     Shader uiShader(uiVertPath, uiFragPath);
@@ -53,9 +54,9 @@ int main() {
 
     while (!glfwWindowShouldClose(window))
     {
-        glfwPollEvents();
         Time::updateTime();
-        processInput(window);
+        glfwPollEvents();
+        Input::processInput(window);
         
         glClearColor(0.4f, 0.2f, 0, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);

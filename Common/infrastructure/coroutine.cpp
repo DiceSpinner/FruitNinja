@@ -1,5 +1,6 @@
 #include "coroutine.hpp"
 #include "state/time.hpp"
+#include <iostream>
 using namespace std;
 
 Coroutine::Coroutine(promise_type* p) noexcept : handle(coroutine_handle<promise_type>::from_promise(*p)) {}

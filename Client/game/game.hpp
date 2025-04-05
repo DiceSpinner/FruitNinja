@@ -55,7 +55,11 @@ struct GameTextures {
 	GLuint redCross;
 };
 
+class GameState;
 class Game;
+
+template<typename T>
+concept TGameState = std::derived_from<T, GameState>;
 
 class GameState {
 private:
@@ -70,13 +74,13 @@ private:
 protected:
 	Game* game;
 
-	template<typename StateType>
+	template<TGameState T>
 	std::optional<std::type_index> EnterSubState() {
 		if (terminated || currSubState) {
 			std::cout << "Cannot enter sub state while terminated/has active sub state" << std::endl;
 			return {};
 		}
-		auto type = std::type_index(typeid(StateType));
+		auto type = std::type_index(typeid(T));
 		auto state = states.find(type);
 		if (state == states.end()) {
 			std::cout << "Cannot find substate" << std::endl;
@@ -85,11 +89,6 @@ protected:
 		enterSubState = state->second.get();
 		OnEnterSubState();
 		return Self();
-	}
-
-	template<typename StateType>
-	void SignalTransition() {
-		transition = type_index(typeid(StateType));
 	}
 	
 	virtual void OnEnterSubState();
@@ -101,24 +100,24 @@ protected:
 	void StartCoroutine(Coroutine&& coroutine);
 	inline std::type_index Self() const;
 
-	template<typename StateType>
+	template<TGameState T>
 	inline std::type_index Transition() const {
-		return std::type_index(typeid(StateType));
+		return std::type_index(typeid(T));
 	}
 public:
 	GameState(Game* game);
 
-	template<typename StateType, typename... Args>
-	StateType* AddSubState(Args&&... args) {
-		auto type = std::type_index(typeid(StateType));
+	template<TGameState T, typename... Args>
+	T* AddSubState(Args&&... args) {
+		auto type = std::type_index(typeid(T));
 		auto state = states.find(type);
 		if (state != states.end()) {
 			return {};
 		}
-		auto& inserted = states.emplace(type, std::make_unique<StateType>(std::forward<Args>(args)...)).first->second;
+		auto& inserted = states.emplace(type, std::make_unique<T>(std::forward<Args>(args)...)).first->second;
 		inserted->Init();
 
-		return static_cast<StateType*>(inserted.get());
+		return static_cast<T*>(inserted.get());
 	}
 
 	void DrawVFX(Shader& vfxShader);
@@ -143,7 +142,7 @@ struct MouseTrailSetting {
 
 class Game {
 private:
-	std::unique_ptr<GameState> gameState;
+	std::unique_ptr<GameState> state;
 	MouseTrailSetting mouseTrailSetting;
 	bool flushMousePositions = false;
 	std::unique_ptr<Shader> trailShader;
@@ -185,15 +184,15 @@ public:
 
 	static Object* createFruitParticleSystem();
 
-	template<typename StateType>
+	template<TGameState T>
 	void SetInitialGameState() {
-		if (gameState) return;
-		auto type = std::type_index(typeid(StateType));
-		if (std::type_index(typeid(gameState.get())) == type) return;
+		if (state) return;
+		auto type = std::type_index(typeid(T));
+		if (std::type_index(typeid(state.get())) == type) return;
 
-		gameState = std::make_unique<StateType>(this);
-		gameState->Init();
-		gameState->OnEnter();
+		state = std::make_unique<T>(this);
+		state->Init();
+		state->OnEnter();
 	}
 
 	void OnMouseUpdate(glm::vec2 position);

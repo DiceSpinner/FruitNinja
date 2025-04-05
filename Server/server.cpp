@@ -1,51 +1,65 @@
-#include <iostream>
-#include <thread>
-#include <functional>
-#include <string>
-#include <cassert>
-#include "networking/networking.hpp"
-#include "networking/socket.hpp"
-#include "state/time.hpp"
-#include "infrastructure/coroutine.hpp"
+#include "server.hpp"
 
-static addrinfo* serverAddr;
-static std::atomic<bool> running = true;
-static std::atomic<bool> waitingConnection = false;
+using namespace std;
+ServerState::ServerState(Server& server) : server(server) {}
 
-static Coroutine logStatus(const sockaddr_in& server) {
-    UDPSocket client(5);
-
-    while (running) {
-        co_yield Coroutine::YieldOption::Wait(1);
-        std::string msg = "Time - " + std::to_string(Time::time()) + "\n";
-        std::cout << "[Client] Sending " << msg;
-        UDPPacket packet = {
-            .payload = {msg.c_str(), msg.c_str() + msg.length() + 1}
-        };
-        client.SendPacket(packet, server);
-    }
+void ServerState::Terminate() { terminated = true; OnExit(); }
+void ServerState::OnEnterSubState() {}
+void ServerState::OnExitSubState() {}
+void ServerState::OnEnter() {}
+void ServerState::OnExit() {}
+void ServerState::ProcessInput() {}
+void ServerState::Init() {}
+type_index ServerState::Self() const { return type_index(typeid(*this)); }
+void ServerState::StartCoroutine(Coroutine&& coroutine) {
+	coroutineManager.AddCoroutine(forward<Coroutine>(coroutine));
 }
+optional<type_index> ServerState::Step() { return {}; };
+optional<type_index> ServerState::Run() {
+	// Coroutines must be finished before states can be runned
+	if (!coroutineManager.Empty()) {
+		coroutineManager.Run();
+		return Self();
+	}
+	if (terminated) { terminated = false; return transition; }
 
-static void runTasks(const sockaddr_in& server) {
-    CoroutineManager taskManager = {};
-    taskManager.AddCoroutine(logStatus(server));
-    while (!taskManager.Empty()) {
-        Time::updateTime();
-        taskManager.Run();
-    }
+	if (enterSubState) {
+		currSubState = std::exchange(enterSubState, {});
+		currSubState->OnEnter();
+	}
+
+	// Run current state if there's no substate
+	if (!currSubState) {
+		auto next = Step();
+		if (!next || next.value() != Self()) {
+			transition = next;
+			Terminate(); return Self();
+		}
+		return next;
+	}
+
+	// Run sub state
+	auto next = currSubState->Run();
+	if (!next) {
+		currSubState = {};
+		OnExitSubState();
+	}
+	else if (next.value() != type_index(typeid(*currSubState))) {
+		auto result = states.find(next.value());
+		if (result != states.end()) {
+			currSubState = result->second.get();
+			currSubState->OnEnter();
+		}
+		else {
+			cout << "State not found" << endl;
+		}
+	}
+	return Self();
 }
+void ServerState::BroadCastState() {}
 
-int main() {
-    Networking::init();
-    
-    UDPSocket server(5);
-
-    std::thread task(runTasks, server.Address());
-    while (true) {
-        auto packet = server.ReadPacket();
-        if (packet) std::cout << "[Server] Received: " << packet.value().payload.data();
-    }
-    
-    task.join();
-    Networking::destroy();
-}
+Server::Server() {}
+void Server::CleanUp() { network.socket.Close(); }
+void Server::ProcessInput() { if(state) state->ProcessInput(); }
+void Server::Step() {if(state) state->Run(); }
+void Server::BroadCastState() { if (state) state->BroadCastState(); }

@@ -2,9 +2,9 @@
 #include "socket.hpp"
 
 UDPSocket::UDPSocket(size_t capacity) 
-	: queueCapacity(capacity), listener(), address(),
+	: queueCapacity(capacity), listener(), address(), matchAddr(),
 	sock(socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)), packetQueue(), 
-	isRunning(true), queueLock()
+	closed(true), blocked(true), queueLock(), cv()
 {
 	sockaddr_in addr = {};
 	addr.sin_family = AF_INET;
@@ -14,59 +14,117 @@ UDPSocket::UDPSocket(size_t capacity)
 		std::cout << "Failed to bind socket\n";
 	}
 	else {
+		closed = false;
 		int addrLen = sizeof(address);
 		getsockname(sock, reinterpret_cast<sockaddr*>(&address), &addrLen);
-		listener = std::thread(&UDPSocket::Listen, this);
+		listener = std::thread(&UDPSocket::Listener, this);
 	}
 }
 
 UDPSocket::~UDPSocket() {
-	if (sock != INVALID_SOCKET) {
-		isRunning = false;
+	if (!closed) {
+		closed = true;
 		closesocket(sock);
 		listener.join();
 	}
 }
 
-void UDPSocket::Listen() {
+void UDPSocket::SetMatchAddress(const sockaddr_in& match) {
+	std::lock_guard<std::mutex> guard(queueLock);
+	if (matchAddr.sin_addr.s_addr == match.sin_addr.s_addr) {
+		return;
+	}
+	matchAddr = match;
+	packetQueue.clear();
+}
+
+void UDPSocket::Listener() {
+	if (closed) return;
+
 	sockaddr_in otherAddr = {};
 	int addrSize = sizeof(otherAddr);
 	char buf[UDP_BUFFER_SIZE];
-	while (isRunning) {
+	while (!closed) {
 		addrSize = sizeof(otherAddr);
 		int byteRead = recvfrom(sock, buf, sizeof(buf), 0, (sockaddr*)&otherAddr, &addrSize);
-
 		std::lock_guard<std::mutex> lock(queueLock);
+
 		if (byteRead == SOCKET_ERROR) {
 			auto error = WSAGetLastError();
 			if(error != WSAESHUTDOWN) std::cout << "Packet read failure: " << error << "\n";
 		}
-		else if(packetQueue.size() < queueCapacity){
-			
-			// Extract header from read bytes and put the rest into packet struct
-			packetQueue.push_back(
-				UDPPacket{
-					.payload = {buf, buf + byteRead}
+		else if (
+			!blocked && packetQueue.size() < queueCapacity && 
+			(matchAddr.sin_family != AF_UNSPEC || matchAddr.sin_addr.s_addr == otherAddr.sin_addr.s_addr))
+		{
+			packetQueue.emplace_back(
+				Packet {
+					.payload = {buf, buf + byteRead},
+					.address = otherAddr
 				}
 			);
+			cv.notify_all();
 		}
 	}
 }
 
-void UDPSocket::SendPacket(const UDPPacket& packet, const sockaddr_in& target) const {
-	sendto(sock, packet.payload.data(), packet.payload.size(), 0, reinterpret_cast<const sockaddr*>(&target), sizeof(target));
+void UDPSocket::SendPacket(const Packet& packet) const {
+	if (closed) {
+		std::cout << "Attempting to write to a closed socket!\n"; 
+		return;
+	}
+
+	sendto(sock, packet.payload.data(), packet.payload.size(), 0, reinterpret_cast<const sockaddr*>(&packet.address), sizeof(packet.address));
 }
 
-std::optional<UDPPacket> UDPSocket::ReadPacket() {
+void UDPSocket::SendPacket(std::span<const char> payload, sockaddr_in target) const {
+	if (closed) {
+		std::cout << "Attempting to write to a closed socket!\n";
+		return;
+	}
+
+	sendto(sock, payload.data(), payload.size(), 0, reinterpret_cast<const sockaddr*>(&target), sizeof(target));
+}
+
+std::optional<Packet> UDPSocket::ReadFront() {
+	if (closed) {
+		return {};
+	}
+
 	std::lock_guard<std::mutex> lock(queueLock);
 	if (packetQueue.empty()) {
 		return {};
 	}
-	UDPPacket packet = std::move(packetQueue.front());
+	Packet packet = std::move(packetQueue.front());
 	packetQueue.pop_front();
+	return packet;
+}
+
+std::optional<Packet> UDPSocket::ReadBack() {
+	if (closed) {
+		return {};
+	}
+
+	std::lock_guard<std::mutex> lock(queueLock);
+	if (packetQueue.empty()) {
+		return {};
+	}
+	Packet packet = std::move(packetQueue.back());
+	packetQueue.pop_back();
 	return packet;
 }
 
 const sockaddr_in& UDPSocket::Address() const {
 	return address;
 }
+
+void UDPSocket::Close() {
+	closed = true;
+	closesocket(sock);
+	listener.join();
+
+	// No lock is needed as the listener thread is no longer running
+	packetQueue.clear();
+}
+
+bool UDPSocket::IsClosed() const { return closed; }

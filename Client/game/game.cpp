@@ -194,7 +194,7 @@ optional<type_index> GameState::Run() {
 	return Self();
 }
 
-Game::Game() : gameState(), textures() {
+Game::Game() : state(), textures() {
 	trailShader = make_unique<Shader>(SHADER_DIR "mouse_trail.vert", SHADER_DIR "mouse_trail.frag");
 	trailTexture = textureFromFile(TEXTURE_DIR "FruitNinja_blade0.png");
 	trailArrow = textureFromFile(TEXTURE_DIR "blade0_arrow.png");
@@ -307,26 +307,26 @@ void Game::LoadTextures() {
 }
 
 void Game::Step() {
-	if (!gameState->Run()) {
+	if (!state->Run()) {
 		glfwSetWindowShouldClose(window, true);
 	}
 }
 	
 void Game::DrawVFX(Shader& vfxShader) {
-	if (gameState) {
-		gameState->DrawVFX(vfxShader);
+	if (state) {
+		state->DrawVFX(vfxShader);
 	}
 }
 
 void Game::DrawBackUI(Shader& uiShader) {
-	if (gameState) {
-		gameState->DrawBackUI(uiShader);
+	if (state) {
+		state->DrawBackUI(uiShader);
 	}
 }
 
 void Game::DrawFrontUI(Shader& uiShader) {
-	if (gameState) {
-		gameState->DrawFrontUI(uiShader);
+	if (state) {
+		state->DrawFrontUI(uiShader);
 	}
 	trailShader->Use();
 	DrawMouseTrailing();

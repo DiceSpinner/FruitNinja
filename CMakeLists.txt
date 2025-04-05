@@ -12,6 +12,8 @@ add_compile_definitions(
 	FONT_DIR="${CMAKE_SOURCE_DIR}/fonts/"
 )
 
-add_subdirectory("Common")
-add_subdirectory("Client")
-add_subdirectory("Server")
+add_subdirectory(Common)
+add_subdirectory(Client)
+add_subdirectory(Server)
+add_subdirectory(extern/Catch2)
+add_subdirectory(Tests)

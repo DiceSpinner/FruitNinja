@@ -17,6 +17,12 @@
 constexpr auto UDP_BUFFER_SIZE = 1500;
 constexpr auto UDP_PACKET_DATA_SIZE = 100;
 
+inline bool SockAddrInEqual(sockaddr_in address1, sockaddr_in address2) {
+	return address1.sin_family == address2.sin_family &&
+		address1.sin_addr.s_addr == address2.sin_addr.s_addr &&
+		address1.sin_port == address2.sin_port;
+}
+
 struct Packet {
 	std::vector<char> payload;
 	sockaddr_in address;

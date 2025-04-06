@@ -31,7 +31,7 @@ UDPSocket::~UDPSocket() {
 
 void UDPSocket::SetMatchAddress(const sockaddr_in& match) {
 	std::lock_guard<std::mutex> guard(queueLock);
-	if (matchAddr.sin_addr.s_addr == match.sin_addr.s_addr) {
+	if (SockAddrInEqual(match, matchAddr)) {
 		return;
 	}
 	matchAddr = match;
@@ -51,11 +51,11 @@ void UDPSocket::Listener() {
 
 		if (byteRead == SOCKET_ERROR) {
 			auto error = WSAGetLastError();
-			if(error != WSAESHUTDOWN) std::cout << "Packet read failure: " << error << "\n";
+			if(error != WSAESHUTDOWN && error != WSAEINTR) std::cout << "Packet read failure: " << error << "\n";
 		}
 		else if (
 			!blocked && packetQueue.size() < queueCapacity && 
-			(matchAddr.sin_family != AF_UNSPEC || matchAddr.sin_addr.s_addr == otherAddr.sin_addr.s_addr))
+			(matchAddr.sin_family == AF_UNSPEC || SockAddrInEqual(matchAddr, otherAddr)))
 		{
 			packetQueue.emplace_back(
 				Packet {
@@ -74,7 +74,9 @@ void UDPSocket::SendPacket(const Packet& packet) const {
 		return;
 	}
 
-	sendto(sock, packet.payload.data(), packet.payload.size(), 0, reinterpret_cast<const sockaddr*>(&packet.address), sizeof(packet.address));
+	if (sendto(sock, packet.payload.data(), packet.payload.size(), 0, reinterpret_cast<const sockaddr*>(&packet.address), sizeof(packet.address)) == SOCKET_ERROR) {
+		std::cout << "Failed to send packet due to error " << WSAGetLastError() << std::endl;
+	}
 }
 
 void UDPSocket::SendPacket(std::span<const char> payload, sockaddr_in target) const {

@@ -111,3 +111,38 @@ TEST_CASE("UDPSocket address filter", "[UDPSocket]") {
     REQUIRE(receiver.ReadBack());
     REQUIRE(receiver.ReadBack());
 }
+
+TEST_CASE("UDPSocket wait for required packet", "[UDPSocket]") {
+    UDPSocket sender(1);
+    UDPSocket receiver(2);
+    receiver.blocked = false;
+
+    const std::string msg1 = "Message 1!";
+    const std::string msg2 = "Message 2!";
+    Packet p1 = {
+        .payload = {msg1.data(), msg1.data() + msg1.length()},
+        .address = receiver.Address(),
+    };
+    Packet p2 = {
+        .payload = {msg2.data(), msg2.data() + msg2.length()},
+        .address = receiver.Address(),
+    };
+    
+    sender.SendPacket(p1);
+    sender.SendPacket(p1);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    sender.SendPacket(p2);
+
+    auto isMsg1 = [&](const Packet& packet) { return std::string(packet.payload.begin(), packet.payload.end()) == msg1; };
+    auto isMsg2 = [&](const Packet& packet) { return std::string(packet.payload.begin(), packet.payload.end()) == msg2; };
+
+    REQUIRE(!receiver.Wait(isMsg2, std::chrono::milliseconds(200)));
+    REQUIRE(receiver.Wait(isMsg1, std::chrono::milliseconds(10)));
+    REQUIRE(receiver.Wait(isMsg1, std::chrono::milliseconds(10)));
+
+    sender.SendPacket(p2);
+    REQUIRE(!receiver.Wait(isMsg1, std::chrono::milliseconds(100)));
+    sender.SendPacket(p1);
+    REQUIRE(receiver.Wait(isMsg1, std::chrono::milliseconds(100)));
+    REQUIRE(receiver.Wait(isMsg2, std::chrono::milliseconds(10)));
+}

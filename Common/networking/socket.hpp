@@ -79,7 +79,7 @@ public:
 			};
 
 		// Assume lock is already acquired, the lambda will pass the packet received to the predicate
-		if (cv.wait_for(lock, timeout) == std::cv_status::timeout) return {};
+		if (!cv.wait_for(lock, timeout, lambda)) return {};
 		for (auto i = packetQueue.begin(); i != packetQueue.end(); i++) {
 			if (predicate(*i)) {
 				Packet packet = std::move(*i);

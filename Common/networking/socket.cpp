@@ -51,7 +51,8 @@ void UDPSocket::Listener() {
 
 		if (byteRead == SOCKET_ERROR) {
 			auto error = WSAGetLastError();
-			if(error != WSAESHUTDOWN && error != WSAEINTR) std::cout << "Packet read failure: " << error << "\n";
+			if (error == WSAECONNRESET) std::cout << "A packet was sent to invalid address previously!" << std::endl;
+			else if (error != WSAESHUTDOWN && error != WSAEINTR && error != WSAENOTSOCK) std::cout << "Packet read failure: " << error << "\n";
 		}
 		else if (
 			!blocked && packetQueue.size() < queueCapacity && 

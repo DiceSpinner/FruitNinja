@@ -11,7 +11,7 @@ UDPSocket::UDPSocket(size_t capacity)
 	addr.sin_port = 0; 
 	addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
 	if (bind(sock, (sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR) {
-		std::cout << "Failed to bind socket\n";
+		std::cout << "[Error] Failed to bind socket\n";
 	}
 	else {
 		closed = false;
@@ -51,8 +51,8 @@ void UDPSocket::Listener() {
 
 		if (byteRead == SOCKET_ERROR) {
 			auto error = WSAGetLastError();
-			if (error == WSAECONNRESET) std::cout << "A packet was sent to invalid address previously!" << std::endl;
-			else if (error != WSAESHUTDOWN && error != WSAEINTR && error != WSAENOTSOCK) std::cout << "Packet read failure: " << error << "\n";
+			if (error == WSAECONNRESET) std::cout << "[Msg] A packet was sent to invalid address previously!" << std::endl;
+			else if (error != WSAESHUTDOWN && error != WSAEINTR && error != WSAENOTSOCK) std::cout << "[Error] Packet read failure: " << error << "\n";
 		}
 		else if (
 			!blocked && packetQueue.size() < queueCapacity && 
@@ -71,12 +71,12 @@ void UDPSocket::Listener() {
 
 void UDPSocket::SendPacket(const Packet& packet) const {
 	if (closed) {
-		std::cout << "Attempting to write to a closed socket!\n"; 
+		std::cout << "[Error] Attempting to write to a closed socket!\n"; 
 		return;
 	}
 
 	if (sendto(sock, packet.payload.data(), packet.payload.size(), 0, reinterpret_cast<const sockaddr*>(&packet.address), sizeof(packet.address)) == SOCKET_ERROR) {
-		std::cout << "Failed to send packet due to error " << WSAGetLastError() << std::endl;
+		std::cout << "[Error] Failed to send packet due to error " << WSAGetLastError() << std::endl;
 	}
 }
 

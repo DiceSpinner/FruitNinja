@@ -69,7 +69,35 @@ public:
 	void Listen();
 	void Disconnect();
 	void ConnectPeer(const sockaddr_in& peer);
-	std::optional<UDPPacket> Send(UDPPacket&& packet);
+
+	template<typename T>
+	requires std::same_as<std::decay_t<T>, UDPPacket>
+	std::optional<UDPPacket> Send(T&& packet) {
+		// No peer connected, do nothing
+		if (peer.sin_family == AF_UNSPEC) {
+			std::cout << "Attempting to send data via unconnected connection" << std::endl;
+			return {};
+		}
+
+		UDPHeader header = packet.Header();
+		header.index = currentIndex++;
+		packet.SetHeader(header);
+		socket.SendPacket(reinterpret_cast<const Packet&>(packet));
+		if (!(packet.Header().flag & UDPHeaderFlag::REQ)) {
+			return {};
+		}
+		auto response = socket.Wait(
+			[&](const Packet& packet) {
+				auto responseHeader = reinterpret_cast<const UDPPacket&>(packet).Header();
+				return responseHeader.flag | UDPHeaderFlag::ACK && responseHeader.ackIndex == header.index;
+			},
+			std::chrono::milliseconds(3000)
+		);
+		if (response) return reinterpret_cast<UDPPacket&>(response);
+		return {};
+	}
+
 	std::optional<UDPPacket> Receive();
+	const sockaddr_in& Address() const;
 };
 #endif

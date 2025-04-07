@@ -62,6 +62,8 @@ UDPConnection::UDPConnection(size_t packetBufferSize, std::function<void(const s
 
 }
 
+const sockaddr_in& UDPConnection::Address() const { return socket.Address(); }
+
 void UDPConnection::Listen() {
 	if (ConnectedPeer()) return;
 	socket.SetMatchAddress({});
@@ -73,6 +75,7 @@ void UDPConnection::Listen() {
 		if (packet) {
 			UDPPacket data = reinterpret_cast<UDPPacket&>(packet.value());
 			if (data.Header().flag | UDPHeaderFlag::SYN) {
+				std::cout << "Received syn request" << std::endl;
 				socket.SetMatchAddress(data.address);
 
 				UDPPacket response;
@@ -84,37 +87,24 @@ void UDPConnection::Listen() {
 				header.index = currentIndex;
 				response.SetHeader(header);
 				socket.SendPacket(reinterpret_cast<Packet&>(response));
-				socket.Wait(
+				auto reply = socket.Wait(
 					[&](const Packet& packet) {
 						const UDPPacket& data = reinterpret_cast<const UDPPacket&>(packet);
 						return data.Header().flag & UDPHeaderFlag::ACK && data.Header().ackIndex == currentIndex;
 					}
 					, std::chrono::milliseconds(5000));
+				if (!reply) { 
+					socket.SetMatchAddress({});
+					std::cout << "Waiting for ACK timed out" << std::endl;
+					continue;
+				}
 				peer = data.address;
 				currentIndex++;
 				std::cout << "Accepted client" << std::endl;
+				return;
 			}
 		}
 	}
-}
-
-std::optional<UDPPacket> UDPConnection::Send(UDPPacket&& packet) {
-	// No peer connected, do nothing
-	if (peer.sin_family == AF_UNSPEC) {
-		return {};
-	}
-
-	UDPHeader header = packet.Header();
-	header.index = currentIndex++;
-	packet.SetHeader(header);
-	socket.SendPacket(reinterpret_cast<const Packet&>(packet));
-	if (!(packet.Header().flag & UDPHeaderFlag::REQ)) {
-		return {};
-	}
-	UDPPacket response = {};
-	std::lock_guard<std::mutex> guard(lock);
-	
-	return response;
 }
 
 std::optional<UDPPacket> UDPConnection::Receive() {
@@ -131,17 +121,18 @@ std::optional<UDPPacket> UDPConnection::Receive() {
 }
 
 std::optional<sockaddr_in> UDPConnection::ConnectedPeer() {
-	if (socket.blocked) return {};
+	if (peer.sin_family == AF_UNSPEC) return {};
 	return peer;
 }
 
 void UDPConnection::ConnectPeer(const sockaddr_in& address) {
-	if (address.sin_addr.s_addr == socket.Address().sin_addr.s_addr) {
+	if (SockAddrInEqual(address, socket.Address())) {
 		return;
 	}
 	if (peer.sin_family != AF_UNSPEC) {
 		Disconnect();
 	}
+	
 	currentIndex = 0;
 	UDPPacket packet;
 	packet.address = address;
@@ -151,6 +142,8 @@ void UDPConnection::ConnectPeer(const sockaddr_in& address) {
 		.flag = UDPHeaderFlag::SYN
 	};
 	packet.SetHeader(header);
+
+	socket.blocked = false;
 	socket.SetMatchAddress(address);
 	socket.SendPacket(reinterpret_cast<Packet&>(packet));
 
@@ -166,6 +159,7 @@ void UDPConnection::ConnectPeer(const sockaddr_in& address) {
 	if(!syncPacket) {
 		// Timeout or no correct response from target
 		socket.SetMatchAddress({});
+		socket.blocked = true;
 		return;
 	}
 	auto syncDataHeader = reinterpret_cast<UDPPacket&>(syncPacket.value()).Header();
@@ -180,6 +174,7 @@ void UDPConnection::ConnectPeer(const sockaddr_in& address) {
 	currentIndex = 3;
 	replyPacket.SetHeader(replyHeader);
 	socket.SendPacket(reinterpret_cast<Packet&>(replyPacket));
+	peer = address;
 	std::cout << "Connected to server" << "\n";
 }
 

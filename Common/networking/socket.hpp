@@ -13,9 +13,9 @@
 #include <span>
 #include <functional>
 #include <iostream>
+#include <chrono>
 
-constexpr auto UDP_BUFFER_SIZE = 1500;
-constexpr auto UDP_PACKET_DATA_SIZE = 100;
+constexpr auto DEFAULT_UDP_BUFFER_SIZE = 1500;
 
 inline bool SockAddrInEqual(sockaddr_in address1, sockaddr_in address2) {
 	return address1.sin_family == address2.sin_family &&
@@ -24,26 +24,28 @@ inline bool SockAddrInEqual(sockaddr_in address1, sockaddr_in address2) {
 }
 
 struct Packet {
-	std::vector<char> payload;
 	sockaddr_in address;
+	std::chrono::steady_clock::time_point timeReceived;
+	std::vector<char> payload;
 };
 
 class UDPSocket {
 private:
 	SOCKET sock;
-	sockaddr_in address;
+	USHORT port;
+	DWORD bufferSize = 0;
 	std::thread listener;
 	std::list<Packet> packetQueue;
 	size_t queueCapacity;
 	std::atomic<bool> closed;
 	std::mutex queueLock;
 	std::condition_variable cv;
-	sockaddr_in matchAddr;
 	void Listener();
 public:
 	std::atomic<bool> blocked;
 
-	UDPSocket(size_t capacity);
+	UDPSocket(size_t capacity, DWORD maxPacketSize = DEFAULT_UDP_BUFFER_SIZE);
+	UDPSocket(USHORT port, size_t capacity, DWORD maxPacketSize);
 	UDPSocket(const UDPSocket& other) = delete;
 	UDPSocket(UDPSocket&& other) = delete;
 	UDPSocket& operator = (const UDPSocket& other) = delete;
@@ -51,8 +53,10 @@ public:
 	~UDPSocket();
 
 	void SendPacket(const Packet& packet) const;
-	void SendPacket(std::span<const char> payload, sockaddr_in target) const;
-	const sockaddr_in& Address() const;
+	void SendPacket(std::span<const char> payload, const sockaddr_in& target) const;
+	const DWORD MaxPacketSize() const;
+	const USHORT Port() const;
+	const size_t QueueCapacity() const;
 	std::optional<Packet> ReadFront();
 	std::optional<Packet> ReadBack();
 
@@ -63,7 +67,7 @@ public:
 	/// <param name="predicate">The predicate used to evaluate if the packet satisfies the condition</param>
 	template<typename Predicate>
 		requires requires (Predicate p, const Packet& packet) { { p(packet) } -> std::same_as<bool>; }
-	std::optional<Packet> Wait(Predicate predicate, std::chrono::milliseconds timeout) {
+	std::optional<Packet> Wait(Predicate predicate, std::chrono::milliseconds DEFAULT_TIMEOUT) {
 		std::unique_lock<std::mutex> lock(queueLock);
 
 		for (auto i = packetQueue.begin(); i != packetQueue.end();i++) {
@@ -79,7 +83,7 @@ public:
 			};
 
 		// Assume lock is already acquired, the lambda will pass the packet received to the predicate
-		if (!cv.wait_for(lock, timeout, lambda)) return {};
+		if (!cv.wait_for(lock, DEFAULT_TIMEOUT, lambda)) return {};
 		for (auto i = packetQueue.begin(); i != packetQueue.end(); i++) {
 			if (predicate(*i)) {
 				Packet packet = std::move(*i);
@@ -93,7 +97,6 @@ public:
 		return {};
 	}
 
-	void SetMatchAddress(const sockaddr_in& match);
 	void Close();
 	bool IsClosed() const;
 };

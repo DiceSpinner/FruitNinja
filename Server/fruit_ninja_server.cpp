@@ -9,7 +9,7 @@ int main() {
     Server server;
     server.SetInitialState<DefaultState>();
 
-    while (true) {
+    while (server.running) {
         server.ProcessInput();
         server.Step();
         server.BroadCastState();

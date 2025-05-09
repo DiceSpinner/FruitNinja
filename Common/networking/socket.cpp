@@ -1,22 +1,52 @@
 #include <iostream>
 #include "socket.hpp"
 
-UDPSocket::UDPSocket(size_t capacity) 
-	: queueCapacity(capacity), listener(), address(), matchAddr(),
+UDPSocket::UDPSocket(size_t capacity, DWORD maxPacketSize)
+	: queueCapacity(capacity), listener(), port(),
 	sock(socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)), packetQueue(), 
-	closed(true), blocked(true), queueLock(), cv()
+	closed(true), blocked(false), queueLock(), cv()
 {
 	sockaddr_in addr = {};
 	addr.sin_family = AF_INET;
-	addr.sin_port = 0; 
-	addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+	addr.sin_port = 0;
+	addr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+	int optLen = sizeof(bufferSize);
+	getsockopt(sock, SOL_SOCKET, SO_MAX_MSG_SIZE, reinterpret_cast<char*>(&bufferSize), &optLen);
+	bufferSize = min(bufferSize, maxPacketSize);
+
 	if (bind(sock, (sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR) {
 		std::cout << "[Error] Failed to bind socket\n";
 	}
 	else {
 		closed = false;
-		int addrLen = sizeof(address);
-		getsockname(sock, reinterpret_cast<sockaddr*>(&address), &addrLen);
+		int addrLen = sizeof(addr);
+		getsockname(sock, reinterpret_cast<sockaddr*>(&addr), &addrLen);
+		port = addr.sin_port;
+		listener = std::thread(&UDPSocket::Listener, this);
+	}
+}
+
+UDPSocket::UDPSocket(USHORT port, size_t capacity, DWORD maxPacketSize)
+	: queueCapacity(capacity), listener(), port(htons(port)),
+	sock(socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)), packetQueue(),
+	closed(true), blocked(false), queueLock(), cv()
+{
+	sockaddr_in addr = {};
+	addr.sin_family = AF_INET;
+	addr.sin_port = htons(port);
+	addr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+	int optLen = sizeof(bufferSize);
+	getsockopt(sock, SOL_SOCKET, SO_MAX_MSG_SIZE, reinterpret_cast<char*>(&bufferSize), &optLen);
+
+	bufferSize = min(bufferSize, maxPacketSize);
+
+	if (bind(sock, (sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR) {
+		std::cout << "[Error] Failed to bind socket\n";
+	}
+	else {
+		closed = false;
 		listener = std::thread(&UDPSocket::Listener, this);
 	}
 }
@@ -25,17 +55,8 @@ UDPSocket::~UDPSocket() {
 	if (!closed) {
 		closed = true;
 		closesocket(sock);
-		listener.join();
+		if(listener.joinable()) listener.join();
 	}
-}
-
-void UDPSocket::SetMatchAddress(const sockaddr_in& match) {
-	std::lock_guard<std::mutex> guard(queueLock);
-	if (SockAddrInEqual(match, matchAddr)) {
-		return;
-	}
-	matchAddr = match;
-	packetQueue.clear();
 }
 
 void UDPSocket::Listener() {
@@ -43,25 +64,25 @@ void UDPSocket::Listener() {
 
 	sockaddr_in otherAddr = {};
 	int addrSize = sizeof(otherAddr);
-	char buf[UDP_BUFFER_SIZE];
+	std::vector<char> buf(bufferSize);
 	while (!closed) {
 		addrSize = sizeof(otherAddr);
-		int byteRead = recvfrom(sock, buf, sizeof(buf), 0, (sockaddr*)&otherAddr, &addrSize);
+		int byteRead = recvfrom(sock, buf.data(), bufferSize, 0, (sockaddr*)&otherAddr, &addrSize);
 		std::lock_guard<std::mutex> lock(queueLock);
 
 		if (byteRead == SOCKET_ERROR) {
 			auto error = WSAGetLastError();
 			if (error == WSAECONNRESET) std::cout << "[Msg] A packet was sent to invalid address previously!" << std::endl;
+			else if (error == WSAEMSGSIZE) std::cout << "[Warning] An oversized packet was dropped" << std::endl;
 			else if (error != WSAESHUTDOWN && error != WSAEINTR && error != WSAENOTSOCK) std::cout << "[Error] Packet read failure: " << error << "\n";
 		}
-		else if (
-			!blocked && packetQueue.size() < queueCapacity && 
-			(matchAddr.sin_family == AF_UNSPEC || SockAddrInEqual(matchAddr, otherAddr)))
+		else if (!blocked && packetQueue.size() < queueCapacity)
 		{
 			packetQueue.emplace_back(
 				Packet {
-					.payload = {buf, buf + byteRead},
-					.address = otherAddr
+					.address = otherAddr,
+					.timeReceived = std::chrono::steady_clock::now(),
+					.payload = {buf.data(), buf.data() + byteRead},
 				}
 			);
 			cv.notify_all();
@@ -80,9 +101,9 @@ void UDPSocket::SendPacket(const Packet& packet) const {
 	}
 }
 
-void UDPSocket::SendPacket(std::span<const char> payload, sockaddr_in target) const {
+void UDPSocket::SendPacket(std::span<const char> payload, const sockaddr_in& target) const {
 	if (closed) {
-		std::cout << "Attempting to write to a closed socket!\n";
+		std::cout << "[Error] Attempting to write to a closed socket!\n";
 		return;
 	}
 
@@ -117,9 +138,13 @@ std::optional<Packet> UDPSocket::ReadBack() {
 	return packet;
 }
 
-const sockaddr_in& UDPSocket::Address() const {
-	return address;
+const DWORD UDPSocket::MaxPacketSize() const { return bufferSize; }
+
+const USHORT UDPSocket::Port() const {
+	return port;
 }
+
+const size_t UDPSocket::QueueCapacity() const { return queueCapacity; }
 
 void UDPSocket::Close() {
 	closed = true;

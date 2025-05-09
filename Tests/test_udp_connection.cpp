@@ -2,45 +2,39 @@
 #include "networking/connection.hpp"
 
 TEST_CASE("UDPConnection 3-way handshake succeeds and send data packets", "[UDPConnection]") {
-    UDPConnection server(5);
-    UDPConnection client(5);
+    UDPConnectionManager<2> host1(30000, 10, 1500, std::chrono::milliseconds(10));
+    REQUIRE(host1.Good());
 
-    // Get server's address for the client
-    sockaddr_in serverAddr = server.Address();
+    UDPConnectionManager<2> host2(40000, 10, 1500, std::chrono::milliseconds(10));
+    REQUIRE(host2.Good());
+    host1.isListening = true;
+    host2.isListening = true;
 
-    // Start Listen() in a thread since it blocks
-    std::thread listenThread([&] {
-        server.Listen();  // blocks until client connects
-        });
+    sockaddr_in addr1 = {};
+    addr1.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    addr1.sin_family = AF_INET;
+    addr1.sin_port = htons(30000);
 
-    // Let the server start listening first
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    sockaddr_in addr2 = {};
+    addr2.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    addr2.sin_family = AF_INET;
+    addr2.sin_port = htons(40000);
 
-    // Now connect client ¡ú this should unblock the server
-    client.ConnectPeer(serverAddr);
+    auto c1 = host1.ConnectPeer(addr2, std::chrono::milliseconds(500)).lock();
+    REQUIRE(c1);
+    REQUIRE(host1.Count() == 1);
 
-    listenThread.join();  // wait for server to finish handshake
+    auto s1 = host2.Accept(DEFAULT_TIMEOUT, std::chrono::milliseconds(500)).lock();
+    REQUIRE(s1);
+    REQUIRE(host2.Count() == 1);
 
-    // Both sides should now be connected to each other
-    REQUIRE(server.ConnectedPeer().has_value());
-    REQUIRE(client.ConnectedPeer().has_value());
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    REQUIRE(c1->Connected());
+    REQUIRE(s1->Connected());
 
-    REQUIRE(SockAddrInEqual(server.ConnectedPeer().value(), client.Address()));
-    REQUIRE(SockAddrInEqual(client.ConnectedPeer().value(), server.Address()));
-
-    UDPPacket p;
-    p.address = server.Address();
-    p.SetHeader(UDPHeader{.flag = UDPHeaderFlag::REQ});
-
-    std::optional<UDPPacket> response;
-    std::thread clientRequestThread([&]() { response = client.Send(p); });
-
-    UDPPacket r;
-    r.address = client.Address();
-    r.SetHeader(UDPHeader{ .ackIndex = 3, .flag = UDPHeaderFlag::ACK });
-    server.Send(r);
-
-    clientRequestThread.join();
-    REQUIRE(response.has_value());
-    REQUIRE(response.value().Header().flag == UDPHeaderFlag::ACK);
+    std::this_thread::sleep_for(std::chrono::milliseconds(600));
+    REQUIRE(c1->Closed());
+    REQUIRE(s1->Closed());
+    REQUIRE(host1.Count() == 0);
+    REQUIRE(host2.Count() == 0);
 }

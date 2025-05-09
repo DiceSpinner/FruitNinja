@@ -58,8 +58,15 @@ optional<type_index> ServerState::Run() {
 }
 void ServerState::BroadCastState() {}
 
-Server::Server() {}
-void Server::CleanUp() { network.socket.Close(); }
+Server::Server() : running(true) {
+	network.player1 = std::make_unique<UDPConnection>();
+	network.player2 = std::make_unique<UDPConnection>();
+	if (!network.player1->VerifyConnection() || !network.player2->VerifyConnection()) {
+		std::cout << "Not enough sockets available, shutting down server.\n";
+		running = false;
+	}
+}
+void Server::CleanUp() { network.player1->Close(); network.player2->Close(); }
 void Server::ProcessInput() { if(state) state->ProcessInput(); }
 void Server::Step() {if(state) state->Run(); }
 void Server::BroadCastState() { if (state) state->BroadCastState(); }

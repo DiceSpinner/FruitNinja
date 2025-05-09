@@ -6,10 +6,15 @@
 #include <typeindex>
 #include <memory>
 #include <concepts>
-#include "networking/socket.hpp"
+#include "networking/connection.hpp"
 #include "infrastructure/coroutine.hpp"
 
 constexpr auto SERVER_SOCKET_CAPACITY = 30;
+
+struct ServerContext {
+	std::unique_ptr<UDPConnection> player1;
+	std::unique_ptr<UDPConnection> player2;
+};
 
 class ServerState;
 class Server;
@@ -78,13 +83,11 @@ class Server {
 	friend class ServerState;
 private:
 	std::unique_ptr<ServerState> state = {};
-	struct {
-		UDPSocket socket = { SERVER_SOCKET_CAPACITY   };
-		bool playerOneConnected = false;
-		bool playerTwoConnected = false;
-	} network;
+	ServerContext network;
 	
 public:
+	bool running;
+
 	Server();
 	void CleanUp();
 

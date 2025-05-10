@@ -6,7 +6,7 @@ UDPConnection::UDPConnection(
 )
 	: peerAddr(peerAddr), queueCapacity(packetQueueCapacity), socket(std::move(socket)), 
 	lastReceived(std::chrono::steady_clock::now()),
-	currentIndex(0), timeout(timeout), sessionID(sessionID), 
+	currentIndex(0), timeout(timeout), sessionID(sessionID), latestReceivedIndex(0),
 	status(ConnectionStatus::Disconnected)
 {
 
@@ -16,20 +16,53 @@ void UDPConnection::ParsePacket(const UDPHeader& header, UDPPacket&& packet) {
 	bool goodPacket = false;
 	std::lock_guard<std::mutex> guard(lock);
 	switch (status) {
+		case ConnectionStatus::Disconnected:
+			std::cout << "[Error] A packet is routed to a closed UDPConnection, this is a bug!" << std::endl;
+			return;
+
 		case ConnectionStatus::Connected:
 			{
+				// Close connection immediately if received FIN signal from peer
+				if(header.flag & UDPHeaderFlag::FIN){
+					std::cout << "Received FIN signal from peer, closing connection" << "\n";
+					status = ConnectionStatus::Disconnected;
+					return;
+				}
+
 				// Handle response to requests from peer
 				if (header.flag & UDPHeaderFlag::ACK) {
-					for (auto i = awaitResponse.begin(); i != awaitResponse.end();++i) {
-						// Packet's ownership will be transferred to the response handler if matches
-						if (i->second.index == header.ackIndex) {
-							i->second.responseHandle(std::move(packet));
-							goodPacket = true;
-							break;
+					// Do nothing if it is heart beat acknowledgement
+					if (header.flag & UDPHeaderFlag::HBT) {
+						goodPacket = true;
+					}
+					else {
+						for (auto i = awaitResponse.begin(); i != awaitResponse.end(); ++i) {
+							// Packet's ownership will be transferred to the response handler if matches
+							if (i->second.index == header.ackIndex) {
+								i->second.responseHandle(std::move(packet));
+								goodPacket = true;
+								break;
+							}
 						}
 					}
 					break;
 				}
+
+				// Acknowledge heartbeat packets
+				if (header.flag & UDPHeaderFlag::HBT) {
+					goodPacket = true;
+					UDPPacket reply;
+					reply.address = packet.address;
+					UDPHeader replyHeader = {
+						.index = currentIndex++,
+						.sessionID = sessionID,
+						.flag = UDPHeaderFlag::ACK | UDPHeaderFlag::HBT
+					};
+					reply.SetHeader(replyHeader);
+					socket->SendPacket(reinterpret_cast<const Packet&>(reply));
+					break;
+				}
+
 				// Regular data packets will be stored in a queue
 				if (packetQueue.size() < queueCapacity) packetQueue.emplace_back(std::move(packet));
 				goodPacket = true;
@@ -49,7 +82,12 @@ void UDPConnection::ParsePacket(const UDPHeader& header, UDPPacket&& packet) {
 				std::cout << "Client acknowledge session id " << sessionID << std::endl;
 				reply.SetHeader(replyHeader);
 				socket->SendPacket(reinterpret_cast<Packet&>(reply));
-				goodPacket = true;
+
+				// Manually update during initialization
+				peerAddr = packet.address;
+				lastReceived = std::chrono::steady_clock::now();
+				heartBeatTime = std::chrono::steady_clock::now() + timeout.load() / 2;
+				return;
 			}
 			break;
 		case ConnectionStatus::Pending:
@@ -60,14 +98,25 @@ void UDPConnection::ParsePacket(const UDPHeader& header, UDPPacket&& packet) {
 			{
 				std::cout << "Server connected " << std::endl;
 				status = ConnectionStatus::Connected;
-				goodPacket = true;
+
+				// Manually update during initialization
+				peerAddr = packet.address;
+				lastReceived = std::chrono::steady_clock::now();
+				heartBeatTime = lastReceived.load() + timeout.load() / 2;
+				return;
 			}
 			break;
 			#pragma warning(pop)
 	}
-	if (goodPacket) { 
-		peerAddr = packet.address;
-		lastReceived = std::chrono::steady_clock::now(); 
+
+	// Difference between indices greater than 2^31 is considered wrapped around
+	if (goodPacket) {
+		if (int32_t(header.index) - int32_t(latestReceivedIndex) > 0) {
+			peerAddr = packet.address;
+			latestReceivedIndex = header.index;
+		}
+		lastReceived = std::chrono::steady_clock::now();
+		heartBeatTime = lastReceived.load() + timeout.load() / 2;
 	}
 }
 
@@ -123,6 +172,7 @@ void UDPConnection::Disconnect() {
 	if (status == ConnectionStatus::Disconnected) {
 		return;
 	}
+	std::cout << "Closing connection." << std::endl;
 	status = ConnectionStatus::Disconnected;
 	awaitResponse.clear();
 	packetQueue.clear();
@@ -132,6 +182,7 @@ void UDPConnection::Disconnect() {
 
 	UDPHeader header = {
 		.index = currentIndex,
+		.sessionID = sessionID,
 		.flag = UDPHeaderFlag::FIN
 	};
 	packet.SetHeader(header);

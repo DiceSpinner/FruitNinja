@@ -18,7 +18,8 @@ public:
 		REQ = 1 << 1,
 		ASY = 1 << 2,
 		SYN = 1 << 3,
-		FIN = 1 << 4
+		FIN = 1 << 4,
+		HBT = 1 << 5	   // Indicates a heartbeat packet, used to query the connection is still alive
 	} value;
 	UDPHeaderFlag(Flag value) : value(value) {}
 	UDPHeaderFlag(uint8_t value) : value(static_cast<Flag>(value)) {}
@@ -114,12 +115,14 @@ public:
 	};
 private:
 	std::shared_ptr<UDPSocket> socket;
-	PacketIndex currentIndex;
+	std::atomic<PacketIndex> currentIndex;
 	uint32_t sessionID;
 	size_t queueCapacity;
 
 	// Used by timeout
 	std::atomic<std::chrono::steady_clock::time_point> lastReceived;
+	std::atomic<std::chrono::steady_clock::time_point> heartBeatTime;
+	uint32_t latestReceivedIndex;
 
 	// The following fields are guarded by lock
 	std::mutex lock;
@@ -198,6 +201,12 @@ public:
 	}
 
 	std::optional<UDPPacket> Receive();
+
+#ifdef ENABLE_TEST_HOOKS
+	void SimulateDisconnect() {
+		socket->Close();
+	}
+#endif
 };
 
 template<size_t numConnections = 2>
@@ -295,8 +304,32 @@ public:
 					
 					packet = socket->ReadFront();
 				}
+
+				// Send out heart beat signals to verify if the other end is still connected
+				for (auto i = 0; i < numConnections; i++) {
+					if (connections[i] && connections[i]->Connected() && 
+						std::chrono::steady_clock::now() > connections[i]->heartBeatTime.load()
+					) {
+						UDPPacket heartbeat;
+						heartbeat.address = connections[i]->peerAddr;
+						UDPHeader hbtHeader = {
+							.index = connections[i]->currentIndex++,
+							.sessionID = connections[i]->sessionID,
+							.flag = UDPHeaderFlag::HBT
+						};
+						heartbeat.SetHeader(hbtHeader);
+						connections[i]->heartBeatTime = std::chrono::steady_clock::now() + connections[i]->timeout.load() / 2;
+						socket->SendPacket(reinterpret_cast<Packet&>(heartbeat));
+					}
+				}
 			}
 			std::this_thread::sleep_for(updateInterval);
+		}
+		for (auto i = 0; i < numConnections;i++) { // Close all connections after the socket is closed
+			if (connections[i]) {
+				connections[i]->TimeoutDisconnect();
+				connections[i].reset();
+			}
 		}
 	}
 	

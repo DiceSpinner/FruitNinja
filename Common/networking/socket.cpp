@@ -149,8 +149,8 @@ const size_t UDPSocket::QueueCapacity() const { return queueCapacity; }
 void UDPSocket::Close() {
 	closed = true;
 	closesocket(sock);
-	listener.join();
-
+	if(listener.joinable()) listener.join();
+	
 	// No lock is needed as the listener thread is no longer running
 	packetQueue.clear();
 }

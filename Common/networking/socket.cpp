@@ -4,7 +4,7 @@
 UDPSocket::UDPSocket(size_t capacity, DWORD maxPacketSize)
 	: queueCapacity(capacity), listener(), port(),
 	sock(socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)), packetQueue(), 
-	closed(true), blocked(false), queueLock(), cv()
+	closed(true), blocked(false), reconfiguring(false), queueLock(), cv()
 {
 	sockaddr_in addr = {};
 	addr.sin_family = AF_INET;
@@ -30,7 +30,7 @@ UDPSocket::UDPSocket(size_t capacity, DWORD maxPacketSize)
 UDPSocket::UDPSocket(USHORT port, size_t capacity, DWORD maxPacketSize)
 	: queueCapacity(capacity), listener(), port(htons(port)),
 	sock(socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)), packetQueue(),
-	closed(true), blocked(false), queueLock(), cv()
+	closed(true), blocked(false), reconfiguring(false), queueLock(), cv()
 {
 	sockaddr_in addr = {};
 	addr.sin_family = AF_INET;
@@ -74,6 +74,22 @@ void UDPSocket::Listener() {
 			auto error = WSAGetLastError();
 			if (error == WSAECONNRESET) std::cout << "[Msg] A packet was sent to invalid address previously!" << std::endl;
 			else if (error == WSAEMSGSIZE) std::cout << "[Warning] An oversized packet was dropped" << std::endl;
+			else if (error == WSAENETUNREACH || error == WSAEADDRNOTAVAIL) {
+				std::cout << "[Warning] The ip bound to the socket has gone down, attempting to reconfigure" << std::endl;
+				reconfiguring = true;
+				closesocket(sock);
+				sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+				sockaddr_in addr = {};
+				addr.sin_family = AF_INET;
+				addr.sin_port = port;
+				addr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+				if (bind(sock, (sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR) {
+					std::cout << "[Error] Failed to bind socket\n";
+					closed = true;
+				}
+				reconfiguring = false;
+			}
 			else if (error != WSAESHUTDOWN && error != WSAEINTR && error != WSAENOTSOCK) std::cout << "[Error] Packet read failure: " << error << "\n";
 		}
 		else if (!blocked && packetQueue.size() < queueCapacity)
@@ -95,9 +111,14 @@ void UDPSocket::SendPacket(const Packet& packet) const {
 		std::cout << "[Error] Attempting to write to a closed socket!\n"; 
 		return;
 	}
+	if (reconfiguring) {
+		std::cout << "[Message] Cannot send packets. The socket is currently being reconfigured!\n";
+		return;
+	}
 
 	if (sendto(sock, packet.payload.data(), packet.payload.size(), 0, reinterpret_cast<const sockaddr*>(&packet.address), sizeof(packet.address)) == SOCKET_ERROR) {
-		std::cout << "[Error] Failed to send packet due to error " << WSAGetLastError() << std::endl;
+		auto error = WSAGetLastError();
+		std::cout << "[Error] Failed to send packet due to error " << error << std::endl;
 	}
 }
 
@@ -106,8 +127,15 @@ void UDPSocket::SendPacket(std::span<const char> payload, const sockaddr_in& tar
 		std::cout << "[Error] Attempting to write to a closed socket!\n";
 		return;
 	}
+	if (reconfiguring) {
+		std::cout << "[Message] Cannot send packets. The socket is currently being reconfigured!\n";
+		return;
+	}
 
-	sendto(sock, payload.data(), payload.size(), 0, reinterpret_cast<const sockaddr*>(&target), sizeof(target));
+	if (sendto(sock, payload.data(), payload.size(), 0, reinterpret_cast<const sockaddr*>(&target), sizeof(target)) == SOCKET_ERROR) {
+		auto error = WSAGetLastError();
+		std::cout << "[Error] Failed to send packet due to error " << error << std::endl;
+	}
 }
 
 std::optional<Packet> UDPSocket::ReadFront() {

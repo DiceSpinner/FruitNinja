@@ -2,11 +2,11 @@
 
 UDPConnection::UDPConnection(
 	std::shared_ptr<UDPSocket> socket, size_t packetQueueCapacity, 
-	sockaddr_in peerAddr, uint32_t sessionID, std::chrono::steady_clock::duration timeout
+	sockaddr_in peerAddr, uint32_t sessionID, TimeoutSetting setting
 )
 	: peerAddr(peerAddr), queueCapacity(packetQueueCapacity), socket(std::move(socket)), 
 	lastReceived(std::chrono::steady_clock::now()),
-	currentIndex(0), timeout(timeout), sessionID(sessionID), latestReceivedIndex(0),
+	currentIndex(0), timeout(setting), sessionID(sessionID), latestReceivedIndex(0),
 	status(ConnectionStatus::Disconnected)
 {
 
@@ -15,6 +15,7 @@ UDPConnection::UDPConnection(
 void UDPConnection::ParsePacket(const UDPHeader& header, UDPPacket&& packet) {
 	bool goodPacket = false;
 	std::lock_guard<std::mutex> guard(lock);
+
 	switch (status) {
 		case ConnectionStatus::Disconnected:
 			std::cout << "[Error] A packet is routed to a closed UDPConnection, this is a bug!" << std::endl;
@@ -36,11 +37,12 @@ void UDPConnection::ParsePacket(const UDPHeader& header, UDPPacket&& packet) {
 						goodPacket = true;
 					}
 					else {
-						for (auto i = awaitResponse.begin(); i != awaitResponse.end(); ++i) {
+						for (auto i = awaitResponse.begin(); i != awaitResponse.end();++i) {
 							// Packet's ownership will be transferred to the response handler if matches
-							if (i->second.index == header.ackIndex) {
-								i->second.responseHandle(std::move(packet));
+							if (i->index == header.ackIndex) {
+								i->responseHandle(std::move(packet));
 								goodPacket = true;
+								awaitResponse.erase(i);
 								break;
 							}
 						}
@@ -86,7 +88,7 @@ void UDPConnection::ParsePacket(const UDPHeader& header, UDPPacket&& packet) {
 				// Manually update during initialization
 				peerAddr = packet.address;
 				lastReceived = std::chrono::steady_clock::now();
-				heartBeatTime = std::chrono::steady_clock::now() + timeout.load() / 2;
+				heartBeatTime = std::chrono::steady_clock::now() + timeout.connectionTimeout / timeout.Divisor();
 				return;
 			}
 			break;
@@ -102,7 +104,7 @@ void UDPConnection::ParsePacket(const UDPHeader& header, UDPPacket&& packet) {
 				// Manually update during initialization
 				peerAddr = packet.address;
 				lastReceived = std::chrono::steady_clock::now();
-				heartBeatTime = lastReceived.load() + timeout.load() / 2;
+				heartBeatTime = lastReceived.load() + timeout.connectionTimeout / timeout.Divisor();
 				return;
 			}
 			break;
@@ -116,7 +118,7 @@ void UDPConnection::ParsePacket(const UDPHeader& header, UDPPacket&& packet) {
 			latestReceivedIndex = header.index;
 		}
 		lastReceived = std::chrono::steady_clock::now();
-		heartBeatTime = lastReceived.load() + timeout.load() / 2;
+		heartBeatTime = lastReceived.load() + timeout.connectionTimeout / timeout.Divisor();
 	}
 }
 
@@ -151,10 +153,14 @@ std::optional<UDPPacket> UDPConnection::Receive() {
 void UDPConnection::RemoveTimedOutAwaits() {
 	std::lock_guard<std::mutex> guard(lock);
 	for (auto i = awaitResponse.begin(); i != awaitResponse.end();) {
-		if (std::chrono::steady_clock::now() - i->first >= timeout.load()) {
+		if (std::chrono::steady_clock::now() > i->timeout) {
 			i = awaitResponse.erase(i);
 		}
 		else {
+			if (std::chrono::steady_clock::now() > i->resend) { 
+				socket->SendPacket(i->packet); 
+				i->resend = std::chrono::steady_clock::now() + timeout.connectionTimeout / timeout.Divisor();
+			}
 			++i;
 		}
 	}

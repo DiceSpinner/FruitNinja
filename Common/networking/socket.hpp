@@ -38,6 +38,7 @@ private:
 	std::list<Packet> packetQueue;
 	size_t queueCapacity;
 	std::atomic<bool> closed;
+	std::atomic<bool> reconfiguring;
 	std::mutex queueLock;
 	std::condition_variable cv;
 	void Listener();

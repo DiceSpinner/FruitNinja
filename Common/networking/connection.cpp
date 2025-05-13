@@ -40,7 +40,7 @@ void UDPConnection::ParsePacket(const UDPHeader& header, UDPPacket&& packet) {
 						for (auto i = awaitResponse.begin(); i != awaitResponse.end();++i) {
 							// Packet's ownership will be transferred to the response handler if matches
 							if (i->index == header.ackIndex) {
-								i->responseHandle(std::move(packet));
+								i->promise.set_value(std::move(packet));
 								goodPacket = true;
 								awaitResponse.erase(i);
 								break;
@@ -150,10 +150,11 @@ std::optional<UDPPacket> UDPConnection::Receive() {
 	return pkt;
 }
 
-void UDPConnection::RemoveTimedOutAwaits() {
+void UDPConnection::UpdateAwaits() {
 	std::lock_guard<std::mutex> guard(lock);
 	for (auto i = awaitResponse.begin(); i != awaitResponse.end();) {
 		if (std::chrono::steady_clock::now() > i->timeout) {
+			i->promise.set_value({});
 			i = awaitResponse.erase(i);
 		}
 		else {
@@ -168,8 +169,12 @@ void UDPConnection::RemoveTimedOutAwaits() {
 
 void UDPConnection::TimeoutDisconnect() {
 	std::lock_guard<std::mutex> guard(lock);
+	std::cout << "Connection timed out!" << std::endl;
 	status = ConnectionStatus::Disconnected;
-	awaitResponse.clear();
+	for (auto i = awaitResponse.begin(); i != awaitResponse.end();) {
+		i->promise.set_value({});
+		i = awaitResponse.erase(i);
+	}
 	packetQueue.clear();
 }
 
@@ -180,7 +185,10 @@ void UDPConnection::Disconnect() {
 	}
 	std::cout << "Closing connection." << std::endl;
 	status = ConnectionStatus::Disconnected;
-	awaitResponse.clear();
+	for (auto i = awaitResponse.begin(); i != awaitResponse.end();) {
+		i->promise.set_value({});
+		i = awaitResponse.erase(i);
+	}
 	packetQueue.clear();
 
 	UDPPacket packet;

@@ -4,6 +4,7 @@
 #include <random>
 #include <chrono>
 #include <array>
+#include <future>
 #include "socket.hpp"
 
 typedef uint32_t PacketIndex;
@@ -105,7 +106,7 @@ struct UDPPacket {
 
 struct UDPAwaitResponse {
 	PacketIndex index;
-	std::function<void(UDPPacket&&)> responseHandle;
+	std::promise<std::optional<UDPPacket>> promise;
 
 	// Timeout
 	Packet packet;
@@ -161,7 +162,7 @@ private:
 	/// <summary>
 	/// Called by UDPConnectionManager to remove await entries that have expired
 	/// </summary>
-	void RemoveTimedOutAwaits();
+	void UpdateAwaits();
 	void ParsePacket(const UDPHeader& header, UDPPacket&& packet);
 public:
 	const TimeoutSetting timeout;
@@ -179,7 +180,7 @@ public:
 
 	template<typename T>
 	requires std::same_as<std::remove_cvref_t<T>, UDPPacket>
-	std::optional<UDPPacket> Send(T&& packet, std::function<void(UDPPacket&&)> responseHandler = {}) {
+	std::future<std::optional<UDPPacket>> Send(T&& packet) {
 		// No peer connected, do nothing
 		if (!Connected()) {
 			std::cout << "Attempting to send data via unconnected connection" << std::endl;
@@ -199,6 +200,8 @@ public:
 			return {};
 		}
 
+		std::promise<std::optional<UDPPacket>> promise;
+		std::future<std::optional<UDPPacket>> asyncResult = promise.get_future();
 		// If indicated to handle request response asynchronously, the response handler will be used to process the reponse
 		if (header.flag & UDPHeaderFlag::ASY) {
 			std::lock_guard<std::mutex> guard(lock);
@@ -206,13 +209,13 @@ public:
 			awaitResponse.push_back({
 				UDPAwaitResponse{ 
 					.index = header.index,
-					.responseHandle = responseHandler,
+					.promise = std::move(promise),
 					.packet = reinterpret_cast<const Packet&>(packet),
 					.timeout = std::chrono::steady_clock::now() + timeout.requestTimeout,
 					.resend = std::chrono::steady_clock::now() + timeout.requestTimeout / timeout.Divisor()
 				}
 			});
-			return {};
+			return asyncResult;
 		}
 		auto response = socket->Wait(
 			[&](const Packet& packet) {
@@ -221,8 +224,14 @@ public:
 			},
 			std::chrono::milliseconds(3000)
 		);
-		if (response) return reinterpret_cast<UDPPacket&>(response);
-		return {};
+		if (response) {
+			promise.set_value(std::move(reinterpret_cast<UDPPacket&>(response.value())));
+		}
+		else {
+			promise.set_value({});
+		}
+
+		return asyncResult;
 	}
 
 	std::optional<UDPPacket> Receive();
@@ -255,7 +264,8 @@ private:
 	std::thread routeThread = {};
 
 	bool VerifyConnection(size_t index) {
-		if (!connections[index] || connections[index]->Closed()) return false;
+		if (!connections[index]) return false;
+		if (connections[index]->Closed()) { connections[index].reset(); return false; }
 		if (std::chrono::steady_clock::now() - connections[index]->lastReceived.load() > connections[index]->timeout.connectionTimeout)
 		{
 			connections[index]->TimeoutDisconnect();
@@ -287,6 +297,12 @@ public:
 	}
 
 	~UDPConnectionManager() {
+		for (auto i = 0; i < numConnections; i++) { // Close all connections after the socket is closed
+			if (connections[i]) {
+				connections[i]->Disconnect();
+				connections[i].reset();
+			}
+		}
 		socket->Close();
 		routeThread.join();
 	}
@@ -296,7 +312,9 @@ public:
 			{
 				std::lock_guard<std::mutex> guard(lock);
 				for (auto i = 0; i < numConnections; i++) {
-					VerifyConnection(i);
+					if (VerifyConnection(i)) {
+						connections[i]->UpdateAwaits();
+					}
 				}
 
 				auto packet = socket->ReadFront();
@@ -309,7 +327,6 @@ public:
 						if (connections[i] && !connections[i]->Closed() && header.sessionID == connections[i]->sessionID) {
 							std::cout << "Connection with sessionID " << connections[i]->sessionID << std::endl;
 							routed = true;
-							connections[i]->RemoveTimedOutAwaits();
 							connections[i]->ParsePacket(header, std::move(udpPacket));
 							break;
 						}
@@ -350,12 +367,6 @@ public:
 				}
 			}
 			std::this_thread::sleep_for(updateInterval);
-		}
-		for (auto i = 0; i < numConnections;i++) { // Close all connections after the socket is closed
-			if (connections[i]) {
-				connections[i]->TimeoutDisconnect();
-				connections[i].reset();
-			}
 		}
 	}
 	

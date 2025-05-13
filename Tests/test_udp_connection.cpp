@@ -260,50 +260,196 @@ TEST_CASE("UDPConnection send request data packets", "[UDPConnection]") {
     REQUIRE(c1->Connected());
     REQUIRE(s1->Connected());
 
-    // Client send 1 request packet to server and wait
+    // Client send request packet synchronously
     UDPPacket dgram;
-    UDPHeader dgramHeader1 = {
-        .flag = UDPHeaderFlag::REQ
-    };
-    dgram.SetHeader(dgramHeader1);
-    std::string msg1 = "Hello from client!\n";
-    dgram.SetData({ msg1.data(), msg1.size() });
-
-    std::thread serverThread([&]() {
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
-        auto item = s1->Receive();
-        REQUIRE(item.has_value());
-        UDPPacket& pkt = item.value();
-        UDPHeader h1 = pkt.Header();
-        REQUIRE(h1.flag == UDPHeaderFlag::REQ);
-        auto span1 = pkt.Data();
-        REQUIRE(std::string(span1.begin(), span1.end()) == msg1);
-        UDPPacket replyDgram;
-        UDPHeader replyHeader = {
-            .ackIndex = h1.index,
-            .flag = UDPHeaderFlag::ACK
-        };
-        replyDgram.SetHeader(replyHeader);
-        std::string replyMsg = "Hello back from server!";
-        replyDgram.SetData({ replyMsg.data(), replyMsg.size() });
-        s1->Send(replyDgram);
-    });
-    auto response = c1->Send(dgram);
-    serverThread.join();
-    REQUIRE(response.has_value());
     
-    UDPPacket& pkt = response.value();
-    UDPHeader rh = pkt.Header();
-    REQUIRE(rh.flag == UDPHeaderFlag::ACK);
-    auto sp1 = pkt.Data();
-    REQUIRE(std::string(sp1.begin(), sp1.end()) == std::string("Hello back from server!"));
+    {
+        UDPHeader dgramHeader1 = {
+        .flag = UDPHeaderFlag::REQ
+        };
+        dgram.SetHeader(dgramHeader1);
+        std::string msg1 = "Hello from client!\n";
+        dgram.SetData({ msg1.data(), msg1.size() });
 
-    // The received response should not remain in the packet queue
-    REQUIRE(!c1->Receive().has_value());
+        std::thread serverThread([&]() {
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            auto item = s1->Receive();
+            REQUIRE(item.has_value());
+            UDPPacket& pkt = item.value();
+            UDPHeader h1 = pkt.Header();
+            REQUIRE(h1.flag == UDPHeaderFlag::REQ);
+            auto span1 = pkt.Data();
+            REQUIRE(std::string(span1.begin(), span1.end()) == msg1);
+            UDPPacket replyDgram;
+            UDPHeader replyHeader = {
+                .ackIndex = h1.index,
+                .flag = UDPHeaderFlag::ACK
+            };
+            replyDgram.SetHeader(replyHeader);
+            std::string replyMsg = "Hello back from server!";
+            replyDgram.SetData({ replyMsg.data(), replyMsg.size() });
+            s1->Send(replyDgram);
+            });
+        auto response = c1->Send(dgram);
+        serverThread.join();
+        REQUIRE(response.wait_for(std::chrono::seconds(0)) == std::future_status::ready);
+        auto resp = response.get();
+        REQUIRE(resp.has_value());
+        UDPPacket& pkt = resp.value();
+        UDPHeader rh = pkt.Header();
+        REQUIRE(rh.flag == UDPHeaderFlag::ACK);
+        auto sp1 = pkt.Data();
+        REQUIRE(std::string(sp1.begin(), sp1.end()) == std::string("Hello back from server!"));
+
+        // The received response should not remain in the packet queue
+        REQUIRE(!c1->Receive().has_value());
+    }
 
     // Client send request packet asynchronously
-    // TODO
+    {
+        UDPHeader dgramHeader2 = {
+            .flag = UDPHeaderFlag::REQ | UDPHeaderFlag::ASY
+        };
+        dgram.SetHeader(dgramHeader2);
+        std::string msg2("Hello again from client");
+        dgram.SetData(std::span<char>{ msg2.data(), msg2.size() });
+        auto asyncResult = c1->Send(dgram);
+        REQUIRE(asyncResult.wait_for(std::chrono::seconds(0)) == std::future_status::timeout);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        auto item = s1->Receive();
+        REQUIRE(item.has_value());
+        auto pkt = item.value();
+        auto receivedMsg = pkt.Data();
+        REQUIRE(std::string(receivedMsg.begin(), receivedMsg.end()) == msg2);
 
+        UDPHeader responseHeader = {
+            .ackIndex = pkt.Header().index,
+            .flag = UDPHeaderFlag::ACK
+        };
+        dgram.SetHeader(responseHeader);
+        std::string responseString("Hello again from server");
+        dgram.SetData(std::span<char>{responseString.data(), responseString.size()});
+        REQUIRE(!s1->Send(dgram).valid());
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        REQUIRE(asyncResult.wait_for(std::chrono::seconds(0)) == std::future_status::ready);
+        auto result = asyncResult.get();
+        REQUIRE(result.has_value());
+        auto str = result.value().Data();
+        REQUIRE(std::string(str.begin(), str.end()) == responseString);
+    }
+
+    c1->Disconnect();
+    REQUIRE(c1->Closed());
+    REQUIRE(host1.Count() == 0);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    REQUIRE(s1->Closed());
+    REQUIRE(host2.Count() == 0);
+}
+
+TEST_CASE("UDPConnection send request data packets back and forth", "[UDPConnection]") {
+    UDPConnectionManager<2> host1(30000, 2, 1500, std::chrono::milliseconds(10));
+    REQUIRE(host1.Good());
+
+    UDPConnectionManager<2> host2(40000, 1, 1500, std::chrono::milliseconds(10));
+    REQUIRE(host2.Good());
+    host1.isListening = true;
+    host2.isListening = true;
+
+    TimeoutSetting timeout = {
+        .connectionTimeout = std::chrono::milliseconds(2000),
+        .requestTimeout = std::chrono::milliseconds(500),
+        .timeoutRetries = 1
+    };
+
+    sockaddr_in addr1 = {};
+    addr1.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    addr1.sin_family = AF_INET;
+    addr1.sin_port = htons(30000);
+
+    sockaddr_in addr2 = {};
+    addr2.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    addr2.sin_family = AF_INET;
+    addr2.sin_port = htons(40000);
+
+    auto c1 = host1.ConnectPeer(addr2, timeout).lock();
+    REQUIRE(c1);
+    REQUIRE(host1.Count() == 1);
+
+    auto s1 = host2.Accept(timeout).lock();
+    REQUIRE(s1);
+    REQUIRE(host2.Count() == 1);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    REQUIRE(c1->Connected());
+    REQUIRE(s1->Connected());
+
+    UDPPacket dgram;
+
+    {
+        UDPHeader dgramHeader = {
+            .flag = UDPHeaderFlag::REQ | UDPHeaderFlag::ASY
+        };
+        // Client sends message
+        dgram.SetHeader(dgramHeader);
+        std::string msg2("Hello from client");
+        dgram.SetData(std::span<char>{ msg2.data(), msg2.size() });
+        auto asyncResult = c1->Send(dgram);
+        REQUIRE(asyncResult.wait_for(std::chrono::seconds(0)) == std::future_status::timeout);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+        // Server receives and send response
+        auto item = s1->Receive();
+        REQUIRE(item.has_value());
+        auto pkt = item.value();
+        auto receivedMsg = pkt.Data();
+        REQUIRE(std::string(receivedMsg.begin(), receivedMsg.end()) == msg2);
+
+        UDPHeader responseHeader = {
+            .ackIndex = pkt.Header().index,
+            .flag = UDPHeaderFlag::ACK | UDPHeaderFlag::REQ | UDPHeaderFlag::ASY
+        };
+        dgram.SetHeader(responseHeader);
+        std::string responseString("Hello from server");
+        dgram.SetData(std::span<char>{responseString.data(), responseString.size()});
+        
+        auto clientResponse1 = s1->Send(dgram);
+        REQUIRE(clientResponse1.valid());
+        REQUIRE(clientResponse1.wait_for(std::chrono::seconds(0)) == std::future_status::timeout);
+
+        // Client receives the server response and write back another message
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        REQUIRE(asyncResult.wait_for(std::chrono::seconds(0)) == std::future_status::ready);
+        auto result = asyncResult.get();
+        REQUIRE(result.has_value());
+        auto serverReply = result.value();
+        auto str = serverReply.Data();
+        REQUIRE(std::string(str.begin(), str.end()) == responseString);
+
+        UDPHeader clientResponseHeader = {
+            .ackIndex = serverReply.Header().index,
+            .flag = UDPHeaderFlag::ACK | UDPHeaderFlag::REQ | UDPHeaderFlag::ASY
+        };
+        dgram.SetHeader(clientResponseHeader);
+        std::string clientReply("Fairwell from client");
+        dgram.SetData(std::span<char>{clientReply.data(), clientReply.size()});
+        auto timeoutAsync = c1->Send(dgram);
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+        // Server receives the last message from client
+        REQUIRE(clientResponse1.wait_for(std::chrono::seconds(0)) == std::future_status::ready);
+        auto cr = clientResponse1.get();
+        REQUIRE(cr.has_value());
+        auto crVal = cr.value();
+        auto crStr = crVal.Data();
+        REQUIRE(std::string(crStr.begin(), crStr.end()) == clientReply);
+        // No more packets should remain in the queue for now
+        REQUIRE(!s1->Receive().has_value());
+
+        // Timeout request for client
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        REQUIRE(timeoutAsync.wait_for(std::chrono::seconds(0)) == std::future_status::ready);
+        REQUIRE(!timeoutAsync.get().has_value());
+    }
 
     c1->Disconnect();
     REQUIRE(c1->Closed());

@@ -1,6 +1,5 @@
 #ifndef CONNECTION_H
 #define CONNECTION_H
-#include <functional>
 #include <random>
 #include <chrono>
 #include <array>
@@ -9,18 +8,35 @@
 
 typedef uint32_t PacketIndex;
 
-constexpr std::chrono::steady_clock::duration DEFAULT_TIMEOUT = std::chrono::seconds(3);
-
+/// <summary>
+/// Options available for sending UDPPacket.
+///
+/// The following flags can be used by application logic:
+/// - None: No flags.
+/// - ACK: Acknowledgement of a received packet.
+/// - REQ: This packet is a request expecting a response. It will be retransmitted 
+///        until a matching response is received or a timeout occurs.
+///        No ACK is required ¡ª the application can ignore the request, or respond with ACK flag to fufill the request.
+///        Additionally, in the response REQ can also be used to make the message both an acknowledgement and request
+/// - ASY: Used with REQ; indicates that the response will be handled asynchronously.
+/// - IMP: Transport-level reliability. The packet must be acknowledged by the receiver
+///        via an ACK, or it will be retransmitted.
+///
+/// Notes:
+/// - Do not use IMP and REQ together. REQ includes its own retry logic and assumes reliability.
+/// - Modifying internal-use flags (SYN, FIN, HBT) will result in undefined behavior.
+/// </summary>
 class UDPHeaderFlag {
 public:
 	enum Flag : uint8_t {
 		None = 0,
-		ACK = 1,
-		REQ = 1 << 1,
-		ASY = 1 << 2,
-		SYN = 1 << 3,
-		FIN = 1 << 4,
-		HBT = 1 << 5	   // Indicates a heartbeat packet, used to query the connection is still alive
+		ACK = 1,           // Acknowledgement
+		REQ = 1 << 1,    // Indicates this packet is a question that expects response
+		ASY = 1 << 2,    // Assume REQ bit is set, the response will be received asynchrously
+		SYN = 1 << 3,    // Indicates this packet is used for setting up connection, should not be used directly
+		IMP = 1 << 4,    // Indicates this packet must be acknowledged, will ignore REQ if this is used
+		FIN = 1 << 5,    // Tells the peer the connection is closed, should not be used directly
+		HBT = 1 << 6	   // Indicates a heartbeat packet, used to query the connection is still alive, should not be used directly
 	} value;
 	UDPHeaderFlag(Flag value) : value(value) {}
 	UDPHeaderFlag(uint8_t value) : value(static_cast<Flag>(value)) {}
@@ -104,31 +120,34 @@ struct UDPPacket {
 	}
 };
 
-struct UDPAwaitResponse {
-	PacketIndex index;
-	std::promise<std::optional<UDPPacket>> promise;
-
-	// Timeout
-	Packet packet;
-	std::chrono::steady_clock::time_point timeout;
-	std::chrono::steady_clock::time_point resend;
-};
-
 struct TimeoutSetting {
 	std::chrono::steady_clock::duration connectionTimeout;
-	std::chrono::steady_clock::duration requestTimeout;
-	uint8_t timeoutRetries;
+	std::chrono::steady_clock::duration connectionRetryInterval;
 
-	uint8_t Divisor() const {
-		uint8_t divisor = timeoutRetries + 1;
-		if (divisor == 0) return UINT8_MAX;
-		return divisor;
-	}
+	std::chrono::steady_clock::duration requestTimeout;
+	std::chrono::steady_clock::duration requestRetryInterval;
+
+	std::chrono::steady_clock::duration impRetryInterval;
 };
 
 class UDPConnection {
 	template<size_t numConnections>
 	friend class UDPConnectionManager;
+private:
+	struct AwaitResponse {
+		PacketIndex index;
+		std::promise<std::optional<UDPPacket>> promise;
+		Packet packet;
+		std::chrono::steady_clock::time_point timeout;
+		std::chrono::steady_clock::time_point resend;
+	};
+
+	struct AwaitAck {
+		PacketIndex index;
+		Packet packet;
+		std::chrono::steady_clock::time_point resend;
+	};
+
 public:
 	enum class ConnectionStatus {
 		Pending, // Server has sent back response to client request, waiting for client acknoledgement
@@ -136,6 +155,7 @@ public:
 		Connected, // Connection established
 		Disconnected // Connection closed
 	};
+
 private:
 	std::shared_ptr<UDPSocket> socket;
 	std::atomic<PacketIndex> currentIndex;
@@ -149,8 +169,10 @@ private:
 
 	// The following fields are guarded by lock
 	std::mutex lock;
-	std::list<UDPAwaitResponse> awaitResponse;
+	std::list<AwaitResponse> awaitResponse;
 	std::list<UDPPacket> packetQueue;
+	std::list<AwaitAck> awaitAck;
+	std::list<PacketIndex> ackedIndices;
 	sockaddr_in peerAddr;
 	ConnectionStatus status;
 
@@ -178,67 +200,16 @@ public:
 	sockaddr_in PeerAddr();
 	void Disconnect();
 
-	template<typename T>
-	requires std::same_as<std::remove_cvref_t<T>, UDPPacket>
-	std::future<std::optional<UDPPacket>> Send(T&& packet) {
-		// No peer connected, do nothing
-		if (!Connected()) {
-			std::cout << "Attempting to send data via unconnected connection" << std::endl;
-			return {};
-		}
-
-		UDPHeader header = packet.Header();
-		header.sessionID = sessionID;
-		header.index = currentIndex++;
-		packet.SetHeader(header);
-		{
-			std::lock_guard<std::mutex> guard(lock);
-			packet.address = peerAddr;
-		}
-		socket->SendPacket(reinterpret_cast<const Packet&>(packet));
-		if (!(header.flag & UDPHeaderFlag::REQ)) {
-			return {};
-		}
-
-		std::promise<std::optional<UDPPacket>> promise;
-		std::future<std::optional<UDPPacket>> asyncResult = promise.get_future();
-		// If indicated to handle request response asynchronously, the response handler will be used to process the reponse
-		if (header.flag & UDPHeaderFlag::ASY) {
-			std::lock_guard<std::mutex> guard(lock);
-
-			awaitResponse.push_back({
-				UDPAwaitResponse{ 
-					.index = header.index,
-					.promise = std::move(promise),
-					.packet = reinterpret_cast<const Packet&>(packet),
-					.timeout = std::chrono::steady_clock::now() + timeout.requestTimeout,
-					.resend = std::chrono::steady_clock::now() + timeout.requestTimeout / timeout.Divisor()
-				}
-			});
-			return asyncResult;
-		}
-		auto response = socket->Wait(
-			[&](const Packet& packet) {
-				auto responseHeader = reinterpret_cast<const UDPPacket&>(packet).Header();
-				return responseHeader.flag & UDPHeaderFlag::ACK && !(responseHeader.flag & UDPHeaderFlag::HBT) && responseHeader.ackIndex == header.index;
-			},
-			std::chrono::milliseconds(3000)
-		);
-		if (response) {
-			promise.set_value(std::move(reinterpret_cast<UDPPacket&>(response.value())));
-		}
-		else {
-			promise.set_value({});
-		}
-
-		return asyncResult;
-	}
-
+	std::future<std::optional<UDPPacket>> Send(UDPPacket& packet);
 	std::optional<UDPPacket> Receive();
 
 #ifdef ENABLE_TEST_HOOKS
 	void SimulateDisconnect() {
 		socket->Close();
+	}
+
+	size_t NumImpMsg() {
+		return awaitAck.size();
 	}
 #endif
 };
@@ -361,7 +332,7 @@ public:
 							.flag = UDPHeaderFlag::HBT
 						};
 						heartbeat.SetHeader(hbtHeader);
-						connections[i]->heartBeatTime = std::chrono::steady_clock::now() + connections[i]->timeout.connectionTimeout / connections[i]->timeout.Divisor();
+						connections[i]->heartBeatTime = std::chrono::steady_clock::now() + connections[i]->timeout.connectionRetryInterval;
 						socket->SendPacket(reinterpret_cast<Packet&>(heartbeat));
 					}
 				}

@@ -12,8 +12,9 @@ TEST_CASE("UDPConnection 3-way handshake succeeds and closure", "[UDPConnection]
 
     TimeoutSetting timeout = {
         .connectionTimeout = std::chrono::milliseconds(1000),
+        .connectionRetryInterval = std::chrono::milliseconds(500),
         .requestTimeout = std::chrono::milliseconds(500),
-        .timeoutRetries = 2
+        .requestRetryInterval = std::chrono::milliseconds(250)
     };
 
     sockaddr_in addr1 = {};
@@ -52,6 +53,64 @@ TEST_CASE("UDPConnection 3-way handshake succeeds and closure", "[UDPConnection]
     REQUIRE(host2.Count() == 0);
 }
 
+TEST_CASE("UDPConnection drop overflowed connection requests", "[UDPConnection]") {
+    UDPConnectionManager<2> host1(30000, 10, 1500, std::chrono::milliseconds(10));
+    REQUIRE(host1.Good());
+
+    UDPConnectionManager<1> host2(40000, 10, 1500, std::chrono::milliseconds(10));
+    REQUIRE(host2.Good());
+    host1.isListening = true;
+    host2.isListening = true;
+
+    TimeoutSetting timeout = {
+        .connectionTimeout = std::chrono::milliseconds(1000),
+        .connectionRetryInterval = std::chrono::milliseconds(500),
+        .requestTimeout = std::chrono::milliseconds(500),
+        .requestRetryInterval = std::chrono::milliseconds(250)
+    };
+
+    sockaddr_in addr1 = {};
+    addr1.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    addr1.sin_family = AF_INET;
+    addr1.sin_port = htons(30000);
+
+    sockaddr_in addr2 = {};
+    addr2.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    addr2.sin_family = AF_INET;
+    addr2.sin_port = htons(40000);
+
+    auto c1 = host1.ConnectPeer(addr2, timeout).lock();
+    REQUIRE(c1);
+    REQUIRE(host1.Count() == 1);
+
+    auto s1 = host2.Accept(timeout).lock();
+    REQUIRE(s1);
+    REQUIRE(host2.Count() == 1);
+
+    auto s2 = host2.ConnectPeer(addr1, timeout);
+    REQUIRE(s2.expired());
+    auto c2 = host1.ConnectPeer(addr2, timeout).lock();
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    REQUIRE(c1->Connected());
+    REQUIRE(s1->Connected());
+    REQUIRE(!c2->Connected());
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+    REQUIRE(!c1->Closed());
+    REQUIRE(!s1->Closed());
+    REQUIRE(c2->Closed());
+    REQUIRE(host1.Count() == 1);
+    REQUIRE(host2.Count() == 1);
+
+    c1->Disconnect();
+    REQUIRE(c1->Closed());
+    REQUIRE(host1.Count() == 0);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    REQUIRE(s1->Closed());
+    REQUIRE(host2.Count() == 0);
+}
+
 TEST_CASE("UDPConnection timeout after one side forcefully disconnect", "[UDPConnection]") {
     UDPConnectionManager<2> host1(30000, 10, 1500, std::chrono::milliseconds(10));
     REQUIRE(host1.Good());
@@ -73,8 +132,9 @@ TEST_CASE("UDPConnection timeout after one side forcefully disconnect", "[UDPCon
 
     TimeoutSetting timeout = {
         .connectionTimeout = std::chrono::milliseconds(1000),
+        .connectionRetryInterval = std::chrono::milliseconds(500),
         .requestTimeout = std::chrono::milliseconds(500),
-        .timeoutRetries = 2
+        .requestRetryInterval = std::chrono::milliseconds(250)
     };
 
     auto c1 = host1.ConnectPeer(addr2, timeout).lock();
@@ -113,8 +173,9 @@ TEST_CASE("UDPConnection send regular data packets with respect to queue capacit
 
     TimeoutSetting timeout = {
         .connectionTimeout = std::chrono::milliseconds(1000),
+        .connectionRetryInterval = std::chrono::milliseconds(500),
         .requestTimeout = std::chrono::milliseconds(500),
-        .timeoutRetries = 2
+        .requestRetryInterval = std::chrono::milliseconds(250)
     };
 
     sockaddr_in addr1 = {};
@@ -198,13 +259,20 @@ TEST_CASE("UDPConnection send regular data packets with respect to queue capacit
     // Server sends 2 packet to client
     std::string msg5 = "Hello from server!\n";
     dgram2.SetData({ msg5.data(), msg5.size() });
-    c1->Send(dgram2);
+    s1->Send(dgram2);
 
     std::string msg6 = "Hello again from server!\n";
     dgram2.SetData({ msg6.data(), msg6.size() });
     s1->Send(dgram2);
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
    
+    item = c1->Receive();
+    REQUIRE(item.has_value());
+    auto recvDgram5 = item.value();
+    auto span5 = recvDgram5.Data();
+    std::string recvMsg5(span5.begin(), span5.end());
+    REQUIRE(recvMsg5 == msg5);
+
     item = c1->Receive();
     REQUIRE(item.has_value());
     auto recvDgram6 = item.value();
@@ -234,8 +302,9 @@ TEST_CASE("UDPConnection send request data packets", "[UDPConnection]") {
 
     TimeoutSetting timeout = {
         .connectionTimeout = std::chrono::milliseconds(1000),
+        .connectionRetryInterval = std::chrono::milliseconds(500),
         .requestTimeout = std::chrono::milliseconds(500),
-        .timeoutRetries = 1
+        .requestRetryInterval = std::chrono::milliseconds(250)
     };
 
     sockaddr_in addr1 = {};
@@ -357,8 +426,9 @@ TEST_CASE("UDPConnection send request data packets back and forth", "[UDPConnect
 
     TimeoutSetting timeout = {
         .connectionTimeout = std::chrono::milliseconds(2000),
+        .connectionRetryInterval = std::chrono::milliseconds(500),
         .requestTimeout = std::chrono::milliseconds(500),
-        .timeoutRetries = 1
+        .requestRetryInterval = std::chrono::milliseconds(250)
     };
 
     sockaddr_in addr1 = {};
@@ -449,7 +519,155 @@ TEST_CASE("UDPConnection send request data packets back and forth", "[UDPConnect
         std::this_thread::sleep_for(std::chrono::seconds(1));
         REQUIRE(timeoutAsync.wait_for(std::chrono::seconds(0)) == std::future_status::ready);
         REQUIRE(!timeoutAsync.get().has_value());
+
+        // Client will resend packet, but the packet queue should be empty since the server does not recognize any request that needs to be acknowledged
+        REQUIRE(!s1->Receive().has_value());
     }
+
+    c1->Disconnect();
+    REQUIRE(c1->Closed());
+    REQUIRE(host1.Count() == 0);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    REQUIRE(s1->Closed());
+    REQUIRE(host2.Count() == 0);
+}
+
+TEST_CASE("UDPConnection send IMP data packets with respect to queue capacity constraint", "[UDPConnection]") {
+    UDPConnectionManager<2> host1(30000, 2, 1500, std::chrono::milliseconds(10));
+    REQUIRE(host1.Good());
+
+    UDPConnectionManager<2> host2(40000, 1, 1500, std::chrono::milliseconds(10));
+    REQUIRE(host2.Good());
+    host1.isListening = true;
+    host2.isListening = true;
+
+    TimeoutSetting timeout = {
+        .connectionTimeout = std::chrono::milliseconds(1000),
+        .connectionRetryInterval = std::chrono::milliseconds(500),
+        .requestTimeout = std::chrono::milliseconds(500),
+        .requestRetryInterval = std::chrono::milliseconds(250)
+    };
+
+    sockaddr_in addr1 = {};
+    addr1.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    addr1.sin_family = AF_INET;
+    addr1.sin_port = htons(30000);
+
+    sockaddr_in addr2 = {};
+    addr2.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    addr2.sin_family = AF_INET;
+    addr2.sin_port = htons(40000);
+
+    auto c1 = host1.ConnectPeer(addr2, timeout).lock();
+    REQUIRE(c1);
+    REQUIRE(host1.Count() == 1);
+
+    auto s1 = host2.Accept(timeout).lock();
+    REQUIRE(s1);
+    REQUIRE(host2.Count() == 1);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    REQUIRE(c1->Connected());
+    REQUIRE(s1->Connected());
+
+    // Client send 1 packet to server
+    UDPPacket dgram1;
+    UDPHeader dgram1Header = {
+        .flag = UDPHeaderFlag::IMP
+    };
+    dgram1.SetHeader(dgram1Header);
+    std::string msg1 = "Hello from client!\n";
+    dgram1.SetData({ msg1.data(), msg1.size() });
+    c1->Send(dgram1);
+    REQUIRE(c1->NumImpMsg() == 1);
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    REQUIRE(c1->NumImpMsg() == 0);
+    auto item = s1->Receive();
+
+    REQUIRE(item.has_value());
+    auto recvDgram1 = item.value();
+    auto span1 = recvDgram1.Data();
+    std::string recvMsg1(span1.begin(), span1.end());
+    REQUIRE(recvMsg1 == msg1);
+
+    // Server send 1 packet to client
+    UDPPacket dgram2;
+    UDPHeader dgram2Header = {
+        .flag = UDPHeaderFlag::IMP
+    };
+    dgram2.SetHeader(dgram1Header);
+    std::string msg2 = "Hello from server!\n";
+    dgram2.SetData({ msg2.data(), msg2.size() });
+    s1->Send(dgram2);
+    REQUIRE(s1->NumImpMsg() == 1);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    REQUIRE(s1->NumImpMsg() == 0);
+    item = c1->Receive();
+
+    REQUIRE(item.has_value());
+    auto recvDgram2 = item.value();
+    auto span2 = recvDgram2.Data();
+    std::string recvMsg2(span2.begin(), span2.end());
+    REQUIRE(recvMsg2 == msg2);
+
+    // Client send 2 packets to server
+    std::string msg3 = "Hello from client!\n";
+    dgram1.SetData({ msg3.data(), msg3.size() });
+    c1->Send(dgram1);
+
+    std::string msg4 = "Overloaded!\n";
+    dgram1.SetData({ msg4.data(), msg4.size() });
+    c1->Send(dgram1);
+
+    REQUIRE(c1->NumImpMsg() == 2);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    REQUIRE(c1->NumImpMsg() == 1);
+    item = s1->Receive();
+    // The second packet should be dropped due to packet queue capacity limit
+    REQUIRE(!s1->Receive().has_value());
+    REQUIRE(item.has_value());
+    auto recvDgram3 = item.value();
+    auto span3 = recvDgram3.Data();
+    std::string recvMsg3(span3.begin(), span3.end());
+    REQUIRE(recvMsg3 == msg3);
+
+    // Wait for retry of second packet
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    item = s1->Receive();
+    REQUIRE(item.has_value());
+    auto recvDgram4 = item.value();
+    auto span4 = recvDgram4.Data();
+    std::string recvMsg4(span4.begin(), span4.end());
+    REQUIRE(recvMsg4 == msg4);
+
+    // Server sends 2 packet to client
+    std::string msg5 = "Hello from server!\n";
+    dgram2.SetData({ msg5.data(), msg5.size() });
+    s1->Send(dgram2);
+
+    std::string msg6 = "Hello again from server!\n";
+    dgram2.SetData({ msg6.data(), msg6.size() });
+    s1->Send(dgram2);
+    REQUIRE(s1->NumImpMsg() == 2);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    REQUIRE(s1->NumImpMsg() == 0);
+    item = c1->Receive();
+    REQUIRE(item.has_value());
+    auto recvDgram5 = item.value();
+    auto span5 = recvDgram5.Data();
+    std::string recvMsg5(span5.begin(), span5.end());
+    REQUIRE(recvMsg5 == msg5);
+
+    item = c1->Receive();
+    REQUIRE(item.has_value());
+    auto recvDgram6 = item.value();
+    auto span6 = recvDgram6.Data();
+    std::string recvMsg6(span6.begin(), span6.end());
+    REQUIRE(recvMsg6 == msg6);
+
+    // No more packets should be left in the queue
+    REQUIRE(!c1->Receive().has_value());
 
     c1->Disconnect();
     REQUIRE(c1->Closed());

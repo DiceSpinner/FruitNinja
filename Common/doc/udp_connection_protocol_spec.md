@@ -31,7 +31,11 @@ The packet queue capacity must be specified when constructing a `UDPConnectionMa
 
 ### Connection Handshake
 
-UDPConnection establishes a session between peers using a handshake protocol that ensures both sides agree on a shared session identifier (`sessionID`). This is necessary because IP addresses alone are not reliable identifiers of peer endpoints: a single machine may switch between multiple network interfaces (e.g., Wi-Fi and Ethernet), resulting in different IP addresses during the lifetime of a connection. The `sessionID` provides a stable, shared identifier that remains consistent even if network routing paths change. The IP address used to send packets to a peer is always updated to match the source of the latest valid packet received from that peer, allowing communication to continue even if the peer's IP address changes. This process is initiated when a peer attempts to connect.
+UDPConnection establishes a session between peers using a handshake protocol that ensures both sides agree on a shared session identifier (`sessionID`). This session ID acts as a persistent identifier for the connection, enabling reliable recognition of peer identity even when their IP address changes due to network interface switching (e.g., Wi-Fi to Ethernet). 
+
+The use of `sessionID` also prevents ghosting issues, where stale packets from a previously closed connection might be misinterpreted as part of a new session. By verifying the session ID on every incoming packet, the system ensures that only packets from a valid, actively tracked connection are processed.
+
+To further support mobility and NAT traversal, the IP address used to send responses is updated to match the source of the most recently received valid packet. This mechanism ensures continued communication with a moving peer while maintaining session integrity.
 
 #### Handshake Packet Exchange:
 1. **Client sends SYN**
@@ -100,37 +104,36 @@ Each packet consists of:
 
 ### Timeout Configuration
 
-Timeout behavior and retry intervals for both connection handshakes and request handling can be configured using the `TimeoutSetting` struct. This struct is passed when calling `UDPConnectionManager::ConnectPeer()` or `Accept()` and includes parameters for:
+Timeout behavior and retry intervals for both connection handshakes and request handling can be configured using the `TimeoutSetting` struct. This struct is passed when calling `UDPConnectionManager::ConnectPeer()` or `Accept()` and includes the following parameters:
 - `connectionTimeout`: Maximum time to complete the handshake
+- `connectionRetryInterval`: How long to wait before resending a handshake packet if no valid communication has been received
 - `requestTimeout`: Time after which an unanswered request is considered failed
-- `timeoutRetries`: Number of retry attempts before failing
+- `requestRetryInterval`: How long to wait before resending a request packet if no valid response has been received
+- `impRetryInterval`: How long to wait before resending an `IMP` packet if no acknowledgment has been received
 
 ---
 
 ### Request Handling
 
-When sending a request with the `REQ` flag
-- If `REQ` is combined with `ASY`, the request is sent asynchronously. A `std::future<std::optional<UDPPacket>>` is immediately returned to represent the pending response.
-- If only `REQ` is used without `ASY`, the call to `Send()` will block until either a matching response arrives or the request times out.
+Requests are initiated by sending a packet with the `REQ` flag set. Each request is associated with a unique packet index. The sender receives a `std::future<std::optional<UDPPacket>>`, which will complete when a matching response arrives or a timeout occurs.
 
-Requests marked with `REQ` will be retransmitted automatically at intervals until a matching response is received or the request times out.
+Requests marked with `REQ` will be retransmitted automatically at intervals until a response is received or the request times out.
 
-If the response times out, the associated `std::future` will be completed with `std::nullopt` to indicate failure.
+If the request times out, the associated `std::future` will be fulfilled with `std::nullopt` to indicate failure.
 
-It is valid for the response to a `REQ` to itself be another `REQ`, allowing for nested request-response interactions within the same connection.
+It is valid for a response to a `REQ` to itself be another `REQ`, enabling nested or conversational message patterns.
 
 ---
 
 ### Flag Semantics (`UDPHeaderFlag`)
 
 #### Application-level Flags:
-| Flag  | Description |
-|-------|-------------|
+| Flag   | Description |
+|--------|-------------|
 | `None` | No special handling. Packets with no flags are sent and received like standard UDP packets, with no reliability or acknowledgment guarantees. |
 | `REQ`  | Indicates this is a request expecting a response. Retries until a response is received or timeout. No ACK is required. |
-| `ASY`  | Used with `REQ`. The response will arrive asynchronously. |
 | `IMP`  | Indicates reliable delivery is required. An ACK is expected; otherwise, the packet will be retransmitted. Cannot be used with `REQ`. |
-| `ACK` | Acknowledges receipt of a packet identified by `ackIndex`. May be used by application logic to acknowledge `REQ` packets. ACKs for `IMP` packets are handled automatically by the `UDPConnection`. |
+| `ACK`  | Acknowledges receipt of a packet identified by `ackIndex`. May be used by application logic to acknowledge `REQ` packets. ACKs for `IMP` packets are handled automatically by the `UDPConnection`. |
 
 #### Internal-use Flags (DO NOT USE directly):
 | Flag  | Description |
@@ -140,5 +143,5 @@ It is valid for the response to a `REQ` to itself be another `REQ`, allowing for
 | `HBT` | Heartbeat packet to check if connection is alive |
 
 #### Invalid Combinations:
-- `REQ | IMP` → **Invalid**. `REQ` implies retry-on-no-response; adding `IMP` is redundant and semantically conflicting.
-- `IMP | ACK` → **Invalid** for application use. This combination is reserved by the transport layer to acknowledge receipt of an `IMP` packet and is generated automatically by `UDPConnection`.
+- `REQ | IMP` → **Invalid**. `REQ` already guarantees delivery through its own retry mechanism; combining with `IMP` is redundant and unsupported.
+- `IMP | ACK` → **Reserved**. Used internally to acknowledge an `IMP` packet and should not be set manually by application code.

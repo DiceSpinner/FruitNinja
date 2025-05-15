@@ -18,7 +18,6 @@ typedef uint32_t PacketIndex;
 ///        until a matching response is received or a timeout occurs.
 ///        No ACK is required ¡ª the application can ignore the request, or respond with ACK flag to fufill the request.
 ///        Additionally, in the response REQ can also be used to make the message both an acknowledgement and request
-/// - ASY: Used with REQ; indicates that the response will be handled asynchronously.
 /// - IMP: Transport-level reliability. The packet must be acknowledged by the receiver
 ///        via an ACK, or it will be retransmitted.
 ///
@@ -32,11 +31,10 @@ public:
 		None = 0,
 		ACK = 1,           // Acknowledgement
 		REQ = 1 << 1,    // Indicates this packet is a question that expects response
-		ASY = 1 << 2,    // Assume REQ bit is set, the response will be received asynchrously
-		SYN = 1 << 3,    // Indicates this packet is used for setting up connection, should not be used directly
-		IMP = 1 << 4,    // Indicates this packet must be acknowledged, will ignore REQ if this is used
-		FIN = 1 << 5,    // Tells the peer the connection is closed, should not be used directly
-		HBT = 1 << 6	   // Indicates a heartbeat packet, used to query the connection is still alive, should not be used directly
+		SYN = 1 << 2,    // Indicates this packet is used for setting up connection, should not be used directly
+		IMP = 1 << 3,    // Indicates this packet must be acknowledged, will ignore REQ if this is used
+		FIN = 1 << 4,    // Tells the peer the connection is closed, should not be used directly
+		HBT = 1 << 5	   // Indicates a heartbeat packet, used to query the connection is still alive, should not be used directly
 	} value;
 	UDPHeaderFlag(Flag value) : value(value) {}
 	UDPHeaderFlag(uint8_t value) : value(static_cast<Flag>(value)) {}
@@ -169,7 +167,7 @@ private:
 	uint32_t latestReceivedIndex;
 
 	// The following fields are guarded by lock
-	std::mutex lock;
+	std::mutex connectionLock;
 	std::list<AwaitResponse> awaitResponse;
 	std::list<UDPPacket> packetQueue;
 	std::list<AwaitAck> awaitAck;
@@ -241,7 +239,8 @@ private:
 
 	bool VerifyConnection(size_t index) {
 		if (!connections[index]) return false;
-		if (connections[index]->Closed()) { connections[index].reset(); return false; }
+		auto ptr = connections[index];
+		if (ptr->Closed()) { connections[index].reset(); return false; }
 		return true;
 	}
 
@@ -279,6 +278,7 @@ public:
 	}
 
 	~UDPConnectionManager() {
+		std::lock_guard<std::mutex> guard(lock);
 		for (auto i = 0; i < numConnections; i++) { // Close all connections after the socket is closed
 			if (connections[i]) {
 				connections[i]->Disconnect();

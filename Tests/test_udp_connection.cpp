@@ -569,7 +569,6 @@ TEST_CASE("UDPConnection send request data packets", "[UDPConnection]") {
 
     // Client send request packet synchronously
     UDPPacket dgram;
-    
     {
         UDPHeader dgramHeader1 = {
         .flag = UDPHeaderFlag::REQ
@@ -599,7 +598,7 @@ TEST_CASE("UDPConnection send request data packets", "[UDPConnection]") {
             });
         auto response = c1->Send(dgram);
         serverThread.join();
-        REQUIRE(response.wait_for(std::chrono::seconds(0)) == std::future_status::ready);
+        REQUIRE(response.wait_for(std::chrono::milliseconds(100)) == std::future_status::ready);
         auto resp = response.get();
         REQUIRE(resp.has_value());
         UDPPacket& pkt = resp.value();
@@ -615,7 +614,7 @@ TEST_CASE("UDPConnection send request data packets", "[UDPConnection]") {
     // Client send request packet asynchronously
     {
         UDPHeader dgramHeader2 = {
-            .flag = UDPHeaderFlag::REQ | UDPHeaderFlag::ASY
+            .flag = UDPHeaderFlag::REQ
         };
         dgram.SetHeader(dgramHeader2);
         std::string msg2("Hello again from client");
@@ -695,7 +694,7 @@ TEST_CASE("UDPConnection send request data packets back and forth", "[UDPConnect
 
     {
         UDPHeader dgramHeader = {
-            .flag = UDPHeaderFlag::REQ | UDPHeaderFlag::ASY
+            .flag = UDPHeaderFlag::REQ
         };
         // Client sends message
         dgram.SetHeader(dgramHeader);
@@ -714,7 +713,7 @@ TEST_CASE("UDPConnection send request data packets back and forth", "[UDPConnect
 
         UDPHeader responseHeader = {
             .ackIndex = pkt.Header().index,
-            .flag = UDPHeaderFlag::ACK | UDPHeaderFlag::REQ | UDPHeaderFlag::ASY
+            .flag = UDPHeaderFlag::ACK | UDPHeaderFlag::REQ
         };
         dgram.SetHeader(responseHeader);
         std::string responseString("Hello from server");
@@ -735,7 +734,7 @@ TEST_CASE("UDPConnection send request data packets back and forth", "[UDPConnect
 
         UDPHeader clientResponseHeader = {
             .ackIndex = serverReply.Header().index,
-            .flag = UDPHeaderFlag::ACK | UDPHeaderFlag::REQ | UDPHeaderFlag::ASY
+            .flag = UDPHeaderFlag::ACK | UDPHeaderFlag::REQ
         };
         dgram.SetHeader(clientResponseHeader);
         std::string clientReply("Fairwell from client");

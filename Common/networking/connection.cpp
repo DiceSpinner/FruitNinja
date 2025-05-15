@@ -16,7 +16,7 @@ UDPConnection::UDPConnection(
 #pragma warning(disable: 26813)
 void UDPConnection::ParsePacket(const UDPHeader& header, UDPPacket&& packet) {
 	bool goodPacket = false;
-	std::lock_guard<std::mutex> guard(lock);
+	std::lock_guard<std::mutex> guard(connectionLock);
 
 	switch (status) {
 		case ConnectionStatus::Disconnected:
@@ -219,22 +219,22 @@ void UDPConnection::ParsePacket(const UDPHeader& header, UDPPacket&& packet) {
 #pragma warning(pop)
 
 bool UDPConnection::Connected() { 
-	std::lock_guard<std::mutex> guard(lock);
+	std::lock_guard<std::mutex> guard(connectionLock);
 	return status == ConnectionStatus::Connected; 
 }
 
 bool UDPConnection::Closed() {
-	std::lock_guard<std::mutex> guard(lock);
+	std::lock_guard<std::mutex> guard(connectionLock);
 	return status == ConnectionStatus::Disconnected;
 }
 
 sockaddr_in UDPConnection::PeerAddr() { 
-	std::lock_guard<std::mutex> guard(lock); return peerAddr; 
+	std::lock_guard<std::mutex> guard(connectionLock); return peerAddr; 
 }
 
 std::optional<UDPPacket> UDPConnection::Receive() {
 	// No peer connected, do nothing
-	std::lock_guard<std::mutex> guard(lock);
+	std::lock_guard<std::mutex> guard(connectionLock);
 	if (status == ConnectionStatus::Disconnected) {
 		return {};
 	}
@@ -247,7 +247,7 @@ std::optional<UDPPacket> UDPConnection::Receive() {
 }
 
 void UDPConnection::UpdateAwaits() {
-	std::lock_guard<std::mutex> guard(lock);
+	std::lock_guard<std::mutex> guard(connectionLock);
 	if (status == ConnectionStatus::Connected) {
 		for (auto i = awaitAck.begin(); i != awaitAck.end(); ++i) {
 			if (std::chrono::steady_clock::now() > i->resend) {
@@ -327,7 +327,7 @@ void UDPConnection::UpdateAwaits() {
 
 std::future<std::optional<UDPPacket>> UDPConnection::Send(UDPPacket& packet) {
 	// No peer connected, do nothing
-	std::lock_guard<std::mutex> guard(lock);
+	std::lock_guard<std::mutex> guard(connectionLock);
 	if (status != ConnectionStatus::Connected) {
 		std::cout << "Attempting to send data via unconnected connection" << std::endl;
 		return {};
@@ -363,37 +363,21 @@ std::future<std::optional<UDPPacket>> UDPConnection::Send(UDPPacket& packet) {
 	std::promise<std::optional<UDPPacket>> promise;
 	std::future<std::optional<UDPPacket>> asyncResult = promise.get_future();
 	// If indicated to handle request response asynchronously, the response handler will be used to process the reponse
-	if (header.flag & UDPHeaderFlag::ASY) {
-		awaitResponse.push_back(
-			AwaitResponse{
-				.index = header.index,
-				.promise = std::move(promise),
-				.packet = reinterpret_cast<const Packet&>(packet),
-				.timeout = std::chrono::steady_clock::now() + timeout.requestTimeout,
-				.resend = std::chrono::steady_clock::now() + timeout.requestRetryInterval
-			}
-		);
-		return asyncResult;
-	}
-	auto response = socket->Wait(
-		[&](const Packet& packet) {
-			auto responseHeader = reinterpret_cast<const UDPPacket&>(packet).Header();
-			return responseHeader.flag & UDPHeaderFlag::ACK && !(responseHeader.flag & UDPHeaderFlag::HBT) && responseHeader.ackIndex == header.index;
-		},
-		std::chrono::milliseconds(3000)
+	awaitResponse.push_back(
+		AwaitResponse{
+			.index = header.index,
+			.promise = std::move(promise),
+			.packet = reinterpret_cast<const Packet&>(packet),
+			.timeout = std::chrono::steady_clock::now() + timeout.requestTimeout,
+			.resend = std::chrono::steady_clock::now() + timeout.requestRetryInterval
+		}
 	);
-	if (response) {
-		promise.set_value(std::move(reinterpret_cast<UDPPacket&>(response.value())));
-	}
-	else {
-		promise.set_value({});
-	}
 
 	return asyncResult;
 }
 
 void UDPConnection::TimeoutDisconnect() {
-	std::lock_guard<std::mutex> guard(lock);
+	std::lock_guard<std::mutex> guard(connectionLock);
 	std::cout << "Connection timed out!" << std::endl;
 	status = ConnectionStatus::Disconnected;
 	for (auto i = awaitResponse.begin(); i != awaitResponse.end();) {
@@ -405,7 +389,7 @@ void UDPConnection::TimeoutDisconnect() {
 }
 
 void UDPConnection::Disconnect() {
-	std::lock_guard<std::mutex> guard(lock);
+	std::lock_guard<std::mutex> guard(connectionLock);
 	if (status == ConnectionStatus::Disconnected) {
 		return;
 	}

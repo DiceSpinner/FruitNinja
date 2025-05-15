@@ -53,6 +53,244 @@ TEST_CASE("UDPConnection 3-way handshake succeeds and closure", "[UDPConnection]
     REQUIRE(host2.Count() == 0);
 }
 
+TEST_CASE("UDPConnection 3-way handshake client retry connection", "[UDPConnection]") {
+    UDPConnectionManager<2> host1(30000, 10, 1500, std::chrono::milliseconds(10));
+    REQUIRE(host1.Good());
+
+    TimeoutSetting timeout = {
+        .connectionTimeout = std::chrono::milliseconds(500),
+        .connectionRetryInterval = std::chrono::milliseconds(300),
+        .requestTimeout = std::chrono::milliseconds(500),
+        .requestRetryInterval = std::chrono::milliseconds(250)
+    };
+
+    sockaddr_in addr1 = {};
+    addr1.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    addr1.sin_family = AF_INET;
+    addr1.sin_port = htons(30000);
+
+    sockaddr_in addr2 = {};
+    addr2.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    addr2.sin_family = AF_INET;
+    addr2.sin_port = htons(40000);
+    UDPSocket server(40000, 10, 1500);
+
+    auto client = host1.ConnectPeer(addr2, timeout).lock();
+    REQUIRE(client);
+    REQUIRE(host1.Count() == 1);
+
+    // Verify the first syn packet
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        auto pkt = server.ReadFront();
+        REQUIRE(pkt.has_value());
+        auto udpPkt = reinterpret_cast<UDPPacket&>(pkt.value());
+        UDPHeader header = udpPkt.Header();
+        REQUIRE(header.flag & UDPHeaderFlag::SYN);
+        REQUIRE(udpPkt.DataSize() == 0);
+        // Currently no more packets should be in the queue
+        REQUIRE(!server.ReadFront().has_value());
+    }
+    // Verify the retry syn packet
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(300));
+        auto pkt = server.ReadFront();
+        REQUIRE(pkt.has_value());
+        auto udpPkt = reinterpret_cast<UDPPacket&>(pkt.value());
+        UDPHeader header = udpPkt.Header();
+        REQUIRE(header.flag & UDPHeaderFlag::SYN);
+        REQUIRE(udpPkt.DataSize() == 0);
+        // Currently no more packets should be in the queue
+        REQUIRE(!server.ReadFront().has_value());
+    }
+
+    // Verify the connection has timed out
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(300));
+        REQUIRE(client->Closed());
+        REQUIRE(host1.Count() == 0);
+    }
+}
+
+TEST_CASE("UDPConnection 3-way handshake server retry connection", "[UDPConnection]") {
+    UDPConnectionManager<2> serverHost(30000, 10, 1500, std::chrono::milliseconds(10));
+    REQUIRE(serverHost.Good());
+    serverHost.isListening = true;
+
+    TimeoutSetting timeout = {
+        .connectionTimeout = std::chrono::milliseconds(500),
+        .connectionRetryInterval = std::chrono::milliseconds(300),
+        .requestTimeout = std::chrono::milliseconds(500),
+        .requestRetryInterval = std::chrono::milliseconds(250)
+    };
+
+    sockaddr_in serverAddr = {};
+    serverAddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_port = htons(30000);
+
+    sockaddr_in clientAddr = {};
+    clientAddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    clientAddr.sin_family = AF_INET;
+    clientAddr.sin_port = htons(40000);
+    UDPSocket client (40000, 10, 1500);
+
+    // Client initialize connection
+    {
+        UDPPacket pkt;
+        pkt.address = serverAddr;
+        UDPHeader header = {
+            .index = 5,
+            .sessionID = 0,
+            .flag = UDPHeaderFlag::SYN
+        };
+        pkt.SetHeader(header);
+        client.SendPacket(reinterpret_cast<Packet&>(pkt));
+    }
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    auto server = serverHost.Accept(timeout).lock();
+    REQUIRE(server);
+    REQUIRE(serverHost.Count() == 1);
+    
+    // Verify server ack
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        auto pkt = client.ReadFront();
+        REQUIRE(pkt.has_value());
+        UDPPacket& udpPacket = reinterpret_cast<UDPPacket&>(pkt.value());
+        UDPHeader header = udpPacket.Header();
+        REQUIRE(header.flag == (UDPHeaderFlag::SYN | UDPHeaderFlag::ACK));
+        REQUIRE(header.sessionID == 5);
+
+        // Currently no more packets should be present in the queue
+        REQUIRE(!client.ReadFront().has_value());
+
+        // Verify server retransmission, 2 packets should be received
+        std::this_thread::sleep_for(std::chrono::milliseconds(300));
+
+        // Case 1 client ACK is lost so server request for retransmission
+        pkt = client.ReadFront();
+        REQUIRE(pkt.has_value());
+        udpPacket = reinterpret_cast<UDPPacket&>(pkt.value());
+        UDPHeader header2 = udpPacket.Header();
+        REQUIRE(header2.flag == UDPHeaderFlag::SYN);
+        REQUIRE(header2.sessionID == header.index);
+
+        // Case 2 server ACK is lost so server retransmits sessionID
+        pkt = client.ReadFront();
+        REQUIRE(pkt.has_value());
+        udpPacket = reinterpret_cast<UDPPacket&>(pkt.value());
+        UDPHeader header3 = udpPacket.Header();
+        REQUIRE(header3 == header);
+    }
+
+    // Verify the connection has timed out
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(300));
+        REQUIRE(server->Closed());
+        REQUIRE(serverHost.Count() == 0);
+    }
+}
+
+TEST_CASE("UDPConnection 3-way handshake client retransmit acknoledgement", "[UDPConnection]") {
+    UDPConnectionManager<2> clientHost(30000, 10, 1500, std::chrono::milliseconds(10));
+    REQUIRE(clientHost.Good());
+
+    TimeoutSetting timeout = {
+        .connectionTimeout = std::chrono::milliseconds(1000),
+        .connectionRetryInterval = std::chrono::milliseconds(500),
+        .requestTimeout = std::chrono::milliseconds(500),
+        .requestRetryInterval = std::chrono::milliseconds(250)
+    };
+
+    sockaddr_in clientAddr = {};
+    clientAddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    clientAddr.sin_family = AF_INET;
+    clientAddr.sin_port = htons(30000);
+
+    sockaddr_in serverAddr = {};
+    serverAddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_port = htons(40000);
+    UDPSocket server(40000, 10, 1500);
+
+    auto client = clientHost.ConnectPeer(serverAddr, timeout).lock();
+    REQUIRE(client);
+    REQUIRE(clientHost.Count() == 1);
+
+    // Verify the syn packet
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        auto pkt = server.ReadFront();
+        REQUIRE(pkt.has_value());
+        auto udpPkt = reinterpret_cast<UDPPacket&>(pkt.value());
+        UDPHeader header = udpPkt.Header();
+        REQUIRE(header.flag & UDPHeaderFlag::SYN);
+        REQUIRE(udpPkt.DataSize() == 0);
+        // Currently no more packets should be in the queue
+        REQUIRE(!server.ReadFront().has_value());
+
+        UDPPacket reply;
+        reply.address = clientAddr;
+        UDPHeader replyHeader = {
+            .index = 10,
+            .sessionID = header.index,
+            .flag = UDPHeaderFlag::SYN | UDPHeaderFlag::ACK,
+        };
+        reply.SetHeader(replyHeader);
+        server.SendPacket(reinterpret_cast<Packet&>(reply));
+    }
+    // Verify client connection and ask for retransmission of ack
+    {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        REQUIRE(client->Connected());
+
+        // Client should send back ACK
+        auto clientReplyPkt = server.ReadBack();
+        REQUIRE(clientReplyPkt.has_value());
+        UDPPacket& clientReply = reinterpret_cast<UDPPacket&>(clientReplyPkt.value());
+        UDPHeader clientReplyHeader = clientReply.Header();
+        REQUIRE(clientReplyHeader.index == 0);
+        REQUIRE(clientReplyHeader.sessionID == 10);
+        REQUIRE(clientReplyHeader.flag == UDPHeaderFlag::ACK);
+
+        // Send first reply for the case where client did not receive the first syn-ack packet
+        UDPPacket reply;
+        reply.address = clientAddr;
+        UDPHeader replyHeader = {
+            .index = 10,
+            .sessionID = client->SessionID(),
+            .flag = UDPHeaderFlag::SYN | UDPHeaderFlag::ACK,
+        };
+        reply.SetHeader(replyHeader);
+        server.SendPacket(reinterpret_cast<Packet&>(reply));
+
+        // Client should ignore since sessionID does not match
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        REQUIRE(!server.ReadFront().has_value());
+
+        // Send syc request
+        UDPPacket reply2;
+        reply2.address = clientAddr;
+        UDPHeader replyHeader2 = {
+            .sessionID = 10,
+            .flag = UDPHeaderFlag::SYN
+        };
+        reply2.SetHeader(replyHeader2);
+        server.SendPacket(reinterpret_cast<Packet&>(reply2));
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        auto pkt = server.ReadFront();
+        REQUIRE(pkt.has_value());
+        auto udpPkt = reinterpret_cast<UDPPacket&>(pkt.value());
+        UDPHeader header = udpPkt.Header();
+        REQUIRE(header == clientReplyHeader);
+        // Currently no more packets should be in the queue
+        REQUIRE(!server.ReadFront().has_value());
+    }
+}
+
 TEST_CASE("UDPConnection drop overflowed connection requests", "[UDPConnection]") {
     UDPConnectionManager<2> host1(30000, 10, 1500, std::chrono::milliseconds(10));
     REQUIRE(host1.Good());

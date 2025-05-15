@@ -5,9 +5,9 @@ UDPConnection::UDPConnection(
 	sockaddr_in peerAddr, uint32_t sessionID, TimeoutSetting setting
 )
 	: peerAddr(peerAddr), queueCapacity(packetQueueCapacity), socket(std::move(socket)), 
-	lastReceived(std::chrono::steady_clock::now()),
+	lastReceived(std::chrono::steady_clock::now()), 
 	currentIndex(0), timeout(setting), sessionID(sessionID), latestReceivedIndex(0),
-	status(ConnectionStatus::Disconnected)
+	status(ConnectionStatus::Disconnected), heartBeatTime(std::chrono::steady_clock::now() + setting.connectionRetryInterval)
 {
 
 }

@@ -212,6 +212,10 @@ public:
 	size_t NumImpMsg() {
 		return awaitAck.size();
 	}
+
+	uint32_t SessionID() {
+		return sessionID;
+	}
 #endif
 };
 

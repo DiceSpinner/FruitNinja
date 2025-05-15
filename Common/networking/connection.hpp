@@ -278,15 +278,19 @@ public:
 	}
 
 	~UDPConnectionManager() {
-		std::lock_guard<std::mutex> guard(lock);
-		for (auto i = 0; i < numConnections; i++) { // Close all connections after the socket is closed
-			if (connections[i]) {
-				connections[i]->Disconnect();
-				connections[i].reset();
+		{
+			std::lock_guard<std::mutex> guard(lock);
+			std::cout << "Closing all connections" << std::endl;
+			for (auto i = 0; i < numConnections; i++) { // Close all connections after the socket is closed
+				if (connections[i]) {
+					connections[i]->Disconnect();
+					connections[i].reset();
+				}
 			}
+			socket->Close();
 		}
-		socket->Close();
-		routeThread.join();
+		
+		if(routeThread.joinable()) routeThread.join();
 	}
 
 	void RouteAndTimeout() {

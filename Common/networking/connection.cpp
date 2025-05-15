@@ -12,6 +12,8 @@ UDPConnection::UDPConnection(
 
 }
 
+#pragma warning(push)
+#pragma warning(disable: 26813)
 void UDPConnection::ParsePacket(const UDPHeader& header, UDPPacket&& packet) {
 	bool goodPacket = false;
 	std::lock_guard<std::mutex> guard(lock);
@@ -27,7 +29,28 @@ void UDPConnection::ParsePacket(const UDPHeader& header, UDPPacket&& packet) {
 				if(header.flag & UDPHeaderFlag::FIN){
 					std::cout << "Received FIN signal from peer, closing connection" << "\n";
 					status = ConnectionStatus::Disconnected;
+					for (auto i = awaitResponse.begin(); i != awaitResponse.end();) {
+						i->promise.set_value({});
+						i = awaitResponse.erase(i);
+					}
+					awaitAck.clear();
+					packetQueue.clear();
 					return;
+				}
+
+				// Sync packet sent to the server is lost, retransmit
+				if (header.flag == UDPHeaderFlag::SYN) {
+					UDPPacket reply;
+					reply.address = packet.address;
+					UDPHeader replyHeader = {
+						.sessionID = sessionID,
+						.flag = UDPHeaderFlag::ACK,
+					};
+					std::cout << "Client retransmit syn-ack message" << std::endl;
+					reply.SetHeader(replyHeader);
+					socket->SendPacket(reinterpret_cast<Packet&>(reply));
+					goodPacket = true;
+					break;
 				}
 
 				// Handle acknoledgements from peer
@@ -132,7 +155,7 @@ void UDPConnection::ParsePacket(const UDPHeader& header, UDPPacket&& packet) {
 			}
 			
 		case ConnectionStatus::Connecting:
-			if (header.flag & UDPHeaderFlag::SYN && header.flag & UDPHeaderFlag::ACK) {
+			if (header.flag == (UDPHeaderFlag::SYN | UDPHeaderFlag::ACK)) {
 				sessionID = header.index;
 				status = ConnectionStatus::Connected;
 				UDPPacket reply;
@@ -153,10 +176,7 @@ void UDPConnection::ParsePacket(const UDPHeader& header, UDPPacket&& packet) {
 			}
 			break;
 		case ConnectionStatus::Pending:
-			#pragma warning(push)
-			#pragma warning(disable: 26813)
-			
-			if (header.flag == UDPHeaderFlag::ACK && !packet.DataSize()) // Check if ACK is the only flag toggled and empty packet
+			if (header.flag == UDPHeaderFlag::ACK && !packet.DataSize()) // Received client ack, connection established
 			{
 				std::cout << "Server connected " << std::endl;
 				status = ConnectionStatus::Connected;
@@ -167,8 +187,23 @@ void UDPConnection::ParsePacket(const UDPHeader& header, UDPPacket&& packet) {
 				heartBeatTime = lastReceived.load() + timeout.connectionRetryInterval;
 				return;
 			}
+			else if (header.flag == UDPHeaderFlag::SYN && header.sessionID == 0) { // Client did not receive the packet
+				UDPPacket synMessage;
+				synMessage.address = packet.address;
+				UDPHeader syncHeader = {
+					.index = sessionID,
+					.sessionID = clientChecksum,
+					.flag = UDPHeaderFlag::SYN | UDPHeaderFlag::ACK,
+				};
+				synMessage.SetHeader(syncHeader);
+				socket->SendPacket(reinterpret_cast<Packet&>(synMessage));
+
+				peerAddr = packet.address;
+				lastReceived = std::chrono::steady_clock::now();
+				heartBeatTime = lastReceived.load() + timeout.connectionRetryInterval;
+			}
 			break;
-			#pragma warning(pop)
+			
 	}
 
 	// Difference between indices greater than 2^31 is considered wrapped around
@@ -181,6 +216,7 @@ void UDPConnection::ParsePacket(const UDPHeader& header, UDPPacket&& packet) {
 		heartBeatTime = lastReceived.load() + timeout.connectionRetryInterval;
 	}
 }
+#pragma warning(pop)
 
 bool UDPConnection::Connected() { 
 	std::lock_guard<std::mutex> guard(lock);
@@ -212,37 +248,93 @@ std::optional<UDPPacket> UDPConnection::Receive() {
 
 void UDPConnection::UpdateAwaits() {
 	std::lock_guard<std::mutex> guard(lock);
-	for (auto i = awaitAck.begin(); i != awaitAck.end(); ++i) {
-		if (std::chrono::steady_clock::now() > i->resend) {
-			socket->SendPacket(i->packet);
-			i->resend = std::chrono::steady_clock::now() + timeout.impRetryInterval;
+	if (status == ConnectionStatus::Connected) {
+		for (auto i = awaitAck.begin(); i != awaitAck.end(); ++i) {
+			if (std::chrono::steady_clock::now() > i->resend) {
+				socket->SendPacket(i->packet);
+				i->resend = std::chrono::steady_clock::now() + timeout.impRetryInterval;
+			}
+		}
+
+		for (auto i = awaitResponse.begin(); i != awaitResponse.end();) {
+			if (std::chrono::steady_clock::now() > i->timeout) {
+				i->promise.set_value({});
+				i = awaitResponse.erase(i);
+			}
+			else {
+				if (std::chrono::steady_clock::now() > i->resend) {
+					socket->SendPacket(i->packet);
+					i->resend = std::chrono::steady_clock::now() + timeout.requestRetryInterval;
+				}
+				++i;
+			}
+		}
+
+		if (std::chrono::steady_clock::now() > heartBeatTime.load()) {
+			UDPPacket heartbeat;
+			heartbeat.address = peerAddr;
+			UDPHeader hbtHeader = {
+				.index = currentIndex++,
+				.sessionID = sessionID,
+				.flag = UDPHeaderFlag::HBT
+			};
+			heartbeat.SetHeader(hbtHeader);
+			heartBeatTime = std::chrono::steady_clock::now() + timeout.connectionRetryInterval;
+			socket->SendPacket(reinterpret_cast<Packet&>(heartbeat));
 		}
 	}
+	else if (status == ConnectionStatus::Pending) {
+		if (std::chrono::steady_clock::now() > heartBeatTime.load()) {
+			// Case 1: Client received the packet but the ack packet is lost
+			UDPPacket resync;
+			resync.address = peerAddr;
+			UDPHeader resyncHeader = {
+				.sessionID = sessionID,
+				.flag = UDPHeaderFlag::SYN
+			};
+			resync.SetHeader(resyncHeader);
+			heartBeatTime = std::chrono::steady_clock::now() + timeout.connectionRetryInterval;
+			socket->SendPacket(reinterpret_cast<Packet&>(resync));
 
-	for (auto i = awaitResponse.begin(); i != awaitResponse.end();) {
-		if (std::chrono::steady_clock::now() > i->timeout) {
-			i->promise.set_value({});
-			i = awaitResponse.erase(i);
+			// Case 2: Client did not receive the packet, so retransmit the original message
+			UDPPacket resync2;
+			resync2.address = peerAddr;
+			UDPHeader resyncHeader2 = {
+				.index = sessionID,
+				.sessionID = clientChecksum,
+				.flag = UDPHeaderFlag::SYN | UDPHeaderFlag::ACK
+			};
+			resync2.SetHeader(resyncHeader2);
+			heartBeatTime = std::chrono::steady_clock::now() + timeout.connectionRetryInterval;
+			socket->SendPacket(reinterpret_cast<Packet&>(resync2));
 		}
-		else {
-			if (std::chrono::steady_clock::now() > i->resend) { 
-				socket->SendPacket(i->packet); 
-				i->resend = std::chrono::steady_clock::now() + timeout.requestRetryInterval;
-			}
-			++i;
+	}
+	else if (status == ConnectionStatus::Connecting) {
+		if (std::chrono::steady_clock::now() > heartBeatTime.load()) {
+			UDPPacket resync;
+			resync.address = peerAddr;
+			UDPHeader resyncHeader = {
+				.index = sessionID,
+				.sessionID = 0,
+				.flag = UDPHeaderFlag::SYN
+			};
+			resync.SetHeader(resyncHeader);
+			heartBeatTime = std::chrono::steady_clock::now() + timeout.connectionRetryInterval;
+			socket->SendPacket(reinterpret_cast<Packet&>(resync));
 		}
 	}
 }
 
 std::future<std::optional<UDPPacket>> UDPConnection::Send(UDPPacket& packet) {
 	// No peer connected, do nothing
-	if (!Connected()) {
+	std::lock_guard<std::mutex> guard(lock);
+	if (status != ConnectionStatus::Connected) {
 		std::cout << "Attempting to send data via unconnected connection" << std::endl;
 		return {};
 	}
 
 	UDPHeader header = packet.Header();
-	if (header.flag & (UDPHeaderFlag::ACK | UDPHeaderFlag::IMP)) {
+	if (header.flag & UDPHeaderFlag::ACK && header.flag & UDPHeaderFlag::IMP) {
 		std::cout << "ACK cannot be used together with IMP, see doc for more information." << std::endl;
 		return {};
 	}
@@ -250,10 +342,8 @@ std::future<std::optional<UDPPacket>> UDPConnection::Send(UDPPacket& packet) {
 	header.sessionID = sessionID;
 	header.index = currentIndex++;
 	packet.SetHeader(header);
-	{
-		std::lock_guard<std::mutex> guard(lock);
-		packet.address = peerAddr;
-	}
+	packet.address = peerAddr;
+
 	socket->SendPacket(reinterpret_cast<const Packet&>(packet));
 	if (header.flag & UDPHeaderFlag::IMP) {
 		awaitAck.push_back(
@@ -274,8 +364,6 @@ std::future<std::optional<UDPPacket>> UDPConnection::Send(UDPPacket& packet) {
 	std::future<std::optional<UDPPacket>> asyncResult = promise.get_future();
 	// If indicated to handle request response asynchronously, the response handler will be used to process the reponse
 	if (header.flag & UDPHeaderFlag::ASY) {
-		std::lock_guard<std::mutex> guard(lock);
-
 		awaitResponse.push_back(
 			AwaitResponse{
 				.index = header.index,
@@ -313,6 +401,7 @@ void UDPConnection::TimeoutDisconnect() {
 		i = awaitResponse.erase(i);
 	}
 	packetQueue.clear();
+	awaitAck.clear();
 }
 
 void UDPConnection::Disconnect() {
@@ -326,6 +415,7 @@ void UDPConnection::Disconnect() {
 		i->promise.set_value({});
 		i = awaitResponse.erase(i);
 	}
+	awaitAck.clear();
 	packetQueue.clear();
 
 	UDPPacket packet;

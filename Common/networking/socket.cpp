@@ -72,7 +72,7 @@ void UDPSocket::Listener() {
 
 		if (byteRead == SOCKET_ERROR) {
 			auto error = WSAGetLastError();
-			if (error == WSAECONNRESET) std::cout << "[Msg] A packet was sent to invalid address previously!" << std::endl;
+			if (error == WSAECONNRESET) break;
 			else if (error == WSAEMSGSIZE) std::cout << "[Warning] An oversized packet was dropped" << std::endl;
 			else if (error == WSAENETUNREACH || error == WSAEADDRNOTAVAIL) {
 				std::cout << "[Warning] The ip bound to the socket has gone down, attempting to reconfigure" << std::endl;

@@ -292,10 +292,10 @@ TEST_CASE("UDPConnection send regular data packets with respect to queue capacit
 }
 
 TEST_CASE("UDPConnection send request data packets", "[UDPConnection]") {
-    UDPConnectionManager<2> host1(30000, 2, 1500, std::chrono::milliseconds(10));
+    UDPConnectionManager<2> host1(30000, 5, 1500, std::chrono::milliseconds(10));
     REQUIRE(host1.Good());
 
-    UDPConnectionManager<2> host2(40000, 1, 1500, std::chrono::milliseconds(10));
+    UDPConnectionManager<2> host2(40000, 5, 1500, std::chrono::milliseconds(10));
     REQUIRE(host2.Good());
     host1.isListening = true;
     host2.isListening = true;
@@ -545,7 +545,8 @@ TEST_CASE("UDPConnection send IMP data packets with respect to queue capacity co
         .connectionTimeout = std::chrono::milliseconds(1000),
         .connectionRetryInterval = std::chrono::milliseconds(500),
         .requestTimeout = std::chrono::milliseconds(500),
-        .requestRetryInterval = std::chrono::milliseconds(250)
+        .requestRetryInterval = std::chrono::milliseconds(250),
+        .impRetryInterval = std::chrono::milliseconds(200)
     };
 
     sockaddr_in addr1 = {};

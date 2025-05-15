@@ -160,6 +160,7 @@ private:
 	std::shared_ptr<UDPSocket> socket;
 	std::atomic<PacketIndex> currentIndex;
 	uint32_t sessionID;
+	uint32_t clientChecksum = 0;
 	size_t queueCapacity;
 
 	// Used by timeout
@@ -237,6 +238,12 @@ private:
 	bool VerifyConnection(size_t index) {
 		if (!connections[index]) return false;
 		if (connections[index]->Closed()) { connections[index].reset(); return false; }
+		return true;
+	}
+
+	bool VerifyTimeout(size_t index) {
+		if (!connections[index]) return false;
+		if (connections[index]->Closed()) { connections[index].reset(); return false; }
 		if (std::chrono::steady_clock::now() - connections[index]->lastReceived.load() > connections[index]->timeout.connectionTimeout)
 		{
 			connections[index]->TimeoutDisconnect();
@@ -283,9 +290,7 @@ public:
 			{
 				std::lock_guard<std::mutex> guard(lock);
 				for (auto i = 0; i < numConnections; i++) {
-					if (VerifyConnection(i)) {
-						connections[i]->UpdateAwaits();
-					}
+					VerifyConnection(i);
 				}
 
 				auto packet = socket->ReadFront();
@@ -321,19 +326,8 @@ public:
 
 				// Send out heart beat signals to verify if the other end is still connected
 				for (auto i = 0; i < numConnections; i++) {
-					if (connections[i] && connections[i]->Connected() && 
-						std::chrono::steady_clock::now() > connections[i]->heartBeatTime.load()
-					) {
-						UDPPacket heartbeat;
-						heartbeat.address = connections[i]->peerAddr;
-						UDPHeader hbtHeader = {
-							.index = connections[i]->currentIndex++,
-							.sessionID = connections[i]->sessionID,
-							.flag = UDPHeaderFlag::HBT
-						};
-						heartbeat.SetHeader(hbtHeader);
-						connections[i]->heartBeatTime = std::chrono::steady_clock::now() + connections[i]->timeout.connectionRetryInterval;
-						socket->SendPacket(reinterpret_cast<Packet&>(heartbeat));
+					if (VerifyTimeout(i)) {
+						connections[i]->UpdateAwaits();
 					}
 				}
 			}
@@ -382,6 +376,7 @@ public:
 
 		connections[index] = std::make_shared<UDPConnection>(socket, socket->QueueCapacity() / numConnections, request.address, checksum, timeout);
 		connections[index]->status = UDPConnection::ConnectionStatus::Pending;
+		connections[index]->clientChecksum = request.checksum;
 		guard.unlock();
 
 		UDPPacket synMessage;

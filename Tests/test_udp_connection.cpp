@@ -73,7 +73,7 @@ TEST_CASE("UDPConnection 3-way handshake client retry connection", "[UDPConnecti
     addr2.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     addr2.sin_family = AF_INET;
     addr2.sin_port = htons(40000);
-    UDPSocket server(40000, 10, 1500);
+    UDPSocket server(40000, 1500);
 
     auto client = host1.ConnectPeer(addr2, timeout).lock();
     REQUIRE(client);
@@ -82,26 +82,26 @@ TEST_CASE("UDPConnection 3-way handshake client retry connection", "[UDPConnecti
     // Verify the first syn packet
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        auto pkt = server.ReadFront();
+        auto pkt = server.Read();
         REQUIRE(pkt.has_value());
         auto udpPkt = reinterpret_cast<UDPPacket&>(pkt.value());
         UDPHeader header = udpPkt.Header();
         REQUIRE(header.flag & UDPHeaderFlag::SYN);
         REQUIRE(udpPkt.DataSize() == 0);
         // Currently no more packets should be in the queue
-        REQUIRE(!server.ReadFront().has_value());
+        REQUIRE(!server.Read().has_value());
     }
     // Verify the retry syn packet
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(300));
-        auto pkt = server.ReadFront();
+        auto pkt = server.Read();
         REQUIRE(pkt.has_value());
         auto udpPkt = reinterpret_cast<UDPPacket&>(pkt.value());
         UDPHeader header = udpPkt.Header();
         REQUIRE(header.flag & UDPHeaderFlag::SYN);
         REQUIRE(udpPkt.DataSize() == 0);
         // Currently no more packets should be in the queue
-        REQUIRE(!server.ReadFront().has_value());
+        REQUIRE(!server.Read().has_value());
     }
 
     // Verify the connection has timed out
@@ -133,7 +133,7 @@ TEST_CASE("UDPConnection 3-way handshake server retry connection", "[UDPConnecti
     clientAddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     clientAddr.sin_family = AF_INET;
     clientAddr.sin_port = htons(40000);
-    UDPSocket client (40000, 10, 1500);
+    UDPSocket client (40000, 1500);
 
     // Client initialize connection
     {
@@ -156,7 +156,7 @@ TEST_CASE("UDPConnection 3-way handshake server retry connection", "[UDPConnecti
     // Verify server ack
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        auto pkt = client.ReadFront();
+        auto pkt = client.Read();
         REQUIRE(pkt.has_value());
         UDPPacket& udpPacket = reinterpret_cast<UDPPacket&>(pkt.value());
         UDPHeader header = udpPacket.Header();
@@ -164,13 +164,13 @@ TEST_CASE("UDPConnection 3-way handshake server retry connection", "[UDPConnecti
         REQUIRE(header.sessionID == 5);
 
         // Currently no more packets should be present in the queue
-        REQUIRE(!client.ReadFront().has_value());
+        REQUIRE(!client.Read().has_value());
 
         // Verify server retransmission, 2 packets should be received
         std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
         // Case 1 client ACK is lost so server request for retransmission
-        pkt = client.ReadFront();
+        pkt = client.Read();
         REQUIRE(pkt.has_value());
         udpPacket = reinterpret_cast<UDPPacket&>(pkt.value());
         UDPHeader header2 = udpPacket.Header();
@@ -178,7 +178,7 @@ TEST_CASE("UDPConnection 3-way handshake server retry connection", "[UDPConnecti
         REQUIRE(header2.sessionID == header.index);
 
         // Case 2 server ACK is lost so server retransmits sessionID
-        pkt = client.ReadFront();
+        pkt = client.Read();
         REQUIRE(pkt.has_value());
         udpPacket = reinterpret_cast<UDPPacket&>(pkt.value());
         UDPHeader header3 = udpPacket.Header();
@@ -213,7 +213,7 @@ TEST_CASE("UDPConnection 3-way handshake client retransmit acknoledgement", "[UD
     serverAddr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(40000);
-    UDPSocket server(40000, 10, 1500);
+    UDPSocket server(40000, 1500);
 
     auto client = clientHost.ConnectPeer(serverAddr, timeout).lock();
     REQUIRE(client);
@@ -222,14 +222,14 @@ TEST_CASE("UDPConnection 3-way handshake client retransmit acknoledgement", "[UD
     // Verify the syn packet
     {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        auto pkt = server.ReadFront();
+        auto pkt = server.Read();
         REQUIRE(pkt.has_value());
         auto udpPkt = reinterpret_cast<UDPPacket&>(pkt.value());
         UDPHeader header = udpPkt.Header();
         REQUIRE(header.flag & UDPHeaderFlag::SYN);
         REQUIRE(udpPkt.DataSize() == 0);
         // Currently no more packets should be in the queue
-        REQUIRE(!server.ReadFront().has_value());
+        REQUIRE(!server.Read().has_value());
 
         UDPPacket reply;
         reply.address = clientAddr;
@@ -247,7 +247,7 @@ TEST_CASE("UDPConnection 3-way handshake client retransmit acknoledgement", "[UD
         REQUIRE(client->Connected());
 
         // Client should send back ACK
-        auto clientReplyPkt = server.ReadBack();
+        auto clientReplyPkt = server.Read();
         REQUIRE(clientReplyPkt.has_value());
         UDPPacket& clientReply = reinterpret_cast<UDPPacket&>(clientReplyPkt.value());
         UDPHeader clientReplyHeader = clientReply.Header();
@@ -268,7 +268,7 @@ TEST_CASE("UDPConnection 3-way handshake client retransmit acknoledgement", "[UD
 
         // Client should ignore since sessionID does not match
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        REQUIRE(!server.ReadFront().has_value());
+        REQUIRE(!server.Read().has_value());
 
         // Send syc request
         UDPPacket reply2;
@@ -281,13 +281,13 @@ TEST_CASE("UDPConnection 3-way handshake client retransmit acknoledgement", "[UD
         server.SendPacket(reinterpret_cast<Packet&>(reply2));
 
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        auto pkt = server.ReadFront();
+        auto pkt = server.Read();
         REQUIRE(pkt.has_value());
         auto udpPkt = reinterpret_cast<UDPPacket&>(pkt.value());
         UDPHeader header = udpPkt.Header();
         REQUIRE(header == clientReplyHeader);
         // Currently no more packets should be in the queue
-        REQUIRE(!server.ReadFront().has_value());
+        REQUIRE(!server.Read().has_value());
     }
 }
 

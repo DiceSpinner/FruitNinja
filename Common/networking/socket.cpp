@@ -1,10 +1,9 @@
 #include <iostream>
 #include "socket.hpp"
 
-UDPSocket::UDPSocket(size_t capacity, DWORD maxPacketSize)
-	: queueCapacity(capacity), listener(), port(),
-	sock(socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)), packetQueue(), 
-	closed(true), blocked(false), reconfiguring(false), queueLock(), cv()
+UDPSocket::UDPSocket(DWORD maxPacketSize)
+	: port(), sock(socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)),
+	closed(true), blocked(false), reconfiguring(false), lock()
 {
 	sockaddr_in addr = {};
 	addr.sin_family = AF_INET;
@@ -16,21 +15,19 @@ UDPSocket::UDPSocket(size_t capacity, DWORD maxPacketSize)
 	bufferSize = min(bufferSize, maxPacketSize);
 
 	if (bind(sock, (sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR) {
-		std::cout << "[Error] Failed to bind socket\n";
+		std::cout << "[Error] Failed to bind socket due to error " << WSAGetLastError() << std::endl;
 	}
 	else {
 		closed = false;
 		int addrLen = sizeof(addr);
 		getsockname(sock, reinterpret_cast<sockaddr*>(&addr), &addrLen);
 		port = addr.sin_port;
-		listener = std::thread(&UDPSocket::Listener, this);
 	}
 }
 
-UDPSocket::UDPSocket(USHORT port, size_t capacity, DWORD maxPacketSize)
-	: queueCapacity(capacity), listener(), port(htons(port)),
-	sock(socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)), packetQueue(),
-	closed(true), blocked(false), reconfiguring(false), queueLock(), cv()
+UDPSocket::UDPSocket(USHORT port,DWORD maxPacketSize)
+	: port(htons(port)), sock(socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)),
+	closed(true), blocked(false), reconfiguring(false), lock()
 {
 	sockaddr_in addr = {};
 	addr.sin_family = AF_INET;
@@ -43,11 +40,10 @@ UDPSocket::UDPSocket(USHORT port, size_t capacity, DWORD maxPacketSize)
 	bufferSize = min(bufferSize, maxPacketSize);
 
 	if (bind(sock, (sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR) {
-		std::cout << "[Error] Failed to bind socket\n";
+		std::cout << "[Error] Failed to bind socket due to error " << WSAGetLastError() << std::endl;
 	}
 	else {
 		closed = false;
-		listener = std::thread(&UDPSocket::Listener, this);
 	}
 }
 
@@ -55,115 +51,112 @@ UDPSocket::~UDPSocket() {
 	if (!closed) {
 		closed = true;
 		closesocket(sock);
-		if(listener.joinable()) listener.join();
 	}
 }
 
-void UDPSocket::Listener() {
-	if (closed) return;
+bool UDPSocket::Rebind() {
+	std::cout << "[Warning] The ip bound to the socket has gone down, attempting to reconfigure" << std::endl;
+	closesocket(sock);
+	sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	sockaddr_in addr = {};
+	addr.sin_family = AF_INET;
+	addr.sin_port = port;
+	addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
-	sockaddr_in otherAddr = {};
-	int addrSize = sizeof(otherAddr);
-	std::vector<char> buf(bufferSize);
-	while (!closed) {
-		addrSize = sizeof(otherAddr);
-		int byteRead = recvfrom(sock, buf.data(), bufferSize, 0, (sockaddr*)&otherAddr, &addrSize);
-		std::lock_guard<std::mutex> lock(queueLock);
-
-		if (byteRead == SOCKET_ERROR) {
-			auto error = WSAGetLastError();
-			if (error == WSAECONNRESET) break;
-			else if (error == WSAEMSGSIZE) std::cout << "[Warning] An oversized packet was dropped" << std::endl;
-			else if (error == WSAENETUNREACH || error == WSAEADDRNOTAVAIL) {
-				std::cout << "[Warning] The ip bound to the socket has gone down, attempting to reconfigure" << std::endl;
-				reconfiguring = true;
-				closesocket(sock);
-				sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-				sockaddr_in addr = {};
-				addr.sin_family = AF_INET;
-				addr.sin_port = port;
-				addr.sin_addr.s_addr = htonl(INADDR_ANY);
-
-				if (bind(sock, (sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR) {
-					std::cout << "[Error] Failed to bind socket\n";
-					closed = true;
-				}
-				reconfiguring = false;
-			}
-			else if (error != WSAESHUTDOWN && error != WSAEINTR && error != WSAENOTSOCK) std::cout << "[Error] Packet read failure: " << error << "\n";
-		}
-		else if (!blocked && packetQueue.size() < queueCapacity)
-		{
-			packetQueue.emplace_back(
-				Packet {
-					.address = otherAddr,
-					.timeReceived = std::chrono::steady_clock::now(),
-					.payload = {buf.data(), buf.data() + byteRead},
-				}
-			);
-			cv.notify_all();
-		}
+	if (bind(sock, (sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR) {
+		std::cout << "[Error] Failed to rebind socket due to error " << WSAGetLastError() << std::endl;
+		closed = true;
+		return false;
 	}
+	return true;
 }
 
-void UDPSocket::SendPacket(const Packet& packet) const {
+void UDPSocket::SendPacket(const Packet& packet) {
 	if (closed) {
 		std::cout << "[Error] Attempting to write to a closed socket!\n"; 
 		return;
 	}
-	if (reconfiguring) {
-		std::cout << "[Message] Cannot send packets. The socket is currently being reconfigured!\n";
-		return;
-	}
 
-	if (sendto(sock, packet.payload.data(), packet.payload.size(), 0, reinterpret_cast<const sockaddr*>(&packet.address), sizeof(packet.address)) == SOCKET_ERROR) {
+	std::lock_guard<std::mutex> guard(lock);
+	while (sendto(sock, packet.payload.data(), packet.payload.size(), 0, reinterpret_cast<const sockaddr*>(&packet.address), sizeof(packet.address)) == SOCKET_ERROR) {
 		auto error = WSAGetLastError();
+		if (error == WSAENETUNREACH || error == WSAEADDRNOTAVAIL) {
+			if (!Rebind()) { std::cout << "[Error] Failed to send packet since all network interfaces have gone down" << std::endl; return; }
+			continue;
+		}
 		std::cout << "[Error] Failed to send packet due to error " << error << std::endl;
+		return;
 	}
 }
 
-void UDPSocket::SendPacket(std::span<const char> payload, const sockaddr_in& target) const {
+void UDPSocket::SendPacket(std::span<const char> payload, const sockaddr_in& target) {
 	if (closed) {
 		std::cout << "[Error] Attempting to write to a closed socket!\n";
 		return;
 	}
-	if (reconfiguring) {
-		std::cout << "[Message] Cannot send packets. The socket is currently being reconfigured!\n";
+
+	std::lock_guard<std::mutex> guard(lock);
+	while (sendto(sock, payload.data(), payload.size(), 0, reinterpret_cast<const sockaddr*>(&target), sizeof(target)) == SOCKET_ERROR) {
+		auto error = WSAGetLastError();
+		if (error == WSAENETUNREACH || error == WSAEADDRNOTAVAIL) {
+			if (!Rebind()) { std::cout << "[Error] Failed to send packet since all network interfaces have gone down" << std::endl; return; }
+			continue;
+		}
+		std::cout << "[Error] Failed to send packet due to error " << error << std::endl;
 		return;
 	}
-
-	if (sendto(sock, payload.data(), payload.size(), 0, reinterpret_cast<const sockaddr*>(&target), sizeof(target)) == SOCKET_ERROR) {
-		auto error = WSAGetLastError();
-		std::cout << "[Error] Failed to send packet due to error " << error << std::endl;
-	}
 }
 
-std::optional<Packet> UDPSocket::ReadFront() {
+std::optional<Packet> UDPSocket::Read() {
 	if (closed) {
 		return {};
 	}
+	fd_set readfds;
+	FD_ZERO(&readfds);
+	FD_SET(sock, &readfds);
+	TIMEVAL timeout = {
+		.tv_sec = 0,
+		.tv_usec = 0
+	};
+	sockaddr_in otherAddr = {};
+	int addrSize = sizeof(otherAddr);
 
-	std::lock_guard<std::mutex> lock(queueLock);
-	if (packetQueue.empty()) {
-		return {};
-	}
-	Packet packet = std::move(packetQueue.front());
-	packetQueue.pop_front();
-	return packet;
-}
+	std::lock_guard<std::mutex> guard(lock);
+	std::vector<char> buffer(bufferSize);
+	int error;
+	while ((error = select(0, &readfds, nullptr, nullptr, &timeout)) > 0) {
+		int byteRead = recvfrom(sock, buffer.data(), bufferSize, 0, (sockaddr*)&otherAddr, &addrSize);
 
-std::optional<Packet> UDPSocket::ReadBack() {
-	if (closed) {
-		return {};
+		if (byteRead == SOCKET_ERROR) {
+			auto error = WSAGetLastError();
+			if (error == WSAECONNRESET) {
+				std::cout << "[Warning] One message could not reach the remote port" << std::endl;
+				continue;
+			}
+			if (error == WSAEMSGSIZE) {
+				std::cout << "[Warning] An oversized packet was dropped" << std::endl;
+				continue;
+			}
+			if (error == WSAENETUNREACH || error == WSAEADDRNOTAVAIL) {
+				if (!Rebind()) { return {}; }
+				continue;
+			}
+			std::cout << "[Error] Packet read failure: " << error << "\n";
+			continue;
+		}
+		if (!blocked)
+		{
+			return Packet{
+					.address = otherAddr,
+					.timeReceived = std::chrono::steady_clock::now(),
+					.payload = {buffer.data(), buffer.data() + byteRead},
+			};
+		}
 	}
-
-	std::lock_guard<std::mutex> lock(queueLock);
-	if (packetQueue.empty()) {
-		return {};
+	if (error == SOCKET_ERROR) {
+		std::cout << "[Error] select() returned with error " << WSAGetLastError() << std::endl;
 	}
-	Packet packet = std::move(packetQueue.back());
-	packetQueue.pop_back();
-	return packet;
+	return {};
 }
 
 const DWORD UDPSocket::MaxPacketSize() const { return bufferSize; }
@@ -172,15 +165,10 @@ const USHORT UDPSocket::Port() const {
 	return port;
 }
 
-const size_t UDPSocket::QueueCapacity() const { return queueCapacity; }
-
 void UDPSocket::Close() {
+	std::lock_guard<std::mutex> guard(lock);
 	closed = true;
 	closesocket(sock);
-	if(listener.joinable()) listener.join();
-	
-	// No lock is needed as the listener thread is no longer running
-	packetQueue.clear();
 }
 
 bool UDPSocket::IsClosed() const { return closed; }

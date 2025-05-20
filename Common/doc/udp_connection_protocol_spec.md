@@ -2,15 +2,17 @@
 
 ### Overview
 
-This document defines the message-level protocol used by the `UDPConnection` class for optionally reliable, bi-directional communication over UDP. Like TCP, multiple independent connections can be established and maintained simultaneously over a single UDP socket. Reliability is optional—packets sent without any flags are treated as normal, unreliable UDP packets with no acknowledgment or retry behavior.
+This document defines the message-level protocol used by the `UDPConnection` class for optionally reliable, bi-directional communication over UDP. Like TCP, multiple independent connections can be established and maintained simultaneously over a single UDP socket. Reliability is optional — packets sent without any flags are treated as normal, unreliable UDP packets with no acknowledgment or retry behavior.
 
 ### Usage
 
 `UDPConnectionManager` is the primary interface for creating and managing connections over a single UDP socket. It handles initial connection setup, retry logic, and packet routing. After a `UDPConnection` is created, it is handed off to the application, which is responsible for monitoring connection state, sending and receiving packets, and initiating disconnects.
 
-`UDPConnectionManager` owns a `UDPSocket` instance and spawns two internal threads:
-- A **listener thread**, which continuously polls the OS socket for incoming UDP datagrams and pushes them into an internal packet queue.
-- A **router thread**, which dequeues all buffered packets and routes them to the correct `UDPConnection` instance. It also invokes periodic updates on all active connections to trigger retransmissions when retry intervals have passed. The update interval is configurable during construction.
+`UDPConnectionManager` owns a `UDPSocket` instance and spawns a single internal **router thread**, which handles all background logic:
+
+- The router thread is responsible for invoking `UDPSocket::Read()` at regular intervals. When a packet is received, it is immediately dispatched to the appropriate `UDPConnection`. Before dispatch, the system verifies that the received packet contains at least `sizeof(UDPHeader)` bytes of payload. Any packet that fails this validation check is discarded immediately, ensuring that malformed or truncated datagrams are not processed.
+- Incoming UDP packets are polled directly from the OS socket using a non-blocking `select()` based `recvfrom()` loop. No listener thread or intermediate user-space packet queue is used.
+- The router thread also periodically updates all active connections to handle retries, retransmissions, and connection timeouts. This update interval is configurable at construction time.
 
 It is templated with a parameter indicating the maximum number of concurrent connections (including in-progress handshakes). If this limit is reached, `ConnectPeer()` and `Accept()` will return default-constructed `std::shared_ptr<UDPConnection>`.
 

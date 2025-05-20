@@ -34,69 +34,27 @@ private:
 	SOCKET sock;
 	USHORT port;
 	DWORD bufferSize = 0;
-	std::thread listener;
-	std::list<Packet> packetQueue;
-	size_t queueCapacity;
 	std::atomic<bool> closed;
 	std::atomic<bool> reconfiguring;
-	std::mutex queueLock;
-	std::condition_variable cv;
-	void Listener();
+	std::mutex lock;
+	// Called when IP failure detected, assume lock is already acquired
+	bool Rebind();
 public:
 	std::atomic<bool> blocked;
 
-	UDPSocket(size_t capacity, DWORD maxPacketSize = DEFAULT_UDP_BUFFER_SIZE);
-	UDPSocket(USHORT port, size_t capacity, DWORD maxPacketSize);
+	UDPSocket(DWORD maxPacketSize = DEFAULT_UDP_BUFFER_SIZE);
+	UDPSocket(USHORT port, DWORD maxPacketSize);
 	UDPSocket(const UDPSocket& other) = delete;
 	UDPSocket(UDPSocket&& other) = delete;
 	UDPSocket& operator = (const UDPSocket& other) = delete;
 	UDPSocket& operator = (UDPSocket&& other) = delete;
 	~UDPSocket();
 
-	void SendPacket(const Packet& packet) const;
-	void SendPacket(std::span<const char> payload, const sockaddr_in& target) const;
+	void SendPacket(const Packet& packet);
+	void SendPacket(std::span<const char> payload, const sockaddr_in& target);
 	const DWORD MaxPacketSize() const;
 	const USHORT Port() const;
-	const size_t QueueCapacity() const;
-	std::optional<Packet> ReadFront();
-	std::optional<Packet> ReadBack();
-
-	/// <summary>
-	/// Block the thread until a packet satisfying the condition is present in the buffer
-	/// </summary>
-	/// <typeparam name="Predicate"> A callable that takes in packet reference and return bool </typeparam>
-	/// <param name="predicate">The predicate used to evaluate if the packet satisfies the condition</param>
-	template<typename Predicate>
-		requires requires (Predicate p, const Packet& packet) { { p(packet) } -> std::same_as<bool>; }
-	std::optional<Packet> Wait(Predicate predicate, std::chrono::milliseconds DEFAULT_TIMEOUT) {
-		std::unique_lock<std::mutex> lock(queueLock);
-
-		for (auto i = packetQueue.begin(); i != packetQueue.end();i++) {
-			if (predicate(*i)) {
-				Packet packet = std::move(*i);
-				packetQueue.erase(i);
-				return packet;
-			}
-		}
-
-		auto lambda = [&]() {
-			return std::any_of(packetQueue.begin(), packetQueue.end(), predicate);
-			};
-
-		// Assume lock is already acquired, the lambda will pass the packet received to the predicate
-		if (!cv.wait_for(lock, DEFAULT_TIMEOUT, lambda)) return {};
-		for (auto i = packetQueue.begin(); i != packetQueue.end(); i++) {
-			if (predicate(*i)) {
-				Packet packet = std::move(*i);
-				packetQueue.erase(i);
-				return packet;
-			}
-		}
-
-		// Should never happen
-		std::cout << "Socket received a matching packet, but it went missing. This is a bug!" << std::endl;
-		return {};
-	}
+	std::optional<Packet> Read();
 
 	void Close();
 	bool IsClosed() const;

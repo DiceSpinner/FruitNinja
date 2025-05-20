@@ -95,6 +95,11 @@ struct UDPPacket {
 		payload.reserve(sizeof(UDPHeader));
 		payload.resize(sizeof(UDPHeader));
 	}
+
+	bool Good() const {
+		return payload.size() >= sizeof(UDPHeader);
+	}
+
 	UDPHeader Header() const {
 		return UDPHeader::Deserialize({ payload.data(), sizeof(UDPHeader) }).value();
 	}
@@ -220,6 +225,7 @@ public:
 template<size_t numConnections = 2>
 class UDPConnectionManager {
 private:
+	size_t queueCapacity;
 	std::shared_ptr<UDPSocket> socket;
 	std::chrono::steady_clock::duration updateInterval;
 	std::mt19937 checksumGenerator = {};
@@ -264,14 +270,14 @@ public:
 	std::atomic<bool> isListening = false;
 
 	UDPConnectionManager(USHORT port, size_t packetQueueCapacity, DWORD maxPacketSize, std::chrono::steady_clock::duration updateInterval)
-		: socket(std::make_shared<UDPSocket>(port, packetQueueCapacity* numConnections, maxPacketSize)), updateInterval(updateInterval),
+		: socket(std::make_shared<UDPSocket>(port, maxPacketSize)), updateInterval(updateInterval), queueCapacity(packetQueueCapacity),
 		routeThread(&UDPConnectionManager::RouteAndTimeout, this)
 	{
 
 	}
 
 	UDPConnectionManager(size_t packetQueueCapacity, DWORD maxPacketSize, std::chrono::steady_clock::duration updateInterval)
-		: socket(std::make_shared<UDPSocket>(packetQueueCapacity * numConnections, maxPacketSize)), updateInterval(updateInterval), 
+		: socket(std::make_shared<UDPSocket>(maxPacketSize)), updateInterval(updateInterval), queueCapacity(packetQueueCapacity),
 		routeThread(&UDPConnectionManager::RouteAndTimeout, this)
 	{
 
@@ -301,35 +307,37 @@ public:
 					VerifyConnection(i);
 				}
 
-				auto packet = socket->ReadFront();
+				auto packet = socket->Read();
 				while (packet) {
 					UDPPacket& udpPacket = reinterpret_cast<UDPPacket&>(packet.value());
-					UDPHeader header = udpPacket.Header();
-					bool routed = false;
-					std::cout << "Host received packet with sessionID " << header.sessionID << std::endl;
-					for (auto i = 0; i < numConnections; i++) {
-						if (connections[i] && !connections[i]->Closed() && header.sessionID == connections[i]->sessionID) {
-							std::cout << "Connection with sessionID " << connections[i]->sessionID << std::endl;
-							routed = true;
-							connections[i]->ParsePacket(header, std::move(udpPacket));
-							break;
+					if (udpPacket.Good()) {
+						UDPHeader header = udpPacket.Header();
+						bool routed = false;
+						std::cout << "Host received packet with sessionID " << header.sessionID << std::endl;
+						for (auto i = 0; i < numConnections; i++) {
+							if (connections[i] && !connections[i]->Closed() && header.sessionID == connections[i]->sessionID) {
+								std::cout << "Connection with sessionID " << connections[i]->sessionID << std::endl;
+								routed = true;
+								connections[i]->ParsePacket(header, std::move(udpPacket));
+								break;
+							}
+						}
+
+						// Packet was not delivered to any opened connections, could be a request to open new connection
+						if (!routed && isListening) {
+							if (header.sessionID == 0 && header.flag & UDPHeaderFlag::SYN) {
+								connectionRequests.emplace_back(
+									ConnectionRequest{
+										.address = udpPacket.address,
+										.checksum = header.index
+									}
+								);
+								cv.notify_one();
+							}
 						}
 					}
 
-					// Packet was not delivered to any opened connections, could be a request to open new connection
-					if (!routed && isListening) {
-						if (header.sessionID == 0 && header.flag & UDPHeaderFlag::SYN) {
-							connectionRequests.emplace_back(
-								ConnectionRequest{
-									.address = udpPacket.address,
-									.checksum = header.index
-								}
-							);
-							cv.notify_one();
-						}
-					}
-					
-					packet = socket->ReadFront();
+					packet = socket->Read();
 				}
 
 				// Send out heart beat signals to verify if the other end is still connected
@@ -366,7 +374,7 @@ public:
 		if (index == numConnections) return {};
 
 		auto predicate = [&]() { return !connectionRequests.empty(); };
-		if (!cv.wait_for(guard, timeout.requestTimeout, predicate)) return {};
+		if (!cv.wait_for(guard, timeout.connectionTimeout, predicate)) return {};
 
 		// Reverify there's spot left in case this method is called by multiple threads
 		for (size_t i = 0; i < numConnections; i++) {
@@ -382,7 +390,7 @@ public:
 
 		uint32_t checksum = GenerateChecksum();
 
-		connections[index] = std::make_shared<UDPConnection>(socket, socket->QueueCapacity() / numConnections, request.address, checksum, timeout);
+		connections[index] = std::make_shared<UDPConnection>(socket, queueCapacity, request.address, checksum, timeout);
 		connections[index]->status = UDPConnection::ConnectionStatus::Pending;
 		connections[index]->clientChecksum = request.checksum;
 		guard.unlock();
@@ -456,7 +464,7 @@ public:
 		};
 		packet.SetHeader(header);
 
-		connections[index] = std::make_shared<UDPConnection>(socket, socket->QueueCapacity() / numConnections, peerAddr,  checksum, timeout);
+		connections[index] = std::make_shared<UDPConnection>(socket, queueCapacity, peerAddr,  checksum, timeout);
 		connections[index]->status = UDPConnection::ConnectionStatus::Connecting;
 
 		socket->SendPacket(reinterpret_cast<Packet&>(packet));

@@ -58,15 +58,57 @@ optional<type_index> ServerState::Run() {
 }
 void ServerState::BroadCastState() {}
 
-Server::Server() : running(true) {
-	network.player1 = std::make_unique<UDPConnection>();
-	network.player2 = std::make_unique<UDPConnection>();
-	if (!network.player1->VerifyConnection() || !network.player2->VerifyConnection()) {
-		std::cout << "Not enough sockets available, shutting down server.\n";
-		running = false;
+Server::Server() : running(true), startTime(std::chrono::steady_clock::now())
+{
+	context.connectionManager = std::make_unique<UDPConnectionManager<2>>(30000, 10, 1500, std::chrono::milliseconds(10));
+	context.connectionManager->isListening = true;
+	if (!context.connectionManager->Good()) {
+		std::cout << "Connection managed failed to initialzie" << "\n";
+		return;
+	}
+	networkMonitorThread = std::move(std::thread(&Server::MonitorConnection, this));
+}
+
+void Server::MonitorConnection() {
+	TimeoutSetting timeout{
+		.connectionTimeout = std::chrono::milliseconds(5000),
+		.connectionRetryInterval = std::chrono::milliseconds(300),
+		.requestTimeout = std::chrono::milliseconds(3000),
+		.requestRetryInterval = std::chrono::milliseconds(300),
+		.impRetryInterval = std::chrono::milliseconds(300)
+	};
+	while (running) {
+		if (!context.player1) {
+			auto player1 = context.connectionManager->Accept(timeout);
+			if (player1.expired()) continue;
+			std::lock_guard<std::mutex> guard(context.lock);
+			context.player1 = player1.lock();
+		}
+		else if (context.player1->Closed()) {
+			std::lock_guard<std::mutex> guard(context.lock);
+			context.player1.reset();
+		}
+		if (!context.player2) {
+			auto player2 = context.connectionManager->Accept(timeout);
+			if (player2.expired()) continue;
+			std::lock_guard<std::mutex> guard(context.lock);
+			context.player2 = player2.lock();
+		}
+		else if (context.player2->Closed()) {
+			std::lock_guard<std::mutex> guard(context.lock);
+			context.player2.reset();
+		}
 	}
 }
-void Server::CleanUp() { network.player1->Close(); network.player2->Close(); }
-void Server::ProcessInput() { if(state) state->ProcessInput(); }
-void Server::Step() {if(state) state->Run(); }
-void Server::BroadCastState() { if (state) state->BroadCastState(); }
+
+void Server::CleanUp() { 
+	context.player1->Disconnect(); 
+	context.player2->Disconnect();
+	context.connectionManager->isListening = false;
+}
+void Server::ProcessInput() {  }
+void Server::Step() { 
+	auto time = std::chrono::steady_clock::now() - startTime;
+	std::cout << "[Time] " << std::chrono::duration_cast<std::chrono::milliseconds>(time) << std::endl; 
+}
+void Server::BroadCastState() { ; }

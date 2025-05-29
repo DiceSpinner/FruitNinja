@@ -79,24 +79,14 @@ void Server::MonitorConnection() {
 	};
 	while (running) {
 		if (!context.player1) {
-			auto player1 = context.connectionManager->Accept(timeout);
-			if (player1.expired()) continue;
-			std::lock_guard<std::mutex> guard(context.lock);
-			context.player1 = player1.lock();
-		}
-		else if (context.player1->Closed()) {
-			std::lock_guard<std::mutex> guard(context.lock);
-			context.player1.reset();
+			std::lock_guard<std::mutex> guard(lock);
+			context.player1 = context.connectionManager->Accept(timeout);
+			continue;
 		}
 		if (!context.player2) {
-			auto player2 = context.connectionManager->Accept(timeout);
-			if (player2.expired()) continue;
-			std::lock_guard<std::mutex> guard(context.lock);
-			context.player2 = player2.lock();
-		}
-		else if (context.player2->Closed()) {
-			std::lock_guard<std::mutex> guard(context.lock);
-			context.player2.reset();
+			std::lock_guard<std::mutex> guard(lock);
+			context.player2 = context.connectionManager->Accept(timeout);
+			continue;
 		}
 	}
 }

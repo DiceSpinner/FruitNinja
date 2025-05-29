@@ -12,8 +12,7 @@
 constexpr auto SERVER_SOCKET_CAPACITY = 30;
 
 struct ServerContext {
-	std::mutex lock;
-	std::unique_ptr<UDPConnectionManager<2>> connectionManager;
+	std::unique_ptr<UDPConnectionManager> connectionManager;
 	std::shared_ptr<UDPConnection> player1;
 	std::shared_ptr<UDPConnection> player2;
 };
@@ -85,18 +84,20 @@ class Server {
 	friend class ServerState;
 private:
 	std::unique_ptr<ServerState> state = {};
-	ServerContext context;
 	std::thread networkMonitorThread;
 	std::chrono::milliseconds updateInterval;
 	std::chrono::steady_clock::time_point startTime;
-	
-public:
+
+	std::mutex lock;
+	ServerContext context;
 	enum ServerStatus {
 		OnHold,
 		InGame,
 	};
 
 	std::atomic<ServerStatus> status;
+	
+public:
 	std::atomic<bool> running;
 
 	Server();

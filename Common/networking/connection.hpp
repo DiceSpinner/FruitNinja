@@ -182,11 +182,6 @@ private:
 	ConnectionStatus status;
 
 	/// <summary>
-	/// Called by UDPConnectionManager to close a timed out connection without sending FIN packet
-	/// </summary>
-	void TimeoutDisconnect();
-
-	/// <summary>
 	/// Called by UDPConnectionManager to remove await entries that have expired
 	/// </summary>
 	bool UpdateTimeout();
@@ -252,6 +247,11 @@ public:
 	UDPConnectionManager(USHORT port, size_t numConnections, size_t packetQueueCapacity, DWORD maxPacketSize, std::chrono::steady_clock::duration updateInterval);
 
 	UDPConnectionManager(size_t packetQueueCapacity, size_t numConnections, DWORD maxPacketSize, std::chrono::steady_clock::duration updateInterval);
+
+	UDPConnectionManager(const UDPConnectionManager& other) = delete;
+	UDPConnectionManager(UDPConnectionManager&& other) = delete;
+	UDPConnectionManager& operator = (const UDPConnectionManager& other) = delete;
+	UDPConnectionManager& operator = (UDPConnectionManager&& other) = delete;
 
 	~UDPConnectionManager();
 

@@ -2,10 +2,10 @@
 #include "networking/connection.hpp"
 
 TEST_CASE("UDPConnection 3-way handshake succeeds and closure", "[UDPConnection]") {
-    UDPConnectionManager<2> host1(30000, 10, 1500, std::chrono::milliseconds(10));
+    UDPConnectionManager host1(30000, 2, 10, 1500, std::chrono::milliseconds(10));
     REQUIRE(host1.Good());
 
-    UDPConnectionManager<2> host2(40000, 10, 1500, std::chrono::milliseconds(10));
+    UDPConnectionManager host2(40000, 2, 10, 1500, std::chrono::milliseconds(10));
     REQUIRE(host2.Good());
     host1.isListening = true;
     host2.isListening = true;
@@ -27,11 +27,11 @@ TEST_CASE("UDPConnection 3-way handshake succeeds and closure", "[UDPConnection]
     addr2.sin_family = AF_INET;
     addr2.sin_port = htons(40000);
 
-    auto c1 = host1.ConnectPeer(addr2, timeout).lock();
+    auto c1 = host1.ConnectPeer(addr2, timeout);
     REQUIRE(c1);
     REQUIRE(host1.Count() == 1);
 
-    auto s1 = host2.Accept(timeout).lock();
+    auto s1 = host2.Accept(timeout);
     REQUIRE(s1);
     REQUIRE(host2.Count() == 1);
 
@@ -54,7 +54,7 @@ TEST_CASE("UDPConnection 3-way handshake succeeds and closure", "[UDPConnection]
 }
 
 TEST_CASE("UDPConnection 3-way handshake client retry connection", "[UDPConnection]") {
-    UDPConnectionManager<2> host1(30000, 10, 1500, std::chrono::milliseconds(10));
+    UDPConnectionManager host1(30000, 2, 10, 1500, std::chrono::milliseconds(10));
     REQUIRE(host1.Good());
 
     TimeoutSetting timeout = {
@@ -75,7 +75,7 @@ TEST_CASE("UDPConnection 3-way handshake client retry connection", "[UDPConnecti
     addr2.sin_port = htons(40000);
     UDPSocket server(40000, 1500);
 
-    auto client = host1.ConnectPeer(addr2, timeout).lock();
+    auto client = host1.ConnectPeer(addr2, timeout);
     REQUIRE(client);
     REQUIRE(host1.Count() == 1);
 
@@ -113,7 +113,7 @@ TEST_CASE("UDPConnection 3-way handshake client retry connection", "[UDPConnecti
 }
 
 TEST_CASE("UDPConnection 3-way handshake server retry connection", "[UDPConnection]") {
-    UDPConnectionManager<2> serverHost(30000, 10, 1500, std::chrono::milliseconds(10));
+    UDPConnectionManager serverHost(30000, 2, 10, 1500, std::chrono::milliseconds(10));
     REQUIRE(serverHost.Good());
     serverHost.isListening = true;
 
@@ -149,7 +149,7 @@ TEST_CASE("UDPConnection 3-way handshake server retry connection", "[UDPConnecti
     }
 
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    auto server = serverHost.Accept(timeout).lock();
+    auto server = serverHost.Accept(timeout);
     REQUIRE(server);
     REQUIRE(serverHost.Count() == 1);
     
@@ -194,7 +194,7 @@ TEST_CASE("UDPConnection 3-way handshake server retry connection", "[UDPConnecti
 }
 
 TEST_CASE("UDPConnection 3-way handshake client retransmit acknoledgement", "[UDPConnection]") {
-    UDPConnectionManager<2> clientHost(30000, 10, 1500, std::chrono::milliseconds(10));
+    UDPConnectionManager clientHost(30000, 2, 10, 1500, std::chrono::milliseconds(10));
     REQUIRE(clientHost.Good());
 
     TimeoutSetting timeout = {
@@ -215,7 +215,7 @@ TEST_CASE("UDPConnection 3-way handshake client retransmit acknoledgement", "[UD
     serverAddr.sin_port = htons(40000);
     UDPSocket server(40000, 1500);
 
-    auto client = clientHost.ConnectPeer(serverAddr, timeout).lock();
+    auto client = clientHost.ConnectPeer(serverAddr, timeout);
     REQUIRE(client);
     REQUIRE(clientHost.Count() == 1);
 
@@ -292,10 +292,10 @@ TEST_CASE("UDPConnection 3-way handshake client retransmit acknoledgement", "[UD
 }
 
 TEST_CASE("UDPConnection drop overflowed connection requests", "[UDPConnection]") {
-    UDPConnectionManager<2> host1(30000, 10, 1500, std::chrono::milliseconds(10));
+    UDPConnectionManager host1(30000, 2, 10, 1500, std::chrono::milliseconds(10));
     REQUIRE(host1.Good());
 
-    UDPConnectionManager<1> host2(40000, 10, 1500, std::chrono::milliseconds(10));
+    UDPConnectionManager host2(40000, 1, 10, 1500, std::chrono::milliseconds(10));
     REQUIRE(host2.Good());
     host1.isListening = true;
     host2.isListening = true;
@@ -317,17 +317,17 @@ TEST_CASE("UDPConnection drop overflowed connection requests", "[UDPConnection]"
     addr2.sin_family = AF_INET;
     addr2.sin_port = htons(40000);
 
-    auto c1 = host1.ConnectPeer(addr2, timeout).lock();
+    auto c1 = host1.ConnectPeer(addr2, timeout);
     REQUIRE(c1);
     REQUIRE(host1.Count() == 1);
 
-    auto s1 = host2.Accept(timeout).lock();
+    auto s1 = host2.Accept(timeout);
     REQUIRE(s1);
     REQUIRE(host2.Count() == 1);
 
     auto s2 = host2.ConnectPeer(addr1, timeout);
-    REQUIRE(s2.expired());
-    auto c2 = host1.ConnectPeer(addr2, timeout).lock();
+    REQUIRE(!s2);
+    auto c2 = host1.ConnectPeer(addr2, timeout);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(200));
     REQUIRE(c1->Connected());
@@ -350,10 +350,10 @@ TEST_CASE("UDPConnection drop overflowed connection requests", "[UDPConnection]"
 }
 
 TEST_CASE("UDPConnection timeout after one side forcefully disconnect", "[UDPConnection]") {
-    UDPConnectionManager<2> host1(30000, 10, 1500, std::chrono::milliseconds(10));
+    UDPConnectionManager host1(30000, 2, 10, 1500, std::chrono::milliseconds(10));
     REQUIRE(host1.Good());
 
-    UDPConnectionManager<2> host2(40000, 10, 1500, std::chrono::milliseconds(10));
+    UDPConnectionManager host2(40000, 2, 10, 1500, std::chrono::milliseconds(10));
     REQUIRE(host2.Good());
     host1.isListening = true;
     host2.isListening = true;
@@ -375,11 +375,11 @@ TEST_CASE("UDPConnection timeout after one side forcefully disconnect", "[UDPCon
         .requestRetryInterval = std::chrono::milliseconds(250)
     };
 
-    auto c1 = host1.ConnectPeer(addr2, timeout).lock();
+    auto c1 = host1.ConnectPeer(addr2, timeout);
     REQUIRE(c1);
     REQUIRE(host1.Count() == 1);
 
-    auto s1 = host2.Accept(timeout).lock();
+    auto s1 = host2.Accept(timeout);
     REQUIRE(s1);
     REQUIRE(host2.Count() == 1);
 
@@ -401,10 +401,10 @@ TEST_CASE("UDPConnection timeout after one side forcefully disconnect", "[UDPCon
 }
 
 TEST_CASE("UDPConnection send regular data packets with respect to queue capacity constraint", "[UDPConnection]") {
-    UDPConnectionManager<2> host1(30000, 2, 1500, std::chrono::milliseconds(10));
+    UDPConnectionManager host1(30000, 2, 2, 1500, std::chrono::milliseconds(10));
     REQUIRE(host1.Good());
 
-    UDPConnectionManager<2> host2(40000, 1, 1500, std::chrono::milliseconds(10));
+    UDPConnectionManager host2(40000, 2, 1, 1500, std::chrono::milliseconds(10));
     REQUIRE(host2.Good());
     host1.isListening = true;
     host2.isListening = true;
@@ -426,11 +426,11 @@ TEST_CASE("UDPConnection send regular data packets with respect to queue capacit
     addr2.sin_family = AF_INET;
     addr2.sin_port = htons(40000);
 
-    auto c1 = host1.ConnectPeer(addr2, timeout).lock();
+    auto c1 = host1.ConnectPeer(addr2, timeout);
     REQUIRE(c1);
     REQUIRE(host1.Count() == 1);
 
-    auto s1 = host2.Accept(timeout).lock();
+    auto s1 = host2.Accept(timeout);
     REQUIRE(s1);
     REQUIRE(host2.Count() == 1);
 
@@ -530,10 +530,10 @@ TEST_CASE("UDPConnection send regular data packets with respect to queue capacit
 }
 
 TEST_CASE("UDPConnection send request data packets", "[UDPConnection]") {
-    UDPConnectionManager<2> host1(30000, 5, 1500, std::chrono::milliseconds(10));
+    UDPConnectionManager host1(30000, 2, 5, 1500, std::chrono::milliseconds(10));
     REQUIRE(host1.Good());
 
-    UDPConnectionManager<2> host2(40000, 5, 1500, std::chrono::milliseconds(10));
+    UDPConnectionManager host2(40000, 2, 5, 1500, std::chrono::milliseconds(10));
     REQUIRE(host2.Good());
     host1.isListening = true;
     host2.isListening = true;
@@ -555,11 +555,11 @@ TEST_CASE("UDPConnection send request data packets", "[UDPConnection]") {
     addr2.sin_family = AF_INET;
     addr2.sin_port = htons(40000);
 
-    auto c1 = host1.ConnectPeer(addr2, timeout).lock();
+    auto c1 = host1.ConnectPeer(addr2, timeout);
     REQUIRE(c1);
     REQUIRE(host1.Count() == 1);
 
-    auto s1 = host2.Accept(timeout).lock();
+    auto s1 = host2.Accept(timeout);
     REQUIRE(s1);
     REQUIRE(host2.Count() == 1);
 
@@ -653,10 +653,10 @@ TEST_CASE("UDPConnection send request data packets", "[UDPConnection]") {
 }
 
 TEST_CASE("UDPConnection send request data packets back and forth", "[UDPConnection]") {
-    UDPConnectionManager<2> host1(30000, 2, 1500, std::chrono::milliseconds(10));
+    UDPConnectionManager host1(30000, 2, 2, 1500, std::chrono::milliseconds(10));
     REQUIRE(host1.Good());
 
-    UDPConnectionManager<2> host2(40000, 1, 1500, std::chrono::milliseconds(10));
+    UDPConnectionManager host2(40000, 2, 1, 1500, std::chrono::milliseconds(10));
     REQUIRE(host2.Good());
     host1.isListening = true;
     host2.isListening = true;
@@ -678,11 +678,11 @@ TEST_CASE("UDPConnection send request data packets back and forth", "[UDPConnect
     addr2.sin_family = AF_INET;
     addr2.sin_port = htons(40000);
 
-    auto c1 = host1.ConnectPeer(addr2, timeout).lock();
+    auto c1 = host1.ConnectPeer(addr2, timeout);
     REQUIRE(c1);
     REQUIRE(host1.Count() == 1);
 
-    auto s1 = host2.Accept(timeout).lock();
+    auto s1 = host2.Accept(timeout);
     REQUIRE(s1);
     REQUIRE(host2.Count() == 1);
 
@@ -770,10 +770,10 @@ TEST_CASE("UDPConnection send request data packets back and forth", "[UDPConnect
 }
 
 TEST_CASE("UDPConnection send IMP data packets with respect to queue capacity constraint", "[UDPConnection]") {
-    UDPConnectionManager<2> host1(30000, 2, 1500, std::chrono::milliseconds(10));
+    UDPConnectionManager host1(30000, 2, 2, 1500, std::chrono::milliseconds(10));
     REQUIRE(host1.Good());
 
-    UDPConnectionManager<2> host2(40000, 1, 1500, std::chrono::milliseconds(10));
+    UDPConnectionManager host2(40000, 2, 1, 1500, std::chrono::milliseconds(10));
     REQUIRE(host2.Good());
     host1.isListening = true;
     host2.isListening = true;
@@ -796,11 +796,11 @@ TEST_CASE("UDPConnection send IMP data packets with respect to queue capacity co
     addr2.sin_family = AF_INET;
     addr2.sin_port = htons(40000);
 
-    auto c1 = host1.ConnectPeer(addr2, timeout).lock();
+    auto c1 = host1.ConnectPeer(addr2, timeout);
     REQUIRE(c1);
     REQUIRE(host1.Count() == 1);
 
-    auto s1 = host2.Accept(timeout).lock();
+    auto s1 = host2.Accept(timeout);
     REQUIRE(s1);
     REQUIRE(host2.Count() == 1);
 

@@ -16,7 +16,7 @@ UDPConnection::UDPConnection(
 #pragma warning(disable: 26813)
 void UDPConnection::ParsePacket(const UDPHeader& header, UDPPacket&& packet) {
 	bool goodPacket = false;
-	std::lock_guard<std::mutex> guard(connectionLock);
+	std::lock_guard<std::mutex> guard(lock);
 
 	switch (status) {
 		case ConnectionStatus::Disconnected:
@@ -172,6 +172,8 @@ void UDPConnection::ParsePacket(const UDPHeader& header, UDPPacket&& packet) {
 				peerAddr = packet.address;
 				lastReceived = std::chrono::steady_clock::now();
 				heartBeatTime = std::chrono::steady_clock::now() + timeout.connectionRetryInterval;
+
+				cv.notify_all();
 				return;
 			}
 			break;
@@ -185,6 +187,7 @@ void UDPConnection::ParsePacket(const UDPHeader& header, UDPPacket&& packet) {
 				peerAddr = packet.address;
 				lastReceived = std::chrono::steady_clock::now();
 				heartBeatTime = lastReceived.load() + timeout.connectionRetryInterval;
+				cv.notify_all();
 				return;
 			}
 			else if (header.flag == UDPHeaderFlag::SYN && header.sessionID == 0) { // Client did not receive the packet
@@ -219,22 +222,22 @@ void UDPConnection::ParsePacket(const UDPHeader& header, UDPPacket&& packet) {
 #pragma warning(pop)
 
 bool UDPConnection::Connected() { 
-	std::lock_guard<std::mutex> guard(connectionLock);
+	std::lock_guard<std::mutex> guard(lock);
 	return status == ConnectionStatus::Connected; 
 }
 
 bool UDPConnection::Closed() {
-	std::lock_guard<std::mutex> guard(connectionLock);
+	std::lock_guard<std::mutex> guard(lock);
 	return status == ConnectionStatus::Disconnected;
 }
 
 sockaddr_in UDPConnection::PeerAddr() { 
-	std::lock_guard<std::mutex> guard(connectionLock); return peerAddr; 
+	std::lock_guard<std::mutex> guard(lock); return peerAddr; 
 }
 
 std::optional<UDPPacket> UDPConnection::Receive() {
 	// No peer connected, do nothing
-	std::lock_guard<std::mutex> guard(connectionLock);
+	std::lock_guard<std::mutex> guard(lock);
 	if (status == ConnectionStatus::Disconnected) {
 		return {};
 	}
@@ -246,8 +249,21 @@ std::optional<UDPPacket> UDPConnection::Receive() {
 	return pkt;
 }
 
-void UDPConnection::UpdateAwaits() {
-	std::lock_guard<std::mutex> guard(connectionLock);
+bool UDPConnection::UpdateTimeout() {
+	std::lock_guard<std::mutex> guard(lock);
+	if (std::chrono::steady_clock::now() - lastReceived.load() > timeout.connectionTimeout) {
+		std::cout << "Connection timed out!" << std::endl;
+		status = ConnectionStatus::Disconnected;
+		for (auto i = awaitResponse.begin(); i != awaitResponse.end();) {
+			i->promise.set_value({});
+			i = awaitResponse.erase(i);
+		}
+		packetQueue.clear();
+		awaitAck.clear();
+		cv.notify_all();
+		return false;
+	}
+
 	if (status == ConnectionStatus::Connected) {
 		for (auto i = awaitAck.begin(); i != awaitAck.end(); ++i) {
 			if (std::chrono::steady_clock::now() > i->resend) {
@@ -323,11 +339,12 @@ void UDPConnection::UpdateAwaits() {
 			socket->SendPacket(reinterpret_cast<Packet&>(resync));
 		}
 	}
+	return true;
 }
 
 std::future<std::optional<UDPPacket>> UDPConnection::Send(UDPPacket& packet) {
 	// No peer connected, do nothing
-	std::lock_guard<std::mutex> guard(connectionLock);
+	std::lock_guard<std::mutex> guard(lock);
 	if (status != ConnectionStatus::Connected) {
 		std::cout << "Attempting to send data via unconnected connection" << std::endl;
 		return {};
@@ -376,20 +393,8 @@ std::future<std::optional<UDPPacket>> UDPConnection::Send(UDPPacket& packet) {
 	return asyncResult;
 }
 
-void UDPConnection::TimeoutDisconnect() {
-	std::lock_guard<std::mutex> guard(connectionLock);
-	std::cout << "Connection timed out!" << std::endl;
-	status = ConnectionStatus::Disconnected;
-	for (auto i = awaitResponse.begin(); i != awaitResponse.end();) {
-		i->promise.set_value({});
-		i = awaitResponse.erase(i);
-	}
-	packetQueue.clear();
-	awaitAck.clear();
-}
-
 void UDPConnection::Disconnect() {
-	std::lock_guard<std::mutex> guard(connectionLock);
+	std::lock_guard<std::mutex> guard(lock);
 	if (status == ConnectionStatus::Disconnected) {
 		return;
 	}
@@ -414,4 +419,216 @@ void UDPConnection::Disconnect() {
 
 	UDPPacket response;
 	socket->SendPacket(std::span<const char>{packet.payload.data(), packet.payload.size()}, peerAddr);
+	cv.notify_all();
+}
+
+bool UDPConnection::Wait(std::optional<std::chrono::steady_clock::duration> waitTime) {
+	std::unique_lock<std::mutex> guard(lock);
+	if (status == ConnectionStatus::Connected || status == ConnectionStatus::Disconnected) return status == ConnectionStatus::Connected;
+
+	auto predicate = [&]() { return status == ConnectionStatus::Connected || status == ConnectionStatus::Disconnected; };
+
+	if (waitTime)
+	{
+		cv.wait_for(guard, waitTime.value(), predicate);
+	}
+	else { 
+		cv.wait(guard, predicate); 
+	}
+	return status == ConnectionStatus::Connected;
+}
+
+uint32_t UDPConnectionManager::GenerateChecksum() {
+	checksumGenerator.seed(std::random_device{}());
+	return std::uniform_int_distribution<uint32_t>{1, UINT32_MAX}(checksumGenerator);
+}
+
+UDPConnectionManager::UDPConnectionManager(USHORT port, size_t numConnections, size_t packetQueueCapacity, DWORD maxPacketSize, std::chrono::steady_clock::duration updateInterval)
+	: socket(std::make_shared<UDPSocket>(port, maxPacketSize)), numConnections(numConnections), connections(numConnections), updateInterval(updateInterval), queueCapacity(packetQueueCapacity),
+	routeThread(&UDPConnectionManager::RouteAndTimeout, this)
+{
+
+}
+
+UDPConnectionManager::UDPConnectionManager(size_t packetQueueCapacity, size_t numConnections, DWORD maxPacketSize, std::chrono::steady_clock::duration updateInterval)
+	: socket(std::make_shared<UDPSocket>(maxPacketSize)), numConnections(numConnections), updateInterval(updateInterval), queueCapacity(packetQueueCapacity),
+	routeThread(&UDPConnectionManager::RouteAndTimeout, this)
+{
+
+}
+
+UDPConnectionManager::~UDPConnectionManager() {
+	{
+		std::lock_guard<std::mutex> guard(lock);
+		std::cout << "Closing all connections" << std::endl;
+		for (auto i = 0; i < numConnections; i++) { // Close all connections after the socket is closed
+			auto ptr = connections[i].lock();
+			if (ptr) {
+				ptr->Disconnect();
+			}
+		}
+		socket->Close();
+	}
+
+	if (routeThread.joinable()) routeThread.join();
+}
+
+void UDPConnectionManager::RouteAndTimeout() {
+	std::vector<std::shared_ptr<UDPConnection>> tempConnections(numConnections);
+	while (true) { 
+		{
+			std::lock_guard<std::mutex> guard(lock);
+			if (socket->IsClosed()) break;
+
+			for (auto i = 0; i < numConnections; i++) {
+				tempConnections[i] = connections[i].lock();
+			}
+
+			auto packet = socket->Read();
+			while (packet) {
+				UDPPacket& udpPacket = reinterpret_cast<UDPPacket&>(packet.value());
+				if (udpPacket.Good()) {
+					UDPHeader header = udpPacket.Header();
+					bool routed = false;
+					std::cout << "Host received packet with sessionID " << header.sessionID << std::endl;
+					for (auto i = 0; i < numConnections; i++) {
+						if (tempConnections[i] && !tempConnections[i]->Closed() && header.sessionID == tempConnections[i]->sessionID) {
+							std::cout << "Connection with sessionID " << tempConnections[i]->sessionID << std::endl;
+							routed = true;
+							tempConnections[i]->ParsePacket(header, std::move(udpPacket));
+							break;
+						}
+					}
+
+					// Packet was not delivered to any opened connections, could be a request to open new connection
+					if (!routed && isListening) {
+						if (header.sessionID == 0 && header.flag & UDPHeaderFlag::SYN) {
+							connectionRequests.emplace_back(
+								ConnectionRequest{
+									.address = udpPacket.address,
+									.checksum = header.index
+								}
+							);
+							cv.notify_one();
+						}
+					}
+				}
+
+				packet = socket->Read();
+			}
+
+			// Ask active connections to process timeouts and remove closed connections
+			for (auto i = 0; i < numConnections; i++) {
+				if (tempConnections[i] &&
+					(tempConnections[i]->Closed() || !tempConnections[i]->UpdateTimeout())
+					)
+				{
+					connections[i].reset();
+				}
+			}
+		}
+		std::this_thread::sleep_for(updateInterval);
+	}
+}
+
+std::shared_ptr<UDPConnection> UDPConnectionManager::Accept(TimeoutSetting timeout, std::optional<std::chrono::steady_clock::duration> waitTime) {
+	if (socket->IsClosed()) return {};
+
+	// Only accept connection when there's spot available
+	std::unique_lock<std::mutex> guard(lock);
+	if (!isListening && connectionRequests.empty()) return {};
+
+	size_t index = numConnections;
+
+	for (size_t i = 0; i < numConnections; i++) {
+		auto ptr = connections[i].lock();
+		if (!ptr || ptr->Closed()) {
+			index = i;
+			break;
+		}
+	}
+	if (index == numConnections) return {};
+
+	auto predicate = [&]() { return !connectionRequests.empty(); };
+	if (waitTime) {
+		if (!cv.wait_for(guard, waitTime.value(), predicate)) return {};
+	}
+	else {
+		cv.wait(guard, predicate);
+	}
+
+	ConnectionRequest request = connectionRequests.front();
+	connectionRequests.pop_front();
+
+	uint32_t checksum = GenerateChecksum();
+	auto result = std::make_shared<UDPConnection>(socket, queueCapacity, request.address, checksum, timeout);
+	result->status = UDPConnection::ConnectionStatus::Pending;
+	result->clientChecksum = request.checksum;
+	connections[index] = result;
+	guard.unlock();
+
+	UDPPacket synMessage;
+	synMessage.address = request.address;
+	std::cout << "Received client number " << request.checksum << std::endl;
+	std::cout << "Server using number " << checksum << std::endl;
+	UDPHeader header = {
+		.index = checksum,
+		.sessionID = request.checksum,
+		.flag = UDPHeaderFlag::SYN | UDPHeaderFlag::ACK,
+	};
+	synMessage.SetHeader(header);
+	socket->SendPacket(reinterpret_cast<const Packet&>(synMessage));
+
+	return result;
+}
+
+bool UDPConnectionManager::Good() const { return !socket->IsClosed(); }
+
+size_t UDPConnectionManager::Count() {
+	std::lock_guard<std::mutex> guard(lock);
+	size_t count = 0;
+	for (size_t i = 0; i < numConnections; i++) {
+		auto ptr = connections[i].lock();
+		if (ptr) {
+			if (ptr->Closed()) connections[i].reset();
+			else { ++count; }
+		}
+	}
+	return count;
+}
+
+std::shared_ptr<UDPConnection> UDPConnectionManager::ConnectPeer(sockaddr_in peerAddr, TimeoutSetting timeout) {
+	// Do nothing if socket is closed
+	if (socket->IsClosed()) return {};
+
+	std::lock_guard<std::mutex> guard(lock);
+	size_t index = numConnections;
+	for (size_t i = 0; i < numConnections; i++) {
+		auto ptr = connections[i].lock();
+		if (!ptr || ptr->Closed()) {
+			index = i;
+			break;
+		}
+	}
+	// No available spots left for new connections
+	if (index == numConnections) return {};
+
+	uint32_t checksum = GenerateChecksum();
+	std::cout << "Client using number " << checksum << std::endl;
+	UDPPacket packet;
+	packet.address = peerAddr;
+	UDPHeader header = {
+		.index = checksum,
+		.sessionID = 0,
+		.flag = UDPHeaderFlag::SYN
+	};
+	packet.SetHeader(header);
+
+	auto result = std::make_shared<UDPConnection>(socket, queueCapacity, peerAddr, checksum, timeout);
+	result->status = UDPConnection::ConnectionStatus::Connecting;
+	connections[index] = result;
+
+	socket->SendPacket(reinterpret_cast<Packet&>(packet));
+
+	return result;
 }

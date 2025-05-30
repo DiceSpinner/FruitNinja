@@ -84,11 +84,9 @@ class Server {
 	friend class ServerState;
 private:
 	std::unique_ptr<ServerState> state = {};
-	std::thread networkMonitorThread;
-	std::chrono::milliseconds updateInterval;
 	std::chrono::steady_clock::time_point startTime;
+	TimeoutSetting timeout;
 
-	std::mutex lock;
 	ServerContext context;
 	enum ServerStatus {
 		OnHold,
@@ -100,8 +98,11 @@ private:
 public:
 	std::atomic<bool> running;
 
-	Server();
-	void MonitorConnection();
+	Server(TimeoutSetting timeout);
+	Server(const Server& other) = delete;
+	Server(Server&& other) = delete;
+	Server& operator = (const Server& other) = delete;
+	Server& operator = (Server&& other) = delete;
 
 	void CleanUp();
 

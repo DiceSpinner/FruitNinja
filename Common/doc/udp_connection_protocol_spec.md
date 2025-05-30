@@ -119,23 +119,27 @@ Timeout behavior and retry intervals for both connection handshakes and request 
 
 Requests are initiated by sending a packet with the `REQ` flag set. Each request is associated with a unique packet index. The sender receives a `std::future<std::optional<UDPPacket>>`, which will complete when a matching response arrives or a timeout occurs.
 
-Requests marked with `REQ` will be retransmitted automatically at intervals until a response is received or the request times out.
+Requests marked with `REQ` will be retransmitted automatically at intervals until a delivery acknowledgement is received or the request times out.
 
 If the request times out, the associated `std::future` will be fulfilled with `std::nullopt` to indicate failure.
 
-It is valid for a response to a `REQ` to itself be another `REQ`, enabling nested or conversational message patterns.
+Use `ACK` flag to respond to a `REQ` message by setting the `ackIndex` of the header to the `index` of the message.
+
+Use `ACK | REQ` if the response is also a message that expects further response, enabling nested or conversational message patterns.
 
 ---
 
+
+> When a `REQ` packet is received, the transport layer will acknowledge its delivery by sending a reply with `ACK | REQ | IMP`. This response ensures the sender will stop retrying the request. The application logic will not see this response — it is the application's responsibility to send a follow-up message to fulfill the request.
 ### Flag Semantics (`UDPHeaderFlag`)
 
 #### Application-level Flags:
 | Flag   | Description |
 |--------|-------------|
 | `None` | No special handling. Packets with no flags are sent and received like standard UDP packets, with no reliability or acknowledgment guarantees. |
-| `REQ`  | Indicates this is a request expecting a response. Retries until a response is received or timeout. No ACK is required. |
-| `IMP`  | Indicates reliable delivery is required. An ACK is expected; otherwise, the packet will be retransmitted. Cannot be used with `REQ`. |
-| `ACK`  | Acknowledges receipt of a packet identified by `ackIndex`. May be used by application logic to acknowledge `REQ` packets. ACKs for `IMP` packets are handled automatically by the `UDPConnection`. |
+| `IMP`  | Indicates reliable delivery is required. |
+| `REQ`  | Indicates reliable delivery is required and this message expects a response.|
+| `ACK`  | Acknowledges receipt of a packet identified by `ackIndex`. May be used by application logic to acknowledge `REQ` packets. ACKs indicating the delivery for `IMP` and `REQ` packets are handled automatically. |
 
 #### Internal-use Flags (DO NOT USE directly):
 | Flag  | Description |
@@ -144,6 +148,8 @@ It is valid for a response to a `REQ` to itself be another `REQ`, enabling neste
 | `FIN` | Used to notify connection termination |
 | `HBT` | Heartbeat packet to check if connection is alive |
 
-#### Invalid Combinations:
-- `REQ | IMP` → **Invalid**. `REQ` already guarantees delivery through its own retry mechanism; combining with `IMP` is redundant and unsupported.
-- `IMP | ACK` → **Reserved**. Used internally to acknowledge an `IMP` packet and should not be set manually by application code.
+#### Reserved Flag Combinations:
+| Combination  | Description |
+|---------------------------|-------------|
+| `IMP \| ACK`     | Reserved. Used internally for automatic acknowledgement of the delivery of `IMP` messages. |
+| `REQ \| IMP \| ACK` &nbsp;  | Reserved. Used internally for automatic acknowledgement of the delivery of `REQ` messages.

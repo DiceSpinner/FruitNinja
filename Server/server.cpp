@@ -58,37 +58,15 @@ optional<type_index> ServerState::Run() {
 }
 void ServerState::BroadCastState() {}
 
-Server::Server() : running(true), startTime(std::chrono::steady_clock::now())
+Server::Server(TimeoutSetting timeout) : running(true), timeout(timeout), startTime(std::chrono::steady_clock::now())
 {
-	context.connectionManager = std::make_unique<UDPConnectionManager<2>>(30000, 10, 1500, std::chrono::milliseconds(10));
+	context.connectionManager = std::make_unique<UDPConnectionManager>(30000, 10, 1500, std::chrono::milliseconds(10));
 	context.connectionManager->isListening = true;
 	if (!context.connectionManager->Good()) {
 		std::cout << "Connection managed failed to initialzie" << "\n";
 		return;
 	}
-	networkMonitorThread = std::move(std::thread(&Server::MonitorConnection, this));
-}
-
-void Server::MonitorConnection() {
-	TimeoutSetting timeout{
-		.connectionTimeout = std::chrono::milliseconds(5000),
-		.connectionRetryInterval = std::chrono::milliseconds(300),
-		.requestTimeout = std::chrono::milliseconds(3000),
-		.requestRetryInterval = std::chrono::milliseconds(300),
-		.impRetryInterval = std::chrono::milliseconds(300)
-	};
-	while (running) {
-		if (!context.player1) {
-			std::lock_guard<std::mutex> guard(lock);
-			context.player1 = context.connectionManager->Accept(timeout);
-			continue;
-		}
-		if (!context.player2) {
-			std::lock_guard<std::mutex> guard(lock);
-			context.player2 = context.connectionManager->Accept(timeout);
-			continue;
-		}
-	}
+	
 }
 
 void Server::CleanUp() { 
@@ -96,7 +74,16 @@ void Server::CleanUp() {
 	context.player2->Disconnect();
 	context.connectionManager->isListening = false;
 }
-void Server::ProcessInput() {  }
+void Server::ProcessInput() { 
+	bool disconnect = false;
+	if (!context.player1) {
+		context.player1 = context.connectionManager->Accept(timeout);
+	}
+	else if (context.player1->Closed()) {
+		
+	}
+}
+
 void Server::Step() { 
 	auto time = std::chrono::steady_clock::now() - startTime;
 	std::cout << "[Time] " << std::chrono::duration_cast<std::chrono::milliseconds>(time) << std::endl; 

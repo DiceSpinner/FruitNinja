@@ -143,6 +143,7 @@ private:
 		Packet packet;
 		std::chrono::steady_clock::time_point timeout;
 		std::chrono::steady_clock::time_point resend;
+		bool acked;
 	};
 
 	struct AwaitAck {
@@ -186,6 +187,23 @@ private:
 	/// </summary>
 	bool UpdateTimeout();
 	void ParsePacket(const UDPHeader& header, UDPPacket&& packet);
+	
+	// Packet handlers when status is connected
+	void UpdateAddress(const UDPHeader& header, const UDPPacket& packet);
+	bool TryHandleDisconnect(const UDPHeader& header);
+	bool TryHandleMissedHandshake(const UDPHeader& header, const UDPPacket& packet);
+	bool TryHandleAcknowledgement(const UDPHeader& header, UDPPacket&& packet);
+	void HandleUnreliableData(const UDPHeader& header, UDPPacket&& packet);
+	bool TryHandleReliableData(const UDPHeader& header, UDPPacket&& packet);
+	bool TryHandleHeartBeat(const UDPHeader& header, const UDPPacket& packet);
+	
+	// Packet handlers when status is connecting
+	void HandleServerAcknowledgement(const UDPHeader& header, const UDPPacket& packet);
+
+	// Packet handlers when status is pending
+	bool TryHandleMissedAcknowledgement(const UDPHeader& header, const UDPPacket& packet);
+	void HandleClientAcknowledgement(const UDPHeader& header, const UDPPacket& packet);
+
 public:
 	const TimeoutSetting timeout;
 

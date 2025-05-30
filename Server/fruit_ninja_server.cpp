@@ -6,7 +6,15 @@
 int main() {
     Networking::init();
 
-    Server server;
+    Server server(
+        TimeoutSetting{
+            .connectionTimeout = std::chrono::seconds(5),
+            .connectionRetryInterval = std::chrono::milliseconds(300),
+            .requestTimeout = std::chrono::seconds(3),
+            .requestRetryInterval = std::chrono::milliseconds(300),
+            .impRetryInterval = std::chrono::milliseconds(200)
+        }
+     );
     std::chrono::steady_clock::duration tickInterval(std::chrono::milliseconds(10));
     std::chrono::steady_clock::time_point tickTime = std::chrono::steady_clock::now();
     while (server.running) {

@@ -36,10 +36,20 @@ AudioClip::AudioClip(const char* path) {
 	alBufferData(audioBuffer, format, dataBuffer.data(), dataBuffer.size() * sizeof(short), audioFile.getSampleRate());
 }
 
+AudioClip::AudioClip(AudioClip&& other) noexcept : audioBuffer(other.audioBuffer) {
+	other.audioBuffer = 0;
+}
+
 AudioClip::~AudioClip() {
-	if (audioBuffer != 0) {
+	if (audioBuffer) {
 		alDeleteBuffers(1, &audioBuffer);
 	}
+}
+
+AudioClip& AudioClip::operator = (AudioClip&& other) noexcept {
+	audioBuffer = other.audioBuffer;
+	other.audioBuffer = 0;
+	return *this;
 }
 
 ALuint AudioClip::Get() const {

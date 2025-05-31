@@ -5,13 +5,18 @@
 #include <glm/glm.hpp>
 
 class Shader
-{
+{ 
 public:
-    // the program ID
     unsigned int ID;
 
-    // constructor reads and builds the shader
     Shader(const char* vertexPath, const char* fragmentPath);
+    Shader(const Shader& shader) = delete;
+    Shader(Shader&& shader) = delete;
+    Shader& operator = (const Shader& other) = delete;
+    Shader& operator = (Shader&& other) = delete;
+    ~Shader();
+
+    bool IsValid() const;
     // use/activate the shader
     void Use() const;
     // utility uniform functions
@@ -19,8 +24,6 @@ public:
     void SetInt(const std::string& name, int value) const;
     void SetFloat(const std::string& name, float value) const;
     void SetVec4(const std::string& name, glm::vec4 value) const;
-
-    Shader(const Shader& shader) = delete;
 };
 
 #endif

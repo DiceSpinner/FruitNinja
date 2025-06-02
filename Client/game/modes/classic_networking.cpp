@@ -1,7 +1,6 @@
 #include "classic_networking.hpp"
 #include "game/modes/classic.hpp"
 #include "state/time.hpp"
-#include "state/window.hpp"
 #include "physics/rigidbody.hpp"
 #include "audio/audiosource.hpp"
 #include "audio/audiolistener.hpp"

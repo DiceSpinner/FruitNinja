@@ -1,7 +1,6 @@
 #include <iostream>
 #include "rendering/camera.hpp"
 #include "cursor.hpp"
-#include "window.hpp"
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
 
@@ -17,8 +16,9 @@ namespace Cursor {
 	static glm::vec2 currPosition(0, 0);
 
 	void updateCursorPosition(glm::vec2 position) {
-		float halfW = static_cast<float>(SCR_WIDTH) / 2;
-		float halfH = static_cast<float>(SCR_HEIGHT) / 2;
+		auto dimension = RenderContext::Context->Dimension();
+		float halfW = static_cast<float>(dimension.x) / 2;
+		float halfH = static_cast<float>(dimension.y) / 2;
 		position.x = (position.x - halfW) / halfW;
 		position.y = (halfH - position.y) / halfH;
 

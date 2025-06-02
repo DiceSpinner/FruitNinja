@@ -1,6 +1,5 @@
 #include "game/modes/classic.hpp"
 #include "state/time.hpp"
-#include "state/window.hpp"
 #include "physics/rigidbody.hpp"
 #include "audio/audiosource.hpp"
 #include "audio/audiolistener.hpp"
@@ -242,6 +241,7 @@ void ClassicMode::OnDrawBackUI(Shader& uiShader) {
 }
 
 void ClassicMode::OnDrawFrontUI(Shader& uiShader) {
+	auto screenSize = RenderContext::Context->Dimension();
 	if (context.current == ClassicModeContext::Explosion) {
 		game->enableMouseTrail = false;
 		context.drawFadeOut = true;
@@ -263,8 +263,8 @@ void ClassicMode::OnDrawFrontUI(Shader& uiShader) {
 		ui.fadeOutEffect->Draw(uiShader);
 	}
 
-	float halfWidth = SCR_WIDTH / 2.0f;
-	float halfHeight = SCR_HEIGHT / 2.0f;
+	float halfWidth = screenSize.x / 2.0f;
+	float halfHeight = screenSize.y / 2.0f;
 	if (context.current == ClassicModeContext::Start) {
 		ui.startButton->DrawInNDC(setting.startButtonPos, uiShader);
 		ui.backButton->DrawInNDC(setting.exitButtonPos, uiShader);

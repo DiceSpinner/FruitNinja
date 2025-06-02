@@ -1,6 +1,6 @@
+#include "rendering/render_context.hpp"
 #include "ui.hpp"
 #include "glm/ext.hpp"
-#include "../state/window.hpp"
 
 using namespace std;
 
@@ -127,8 +127,9 @@ void UI::Draw(Shader& shader) const {
 }
 
 void UI::DrawInNDC(glm::vec2 ndc, Shader& shader) {
-	float x = ndc.x / 2 * SCR_WIDTH;
-	float y = ndc.y / 2 * SCR_HEIGHT;
+	auto screenSize = RenderContext::Context->Dimension();
+	float x = ndc.x / 2 * screenSize.x;
+	float y = ndc.y / 2 * screenSize.y;
 	transform.SetPosition(glm::vec3(x, y, 0));
 	Draw(shader);
 }

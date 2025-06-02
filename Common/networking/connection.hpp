@@ -14,8 +14,7 @@ typedef uint32_t PacketIndex;
 /// The following flags can be used by application logic:
 /// - None: No flags.
 /// - ACK: Acknowledgement of a received packet.
-/// - REQ: This packet is a request expecting a response. It will be retransmitted 
-///        until a matching response is received or a timeout occurs.
+/// - REQ: This packet is a request expecting a response. The receival of this packet must be acknoledged by the peer.
 ///        No ACK is required ¡ª the application can ignore the request, or respond with ACK flag to fufill the request.
 ///        Additionally, in the response REQ can also be used to make the message both an acknowledgement and request
 /// - IMP: Transport-level reliability. The packet must be acknowledged by the receiver

@@ -1,15 +1,13 @@
-﻿#include <glad/glad.h>
-#include <GLFW/glfw3.h>
-#include <glm/glm.hpp>
-#include <glm/ext.hpp>
+﻿#include "rendering/render_context.hpp"
+#include "audio/audio_context.hpp"
+#include "rendering/font.hpp"
+
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
 #include <iostream>
-#include "infrastructure/context.hpp"
 #include "infrastructure/object.hpp"
 #include "input.hpp"
 #include "state/time.hpp"
-#include "state/window.hpp"
 #include "rendering/shader.hpp"
 #include "rendering/camera.hpp"
 #include "rendering/renderer.hpp"
@@ -32,8 +30,11 @@ const char* vfxShaderVertPath = SHADER_DIR "simple.vert";
 const char* vfxShaderFragPath = SHADER_DIR "simple.frag";
 
 int main() {
-    initContext();
-    Input::initInput();
+    RenderContext renderContext({1920, 1080});
+    Font::init();
+    Audio::initContext();
+    Time::initTime();
+    Input::initInput(renderContext.Window());
     Shader objectShader(objVertexPath, objFragPath);
     Shader unlitShader(objVertexPath, unlitFrag);
     Shader uiShader(uiVertPath, uiFragPath);
@@ -52,11 +53,11 @@ int main() {
     game.Init();
     game.SetInitialGameState<SelectionState>();
 
-    while (!glfwWindowShouldClose(window))
+    while (!glfwWindowShouldClose(renderContext.Window()))
     {
         Time::updateTime();
         glfwPollEvents();
-        Input::processInput(window);
+        Input::processInput(renderContext.Window());
         
         glClearColor(0.4f, 0.2f, 0, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
@@ -108,8 +109,10 @@ int main() {
         uiShader.Use();
         game.DrawFrontUI(uiShader);
 
-        glfwSwapBuffers(window);
+        glfwSwapBuffers(renderContext.Window());
     }
-    destroyContext();
+
+    Font::destroy();
+    Audio::destroyContext();
     return 0;
 }

@@ -8,7 +8,7 @@ namespace Input {
 	void onKeyPressed(GLFWwindow* window, int key, int scancode, int action, int mods);
 	void cursorAim(GLFWwindow* window, double xpos, double ypos);
 	void processInput(GLFWwindow* window);
-	void initInput();
+	void initInput(GLFWwindow* window);
 }
 
 #endif

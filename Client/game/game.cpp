@@ -11,13 +11,13 @@
 #include "audio/audiosource_pool.hpp"
 #include "audio/audiolistener.hpp"
 #include "physics/rigidbody.hpp"
+#include "rendering/render_context.hpp"
 #include "rendering/renderer.hpp"
 #include "rendering/camera.hpp"
 #include "rendering/model.hpp"
 #include "rendering/particle_system.hpp"
-#include "state/cursor.hpp"
 #include "state/time.hpp"
-#include "state/window.hpp"
+#include "cursor.hpp"
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
 
@@ -227,12 +227,13 @@ Game::~Game() {
 }
 
 void Game::OnMouseUpdate(glm::vec2 position) {
+	auto size = RenderContext::Context->Dimension();
 	if (Cursor::mouseClicked && enableMouseTrail) {
 		if (flushMousePositions) {
 			flushMousePositions = false;
 			mousePositions.clear();
 		}
-		glm::vec2 expanded(position.x * SCR_WIDTH / 2, position.y * SCR_HEIGHT / 2);
+		glm::vec2 expanded(position.x * size.x / 2, position.y * size.y / 2);
 		if (!mousePositions.empty()) {
 			glm::vec2 lastPos = mousePositions.back();
 			if (glm::length(expanded - lastPos) < 12) {
@@ -308,7 +309,7 @@ void Game::LoadTextures() {
 
 void Game::Step() {
 	if (!state->Run()) {
-		glfwSetWindowShouldClose(window, true);
+		glfwSetWindowShouldClose(RenderContext::Context->Window(), true);
 	}
 }
 	

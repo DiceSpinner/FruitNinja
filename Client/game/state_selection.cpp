@@ -133,6 +133,7 @@ void SelectionState::OnDrawFrontUI(Shader& uiShader) {
 }
 
 optional<type_index> SelectionState::Step() {
+	PositionUI();
 	if (!ui.exitSelection->IsActive()) {
 		return {};
 	}

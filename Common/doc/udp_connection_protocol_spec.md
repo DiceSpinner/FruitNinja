@@ -14,9 +14,9 @@ This document defines the message-level protocol used by the `UDPConnection` cla
 - Incoming UDP packets are polled directly from the OS socket using a non-blocking `select()` based `recvfrom()` loop. No listener thread or intermediate user-space packet queue is used.
 - The router thread also periodically updates all active connections to handle retries, retransmissions, and connection timeouts. This update interval is configurable at construction time.
 
-It is templated with a parameter indicating the maximum number of concurrent connections (including in-progress handshakes). If this limit is reached, `ConnectPeer()` and `Accept()` will return default-constructed `std::shared_ptr<UDPConnection>`.
+The constructor takes in a parameter indicating the maximum number of concurrent connections (including in-progress handshakes). If this limit is reached, `ConnectPeer()` and `Accept()` will return default-constructed `std::shared_ptr<UDPConnection>`.
 
-The packet queue capacity must be specified when constructing a `UDPConnectionManager`. If the queue is too small, packets may be dropped before they can be routed, especially during bursts of traffic.
+The packet queue capacity for each connection must be specified when constructing a `UDPConnectionManager`. If the queue is too small, packets may be dropped before they can be routed, especially during bursts of traffic.
 
 #### Client Workflow:
 1. The client initiates a connection using `UDPConnectionManager::ConnectPeer(sockaddr_in)`.

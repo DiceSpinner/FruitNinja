@@ -1,3 +1,5 @@
+#ifndef FONT_H
+#define FONT_H
 #include <ft2build.h>
 #include FT_FREETYPE_H 
 #include <glm/glm.hpp>
@@ -17,3 +19,4 @@ namespace Font {
 	void destroy();
 	Character getChar(int size, char c);
 }
+#endif

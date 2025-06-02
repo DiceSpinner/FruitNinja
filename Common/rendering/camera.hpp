@@ -1,7 +1,7 @@
 #ifndef CAMERA_H
 #define CAMERA_H
 #include <vector>
-#include <glm/glm.hpp>
+#include "render_context.hpp"
 #include "infrastructure/component.hpp"
 
 class Camera : public Component {
@@ -18,8 +18,7 @@ public:
     bool isOrtho;
 
     Camera(
-        std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& collection, Transform& transform, Object* object, 
-        float nearClipPlane, float farClipPlane
+        std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& collection, Transform& transform, Object* object, float nearClipPlane, float farClipPlane
     );
 
     void SetPerspective(float nearClipPlane, float farClipPlane);

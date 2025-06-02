@@ -1,10 +1,9 @@
 #include <iostream>
-#include <glm/ext.hpp>
+#include "rendering/render_context.hpp"
 #include "input.hpp"
 #include "rendering/camera.hpp"
-#include "state/cursor.hpp"
+#include "cursor.hpp"
 #include "state/time.hpp"
-#include "state/window.hpp"
 
 using namespace Time;
 using namespace Input;
@@ -117,7 +116,7 @@ void Input::processInput(GLFWwindow* window)
     }
 }
 
-void Input::initInput() {
+void Input::initInput(GLFWwindow* window) {
     glfwSetKeyCallback(window, onKeyPressed);
     glfwSetCursorPosCallback(window, cursorAim);
 }

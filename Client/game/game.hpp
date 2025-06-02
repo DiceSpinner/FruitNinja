@@ -8,7 +8,6 @@
 #include <list>
 #include <typeindex>
 #include <iostream>
-#include "state/window.hpp"
 #include "infrastructure/object.hpp"
 #include "infrastructure/state_machine.hpp"
 #include "infrastructure/coroutine.hpp"

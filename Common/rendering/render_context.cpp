@@ -1,28 +1,23 @@
-#include <iostream>
-#include <memory>
-#include "infrastructure/context.hpp"
-#include "state/window.hpp"
-#include "state/time.hpp"
+#include "render_context.hpp"
 #include "rendering/camera.hpp"
-#include "rendering/font.hpp"
 #include "rendering/renderer.hpp"
-#include "audio/audio_context.hpp"
-#include "networking/networking.hpp"
-
-using namespace std;
-
-static shared_ptr<Object> camera;
+#include <iostream>
+#include <functional>
 
 static void onWindowResize(GLFWwindow* window, int width, int height)
 {
-    // make sure the viewport matches the new window dimensions; note that width and 
-    // height will be significantly larger than specified on retina displays.
     glViewport(0, 0, width, height);
-    SCR_WIDTH = width;
-    SCR_HEIGHT = height;
+
+    RenderContext* context = static_cast<RenderContext*>(glfwGetWindowUserPointer(window));
+    if (!context) {
+        std::cout << "The user pointer is not set for the render context" << std::endl;
+        return;
+    }
+
+    context->SetDimension({width, height});
     for (auto& camera : *Camera::cameras) {
         camera->SetPerspective(0.1f, 300.0f);
-		camera->SetOrthoWidth(width);
+        camera->SetOrthoWidth(width);
     }
 }
 
@@ -73,8 +68,16 @@ static void APIENTRY glDebugOutput(GLenum source,
     std::cout << std::endl;
     exit(-1);
 }
- 
-void initContext() {
+
+RenderContext* RenderContext::Context = nullptr;
+
+RenderContext::RenderContext(glm::uvec2 dimension) :
+    dimension(dimension)
+{
+    if (Context) {
+        std::cout << "A render context has already been created" << std::endl;
+        return;
+    }
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
@@ -84,24 +87,28 @@ void initContext() {
 #endif
     //glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
-    window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Fruit Ninja", NULL, NULL);
-    if (window == NULL)
+    handle = glfwCreateWindow(dimension.x, dimension.y, "Fruit Ninja", NULL, NULL);
+    if (!handle)
     {
         std::cout << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
-        exit(-1);
+        return;
     }
-    glfwMakeContextCurrent(window);
+    glfwMakeContextCurrent(handle);
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
         std::cout << "Failed to initialize GLAD" << std::endl;
-        exit(-1);
+        glfwDestroyWindow(handle);
+        handle = {};
+        glfwTerminate();
+        return;
     }
-    glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
+    glViewport(0, 0, dimension.x, dimension.y);
 
-    glfwSetFramebufferSizeCallback(window, onWindowResize);
-    
+    glfwSetWindowUserPointer(handle, this);
+    glfwSetFramebufferSizeCallback(handle, onWindowResize);
+
     std::cout << "OpenGL Version: " << glGetString(GL_VERSION) << std::endl;
     int flags; glGetIntegerv(GL_CONTEXT_FLAGS, &flags);
     if (flags & GL_CONTEXT_FLAG_DEBUG_BIT)
@@ -128,16 +135,20 @@ void initContext() {
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glBindTexture(GL_TEXTURE_2D, 0);
 
-    srand(time(NULL));
+    Context = this;
+}
 
-    Time::initTime();
-    Font::init();
-    Audio::initContext();
-    Networking::init();
-}
-void destroyContext() {
-    Font::destroy();
-    Audio::destroyContext();
-    Networking::destroy();
+RenderContext::~RenderContext() {
+    if (!handle) return;
+    glfwDestroyWindow(handle);
     glfwTerminate();
+    Context = nullptr;
 }
+
+bool RenderContext::Good() const {
+    return handle;
+}
+
+glm::uvec2 RenderContext::Dimension() const { return dimension; }
+void RenderContext::SetDimension(glm::uvec2 dimension) { this->dimension = dimension; }
+GLFWwindow* RenderContext::Window() const { return handle;  }

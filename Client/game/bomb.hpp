@@ -2,7 +2,7 @@
 #define BOMB_H
 #include <AL/al.h>
 #include "audio/audiosource_pool.hpp"
-#include "infrastructure/component.hpp"
+#include "infrastructure/object.hpp"
 #include "rendering/particle_system.hpp"
 
 struct BombChannel {
@@ -21,6 +21,6 @@ private:
 public:
 	Bomb(std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& collection, Transform& transform, Object* object,
 		std::shared_ptr<AudioClip> explosionSFX, float radius, BombChannel& channel);
-	void Update() override;
+	void Update(Clock& clock) override;
 };
 #endif

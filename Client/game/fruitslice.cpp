@@ -1,5 +1,4 @@
 #include "fruitslice.hpp"
-#include "state/time.hpp"
 #include "infrastructure/object.hpp"
 
 using namespace std;
@@ -8,8 +7,8 @@ FruitSlice::FruitSlice(unordered_map<type_index, vector<unique_ptr<Component>>>&
 	: Component(components, transform, object), channel(channel), isUI(isUI) {
 }
 
-void FruitSlice::Update() {
+void FruitSlice::Update(Clock& clock) {
 	if (transform.position().y <= channel.killHeight || (channel.disableNonUI && !isUI)) {
-		object->SetEnable(false);
+		object->Detach();
 	}
 }

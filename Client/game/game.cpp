@@ -16,7 +16,6 @@
 #include "rendering/camera.hpp"
 #include "rendering/model.hpp"
 #include "rendering/particle_system.hpp"
-#include "state/time.hpp"
 #include "cursor.hpp"
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
@@ -124,7 +123,7 @@ static float randFloat(float min, float max) {
 	return rand() / static_cast<float>(RAND_MAX) * (max - min) + min;
 }
 
-GameState::GameState(Game* game) : game(game), transition(), terminated(false), enterSubState() {}
+GameState::GameState(Game& game) : game(game), transition(), terminated(false), enterSubState() {}
 void GameState::Terminate() { terminated = true; OnExit(); }
 void GameState::DrawBackUI(Shader& uiShader) {
 	if (!currSubState) { OnDrawBackUI(uiShader); return; }
@@ -155,7 +154,7 @@ optional<type_index> GameState::Step() { return {}; };
 optional<type_index> GameState::Run() {
 	// Coroutines must be finished before states can be runned
 	if (!coroutineManager.Empty()) {
-		coroutineManager.Run();
+		coroutineManager.Run(game.gameClock);
 		return Self();
 	}
 	if (terminated) { terminated = false; return transition; }
@@ -194,11 +193,11 @@ optional<type_index> GameState::Run() {
 	return Self();
 }
 
-Game::Game() : state(), textures() {
+Game::Game(ObjectManager& manager, Clock& clock) : gameClock(clock), manager(manager), state(), textures() {
 	trailShader = make_unique<Shader>(SHADER_DIR "mouse_trail.vert", SHADER_DIR "mouse_trail.frag");
 	trailTexture = textureFromFile(TEXTURE_DIR "FruitNinja_blade0.png");
 	trailArrow = textureFromFile(TEXTURE_DIR "blade0_arrow.png");
-	player = Object::Create();
+	player = manager.CreateObject();
 
 	// Configure mouse trailing (shared by all game modes)
 	Cursor::OnMousePositionUpdated.push_back(bind(&Game::OnMouseUpdate, this, placeholders::_1));
@@ -260,7 +259,7 @@ void Game::Init() {
 	LoadTextures();
 	LoadModels();
 
-	uiConfig.control.particleSystemPool = make_unique<ObjectPool<Object>>(50, createFruitParticleSystem);
+	uiConfig.control.particleSystemPool = std::make_shared<ObjectPool<Object>>(50, std::bind(&Game::createFruitParticleSystem, this));
 	uiConfig.control.killHeight = uiConfig.fruitKillHeight;
 }
 
@@ -335,7 +334,7 @@ void Game::DrawFrontUI(Shader& uiShader) {
 }
 
 void Game::DrawMouseTrailing() {
-	float dt = Time::deltaTime();
+	float dt = gameClock.DeltaTime();
 	for (auto i = mousePositions.begin(); i != mousePositions.end();) {
 		i->z -= dt;
 		if (i->z <= 0) {
@@ -452,7 +451,7 @@ void Game::DrawMouseTrailing() {
 }
 
 shared_ptr<Object> Game::createUIObject(std::shared_ptr<Model> model, glm::vec4 outlineColor) const {
-	auto obj = Object::Create(false);
+	auto obj = std::make_shared<Object>();
 	Renderer* renderer = obj->AddComponent<Renderer>(model);
 	renderer->drawOutline = true;
 	renderer->outlineColor = outlineColor;
@@ -464,12 +463,12 @@ shared_ptr<Object> Game::createUIObject(std::shared_ptr<Model> model, glm::vec4 
 		randFloat(uiConfig.spawnMinRotation.y, uiConfig.spawnMaxRotation.y),
 		randFloat(uiConfig.spawnMinRotation.z, uiConfig.spawnMaxRotation.z)
 	);
-	rigidbody->AddRelativeTorque(torque, ForceMode::Impulse);
+	rigidbody->AddRelativeTorque(gameClock, torque, ForceMode::Impulse);
 	return obj;
 }
 
 shared_ptr<Object> Game::createUIObject(std::shared_ptr<Model> model) const {
-	auto obj = Object::Create(false);
+	auto obj = std::make_shared<Object>();
 	Renderer* renderer = obj->AddComponent<Renderer>(model);
 	renderer->drawOutline = false;
 
@@ -480,12 +479,12 @@ shared_ptr<Object> Game::createUIObject(std::shared_ptr<Model> model) const {
 		randFloat(uiConfig.spawnMinRotation.y, uiConfig.spawnMaxRotation.y),
 		randFloat(uiConfig.spawnMinRotation.z, uiConfig.spawnMaxRotation.z)
 	);
-	rigidbody->AddRelativeTorque(torque, ForceMode::Impulse);
+	rigidbody->AddRelativeTorque(gameClock, torque, ForceMode::Impulse);
 	return obj;
 }
 
 Object* Game::createFruitParticleSystem() {
-	Object* obj = new Object();
+	auto obj = new Object();
 	ParticleSystem* system = obj->AddComponent<ParticleSystem>(100);
 	system->disableOnFinish = true;
 	system->maxSpawnDirectionDeviation = 180;

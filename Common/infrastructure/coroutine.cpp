@@ -1,5 +1,4 @@
 #include "coroutine.hpp"
-#include "state/time.hpp"
 #include <iostream>
 using namespace std;
 
@@ -10,7 +9,7 @@ Coroutine::~Coroutine() {
 		handle.destroy();
 	}
 }
-bool Coroutine::Advance() const {
+bool Coroutine::Advance(Clock& clock) const {
 	if (handle.done()) {
 		return false;
 	}
@@ -21,10 +20,10 @@ bool Coroutine::Advance() const {
 		// Only continue if the specified amount of time has passed
 		if (option.waitTime > 0) {
 			if (option.scaled) {
-				option.waitCounter += Time::deltaTime();
+				option.waitCounter += clock.DeltaTime();
 			}
 			else {
-				option.waitCounter += Time::unscaledDeltaTime();
+				option.waitCounter += clock.UnscaledDeltaTime();
 			}
 			if (option.waitCounter < option.waitTime) {
 				return true;
@@ -61,10 +60,10 @@ void Coroutine::promise_type::return_void() noexcept { option = {}; }
 void Coroutine::promise_type::unhandled_exception() noexcept { std::terminate(); }
 #pragma endregion
 
-void CoroutineManager::Run() {
+void CoroutineManager::Run(Clock& clock) {
 	for (auto i = coroutines.begin(); i != coroutines.end();) {
 		auto& coroutine = *i;
-		if (coroutine->Finished() || !coroutine->Advance()) {
+		if (coroutine->Finished() || !coroutine->Advance(clock)) {
 			i = coroutines.erase(i);
 			continue;
 		}

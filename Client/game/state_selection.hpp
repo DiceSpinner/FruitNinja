@@ -22,7 +22,7 @@ class SelectionState : public GameState {
 	Coroutine FadeOutUI(float duration);
 	void PositionUI();
 public:
-	SelectionState(Game* game);
+	SelectionState(Game& game);
 	void Init() override;
 	void OnEnter() override;
 	void OnExit() override;

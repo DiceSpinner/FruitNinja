@@ -71,7 +71,7 @@ private:
 
 	void Terminate();
 protected:
-	Game* game;
+	Game& game;
 
 	template<TGameState T>
 	std::optional<std::type_index> EnterSubState() {
@@ -104,7 +104,7 @@ protected:
 		return std::type_index(typeid(T));
 	}
 public:
-	GameState(Game* game);
+	GameState(Game& game);
 
 	template<TGameState T, typename... Args>
 	T* AddSubState(Args&&... args) {
@@ -173,15 +173,17 @@ public:
 	GameModels models;
 	GameAudios audios;
 	GameTextures textures;
+	ObjectManager& manager;
+	Clock& gameClock;
 
 	// Mouse Trail
 	bool enableMouseTrail = true;
 
-	Game();
+	Game(ObjectManager& manager, Clock& clock);
 	~Game();
 	void Init();
 
-	static Object* createFruitParticleSystem();
+	Object* createFruitParticleSystem();
 
 	template<TGameState T>
 	void SetInitialGameState() {
@@ -189,7 +191,7 @@ public:
 		auto type = std::type_index(typeid(T));
 		if (std::type_index(typeid(state.get())) == type) return;
 
-		state = std::make_unique<T>(this);
+		state = std::make_unique<T>(*this);
 		state->Init();
 		state->OnEnter();
 	}

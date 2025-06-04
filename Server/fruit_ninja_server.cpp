@@ -1,9 +1,17 @@
 #include <iostream>
+#include "rendering/render_context.hpp"
+#include "rendering/shader.hpp"
 #include "networking/networking.hpp"
 #include "state/time.hpp"
 #include "default_state.hpp"
 
+const char* objVertexPath = SHADER_DIR "object.vert";
+const char* objFragPath = SHADER_DIR "object.frag";
+
 int main() {
+    RenderContext context({ 1920, 1080 });
+    Shader objectShader(objVertexPath, objFragPath);
+
     Networking::init();
 
     Server server(

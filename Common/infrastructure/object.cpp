@@ -1,102 +1,150 @@
 #include <list>
 #include <iterator>
+#include <iostream>
 #include "object.hpp"
 #include "glm/ext.hpp"
 
 using namespace std;
 
-unordered_set<shared_ptr<Object>> Object::newObjectSet;
-static list<shared_ptr<Object>> objectList;
+ObjectManager::ObjectManager() {}
 
-void Object::ActivateNewlyEnabledObjects() {
-	move(newObjectSet.begin(), newObjectSet.end(), back_inserter(objectList));
-	newObjectSet.clear();
-}
-
-void Object::ExecuteEarlyFixedUpdate() {
-	for (auto i = objectList.begin(); i != objectList.end();) {
-		auto& obj = *i;
+void ObjectManager::ExecuteEarlyFixedUpdate(Clock& clock) {
+	for (auto i = updateList.begin(); i != updateList.end();) {
+		auto& obj = *(i++);
+		obj->isUpdating = true;
 		for (auto& pair : obj->components) {
 			for (auto& cmp : pair.second) {
-				cmp->EarlyFixedUpdate();
+				cmp->EarlyFixedUpdate(clock);
 			}
 		}
-		if (obj->IsActive()) {
-			i++;
-		}
-		else {
-			i = objectList.erase(i);
+		obj->isUpdating = false;
+		if (obj->signaledDetachment) {
+			obj->signaledDetachment = false;
+			Unregister(obj);
 		}
 	}
 }
 
-void Object::ExecuteFixedUpdate() {
-	for (auto i = objectList.begin(); i != objectList.end();) {
-		auto& obj = *i;
+void ObjectManager::ExecuteFixedUpdate(Clock& clock) {
+	for (auto i = updateList.begin(); i != updateList.end();) {
+		auto& obj = *(i++);
+		obj->isUpdating = true;
 		for (auto& pair : obj->components) {
 			for (auto& cmp : pair.second) {
-				cmp->FixedUpdate();
+				cmp->FixedUpdate(clock);
 			}
 		}
-		if (obj->IsActive()) {
-			i++;
-		}
-		else {
-			i = objectList.erase(i);
+		obj->isUpdating = false;
+		if (obj->signaledDetachment) {
+			obj->signaledDetachment = false;
+			Unregister(obj);
 		}
 	}
 }
 
-void Object::ExecuteUpdate() {
-	for (auto i = objectList.begin(); i != objectList.end();) {
-		auto& obj = *i;
+void ObjectManager::ExecuteUpdate(Clock& clock) {
+	for (auto i = updateList.begin(); i != updateList.end();) {
+		auto& obj = *(i++);
+		obj->isUpdating = true;
 		for (auto& pair : obj->components) {
 			for (auto& cmp : pair.second) {
-				cmp->Update();
+				cmp->Update(clock);
 			}
 		}
-		if (obj->IsActive()) {
-			i++;
-		}
-		else {
-			i = objectList.erase(i);
+		obj->isUpdating = false;
+		if (obj->signaledDetachment) {
+			obj->signaledDetachment = false;
+			Unregister(obj);
 		}
 	}
 }
 
-shared_ptr<Object> Object::Create(bool isEnabled) {
-	auto ptr = shared_ptr<Object>(new Object(isEnabled));
-	if (isEnabled) {
-		newObjectSet.insert(ptr);
+void ObjectManager::Tick(Clock& clock) {
+	while (clock.ShouldUpdatePhysics()) {
+		ExecuteEarlyFixedUpdate(clock);
+		ExecuteFixedUpdate(clock);
 	}
-	return ptr;
+
+	ExecuteUpdate(clock);
 }
 
-Object::Object() : transform(), components(), enabled(false) { }
-
-Object::Object(bool isEnabled) : transform(), components(), enabled(isEnabled) { }
-
-void Object::SetEnable(bool value) {
-	if (enabled == value) return;
-	if (!enabled) {
-		newObjectSet.emplace(enable_shared_from_this::shared_from_this());
-		for (auto& item : components) {
-			for (auto& cmp : item.second) {
-				cmp->OnEnabled();
-			}
-		}
-	}
-	else {
-		newObjectSet.erase(enable_shared_from_this::shared_from_this());
-		for (auto& item : components) {
-			for (auto& cmp : item.second) {
-				cmp->OnDisabled();
-			}
-		}
-	}
-	enabled = value;
+std::shared_ptr<Object> ObjectManager::CreateObject() {
+	std::shared_ptr<Object> obj = std::make_shared<Object>();
+	activeObjects.insert({ obj.get(), obj });
+	obj->pointer = updateList.insert(updateList.end(), obj.get());
+	obj->manager = this;
+	return obj;
 }
+
+void ObjectManager::Register(const std::shared_ptr<Object>& obj) {
+	if (obj->manager) return;
+	obj->manager = this;
+	obj->EnableAllComponents();
+	activeObjects.insert({obj.get(), obj});
+	obj->pointer = updateList.insert(updateList.end(), obj.get());
+}
+
+void ObjectManager::Unregister(Object* obj) {
+	if (!obj || obj->manager != this) return;
+	obj->manager = nullptr;
+	obj->DisableAllComponents();
+	updateList.erase(obj->pointer);
+	activeObjects.erase(obj);
+}
+
+ObjectManager::~ObjectManager() {
+	for (auto& cmp : updateList) {
+		cmp->manager = nullptr;
+		cmp->DisableAllComponents();
+	}
+	activeObjects.clear();
+}
+
+Object::Object() {}
+Object::~Object() { }
 
 bool Object::IsActive() const {
-	return enabled;
+	return manager;
 }
+
+void Object::Detach() {
+	if (!manager) return;
+	if (isUpdating) {
+		signaledDetachment = true;
+		return;
+	}
+	manager->Unregister(this);
+}
+
+void Object::DisableAllComponents() const {
+	for (auto& [type, group] : components) {
+		for (auto& cmp : group) {
+			cmp->OnDisabled();
+		}
+	}
+}
+
+void Object::EnableAllComponents() const {
+	for (auto& [type, group] : components) {
+		for (auto& cmp : group) {
+			cmp->OnEnabled();
+		}
+	}
+}
+
+ObjectManager* Object::Manager() const { return manager; }
+
+Component::Component(std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& collection, Transform& transform, Object* object) :
+	componentMap(collection),
+	transform(transform),
+	object(object)
+{
+
+}
+
+void Component::Update(Clock& clock) {}
+void Component::Initialize() {}
+void Component::EarlyFixedUpdate(Clock& clock) {}
+void Component::FixedUpdate(Clock& clock) {}
+void Component::OnEnabled() {}
+void Component::OnDisabled() {}

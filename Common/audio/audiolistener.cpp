@@ -11,7 +11,7 @@ AudioListener::AudioListener(unordered_map<type_index, vector<unique_ptr<Compone
 
 }
 
-void AudioListener::FixedUpdate() {
+void AudioListener::FixedUpdate(Clock& clock) {
 	auto pos = transform.position();
 	alListener3f(AL_POSITION, pos.x, pos.y, pos.z);
 }

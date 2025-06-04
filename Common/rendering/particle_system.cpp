@@ -1,11 +1,9 @@
 #include <glm/ext.hpp>
-#include "state/time.hpp"
 #include "particle_system.hpp"
 #include "renderer.hpp"
 #include "infrastructure/object.hpp"
 
 using namespace std;
-using namespace Time;
 
 static const GLfloat quadData[] = {
  -0.5f, -0.5f, 0.0f,
@@ -124,7 +122,7 @@ void ParticleSystem::SpawnParticle() {
 	}
 }
 
-void ParticleSystem::FixedUpdate() {
+void ParticleSystem::FixedUpdate(Clock& clock) {
 	if (init) {
 		init = false;
 		for (auto i = 0; i < spawnAmount; i++) {
@@ -133,11 +131,11 @@ void ParticleSystem::FixedUpdate() {
 		return;
 	}
 	if (disableOnFinish && !spawnFrequency && activeParticles.empty()) {
-		object->SetEnable(false);
+		object->Detach();
 		return;
 	}
 
-	float dt = fixedDeltaTime();
+	float dt = clock.FixedDeltaTime();
 	spawnCounter = spawnFrequency ? spawnCounter + dt : 0;
 
 	auto spawnFreqRecp = spawnFrequency ? (1 / spawnFrequency) : 1;

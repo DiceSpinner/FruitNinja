@@ -10,9 +10,9 @@ Bomb::Bomb(unordered_map<type_index, vector<unique_ptr<Component>>>& collection,
 	
 }
 
-void Bomb::Update() {
+void Bomb::Update(Clock& clock) {
 	if (channel.disableAll) {
-		object->SetEnable(false);
+		object->Detach();
 		return;
 	}
 	if (!channel.enableSlicing) {
@@ -21,7 +21,7 @@ void Bomb::Update() {
 
 	glm::vec2 cursorDirection = Cursor::getCursorPosDelta();
 	if (transform.position().y <= channel.killHeight) {
-		object->SetEnable(false);
+		object->Detach();
 		return;
 	}
 

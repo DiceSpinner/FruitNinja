@@ -1,6 +1,6 @@
 #ifndef RIGIDBODY_H
 #define RIGIDBODY_H
-#include "infrastructure/component.hpp"
+#include "infrastructure/object.hpp"
 
 enum ForceMode {
 	Force,
@@ -15,10 +15,10 @@ public:
 	glm::vec3 localAngularVelocity;
 	bool useGravity;
 
-	void AddForce(glm::vec3 force, ForceMode forcemode = ForceMode::Force);
-	void AddTorque(glm::vec3 torque, ForceMode forcemode = ForceMode::Force);
-	void AddRelativeTorque(glm::vec3 torque, ForceMode forcemode = ForceMode::Force);
-	void EarlyFixedUpdate() override;
+	void AddForce(Clock& clock, glm::vec3 force, ForceMode forcemode = ForceMode::Force);
+	void AddTorque(Clock& clock, glm::vec3 torque, ForceMode forcemode = ForceMode::Force);
+	void AddRelativeTorque(Clock& clock, glm::vec3 torque, ForceMode forcemode = ForceMode::Force);
+	void EarlyFixedUpdate(Clock& clock) override;
 };
 
 #endif

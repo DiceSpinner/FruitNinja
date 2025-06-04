@@ -2,22 +2,21 @@
 #include "rendering/camera.hpp"
 #include "state_selection.hpp"
 #include "game/modes/classic.hpp"
-#include "state/time.hpp"
 #include "physics/rigidbody.hpp"
 
 using namespace std;
 
-SelectionState::SelectionState(Game* game) : GameState(game) {}
+SelectionState::SelectionState(Game& game) : GameState(game) {}
 
 void SelectionState::Init() {
 	// Camera
-	auto camera = game->player->AddComponent<Camera>(1.0f, 300.0f);
-	game->player->transform.SetPosition(glm::vec3(0, 0, 30));
-	game->player->transform.LookAt(game->player->transform.position() + glm::vec3(0, 0, -1), glm::vec3(0, 1, 0));
-	game->player->AddComponent<AudioListener>();
+	auto camera = game.player->AddComponent<Camera>(1.0f, 300.0f);
+	game.player->transform.SetPosition(glm::vec3(0, 0, 30));
+	game.player->transform.LookAt(game.player->transform.position() + glm::vec3(0, 0, -1), glm::vec3(0, 1, 0));
+	game.player->AddComponent<AudioListener>();
 
 	// UI
-	ui.backgroundImage = make_unique<UI>(game->textures.backgroundTexture);
+	ui.backgroundImage = make_unique<UI>(game.textures.backgroundTexture);
 	ui.classicModeText = make_unique<UI>(0, "Classic");
 	ui.classicModeText->textColor = { 0, 1, 0, 1 };
 	ui.multiplayerText = make_unique<UI>(0, "Multiplayer");
@@ -26,33 +25,33 @@ void SelectionState::Init() {
 	ui.exitText->textColor = { 1, 0, 0, 1 };
 	ui.titleText = make_unique<UI>(0, "Fruit Ninja", 100);
 	ui.titleText->textColor = { 1, 0.647, 0, 1 };
-	ui.classicModeSelection = game->createUIObject(game->models.watermelonModel, glm::vec4(0, 1, 0, 1));
-	ui.exitSelection = game->createUIObject(game->models.bombModel, glm::vec4(1, 0, 0, 1));
-	ui.multiplayerSelection = game->createUIObject(game->models.pineappleModel, glm::vec4(1, 1, 0, 1));
+	ui.classicModeSelection = game.createUIObject(game.models.watermelonModel, glm::vec4(0, 1, 0, 1));
+	ui.exitSelection = game.createUIObject(game.models.bombModel, glm::vec4(1, 0, 0, 1));
+	ui.multiplayerSelection = game.createUIObject(game.models.pineappleModel, glm::vec4(1, 1, 0, 1));
 
 	FruitAsset watermelonAsset = {
-		game->models.watermelonTopModel,
-		game->models.watermelonBottomModel,
-		game->audios.fruitSliceAudio2,
-		game->audios.fruitMissAudio
+		game.models.watermelonTopModel,
+		game.models.watermelonBottomModel,
+		game.audios.fruitSliceAudio2,
+		game.audios.fruitMissAudio
 	};
 
 	FruitAsset pineappleAsset = {
-		game->models.pineappleTopModel,
-		game->models.pineappleBottomModel,
-		game->audios.fruitSliceAudio1,
-		game->audios.fruitMissAudio
+		game.models.pineappleTopModel,
+		game.models.pineappleBottomModel,
+		game.audios.fruitSliceAudio1,
+		game.audios.fruitMissAudio
 	};
 
-	auto slicable = ui.classicModeSelection->AddComponent<Fruit>(game->uiConfig.sizeWatermelon, 0, game->uiConfig.fruitSliceForce, game->uiConfig.control, watermelonAsset);
+	auto slicable = ui.classicModeSelection->AddComponent<Fruit>(game.uiConfig.sizeWatermelon, 0, game.uiConfig.fruitSliceForce, game.uiConfig.control, watermelonAsset);
 	slicable->color = glm::vec4(1, 0, 0, 1);
-	slicable->slicedParticleTexture = game->textures.sliceParticleTexture;
+	slicable->slicedParticleTexture = game.textures.sliceParticleTexture;
 
-	slicable = ui.multiplayerSelection->AddComponent<Fruit>(game->uiConfig.sizePineapple, 0, game->uiConfig.fruitSliceForce, game->uiConfig.control, pineappleAsset);
+	slicable = ui.multiplayerSelection->AddComponent<Fruit>(game.uiConfig.sizePineapple, 0, game.uiConfig.fruitSliceForce, game.uiConfig.control, pineappleAsset);
 	slicable->color = glm::vec4(1, 1, 0, 1);
-	slicable->slicedParticleTexture = game->textures.sliceParticleTexture;
+	slicable->slicedParticleTexture = game.textures.sliceParticleTexture;
 
-	ui.exitSelection->AddComponent<Fruit>(game->uiConfig.sizeBomb, 0, 0.0f, game->uiConfig.control, FruitAsset{});
+	ui.exitSelection->AddComponent<Fruit>(game.uiConfig.sizeBomb, 0, 0.0f, game.uiConfig.control, FruitAsset{});
 
 	// Game Modes
 	AddSubState<ClassicMode>(game);
@@ -60,9 +59,10 @@ void SelectionState::Init() {
 
 void SelectionState::OnEnter() {
 	PositionUI();
-	ui.classicModeSelection->SetEnable(true);
-	ui.exitSelection->SetEnable(true);
-	ui.multiplayerSelection->SetEnable(true);
+	game.manager.Register(ui.classicModeSelection);
+	game.manager.Register(ui.exitSelection);
+	game.manager.Register(ui.multiplayerSelection);
+
 	Rigidbody* rb = ui.classicModeSelection->GetComponent<Rigidbody>();
 	rb->velocity = {};
 	rb->useGravity = false;
@@ -75,8 +75,8 @@ void SelectionState::OnEnter() {
 	rb->velocity = {};
 	rb->useGravity = false;
 
-	music = game->player->AddComponent<AudioSource>();
-	music->SetAudioClip(game->audios.startMenuAudio);
+	music = game.player->AddComponent<AudioSource>();
+	music->SetAudioClip(game.audios.startMenuAudio);
 	music->SetLoopEnabled(true);
 	music->Play();
 	alDistanceModel(AL_NONE);
@@ -100,9 +100,9 @@ void SelectionState::OnEnterSubState() {
 }
 void SelectionState::OnExitSubState() {
 	PositionUI();
-	ui.classicModeSelection->SetEnable(true);
-	ui.exitSelection->SetEnable(true);
-	ui.multiplayerSelection->SetEnable(true);
+	game.manager.Register(ui.classicModeSelection);
+	game.manager.Register(ui.exitSelection);
+	game.manager.Register(ui.multiplayerSelection);
 	Rigidbody* rb = ui.classicModeSelection->GetComponent<Rigidbody>();
 	rb->velocity = {};
 	rb->useGravity = false;
@@ -117,7 +117,7 @@ void SelectionState::OnExitSubState() {
 
 	music->Play();
 
-	game->uiConfig.control.enableSlicing = false; // The coroutine won't be called in the current frame
+	game.uiConfig.control.enableSlicing = false; // The coroutine won't be called in the current frame
 	StartCoroutine(FadeInUI(1.0f));
 }
 
@@ -167,7 +167,7 @@ void SelectionState::PositionUI() {
 }
 
 Coroutine SelectionState::FadeInUI(float duration) {
-	game->uiConfig.control.enableSlicing = false;
+	game.uiConfig.control.enableSlicing = false;
 	float timer = 0;
 	Renderer* classic = ui.classicModeSelection->GetComponent<Renderer>();
 	Renderer* multiplayer = ui.multiplayerSelection->GetComponent<Renderer>();
@@ -187,7 +187,7 @@ Coroutine SelectionState::FadeInUI(float duration) {
 		multiplayer->outlineColor.a = opacity;
 		exit->outlineColor.a = opacity;
 
-		timer += Time::deltaTime();
+		timer += game.gameClock.DeltaTime();
 		co_yield{};
 	}
 	ui.classicModeText->textColor.a = 1;
@@ -200,10 +200,10 @@ Coroutine SelectionState::FadeInUI(float duration) {
 	multiplayer->outlineColor.a = 1;
 	exit->outlineColor.a = 1;
 
-	game->uiConfig.control.enableSlicing = true;
+	game.uiConfig.control.enableSlicing = true;
 }
 Coroutine SelectionState::FadeOutUI(float duration) {
-	game->uiConfig.control.enableSlicing = false;
+	game.uiConfig.control.enableSlicing = false;
 	float timer = 0;
 
 	while (timer < duration) {
@@ -211,12 +211,12 @@ Coroutine SelectionState::FadeOutUI(float duration) {
 		ui.classicModeText->textColor.a = opacity;
 		ui.multiplayerText->textColor.a = opacity;
 		ui.exitText->textColor.a = opacity;
-		timer += Time::deltaTime();
+		timer += game.gameClock.DeltaTime();
 		co_yield{};
 	}
 
 	ui.classicModeText->textColor.a = 0;
 	ui.multiplayerText->textColor.a = 0;
 	ui.exitText->textColor.a = 0;
-	game->uiConfig.control.enableSlicing = true;
+	game.uiConfig.control.enableSlicing = true;
 }

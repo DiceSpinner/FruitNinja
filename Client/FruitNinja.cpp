@@ -1,13 +1,13 @@
 ﻿#include "rendering/render_context.hpp"
 #include "audio/audio_context.hpp"
 #include "rendering/font.hpp"
+#include "infrastructure/clock.hpp"
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
 #include <iostream>
 #include "infrastructure/object.hpp"
 #include "input.hpp"
-#include "state/time.hpp"
 #include "rendering/shader.hpp"
 #include "rendering/camera.hpp"
 #include "rendering/renderer.hpp"
@@ -28,13 +28,17 @@ const char* outlineVertPath = SHADER_DIR "outline.vert";
 const char* outlineFragPath = SHADER_DIR "outline.frag";
 const char* vfxShaderVertPath = SHADER_DIR "simple.vert";
 const char* vfxShaderFragPath = SHADER_DIR "simple.frag";
+const uint32_t PHYSICS_FPS = 60;
 
 int main() {
     RenderContext renderContext({1920, 1080});
     Font::init();
-    Audio::initContext();
-    Time::initTime();
-    Input::initInput(renderContext.Window());
+
+    ObjectManager manager;
+    Clock clock(PHYSICS_FPS);
+    Audio::initContext(manager);
+
+    Input::initInput(renderContext.Window(), clock);
     Shader objectShader(objVertexPath, objFragPath);
     Shader unlitShader(objVertexPath, unlitFrag);
     Shader uiShader(uiVertPath, uiFragPath);
@@ -49,13 +53,13 @@ int main() {
 
     glBindVertexArray(0);
 
-    Game game;
+    Game game(manager, clock);
     game.Init();
     game.SetInitialGameState<SelectionState>();
 
     while (!glfwWindowShouldClose(renderContext.Window()))
     {
-        Time::updateTime();
+        clock.Tick();
         glfwPollEvents();
         Input::processInput(renderContext.Window());
         
@@ -66,15 +70,7 @@ int main() {
         glUniformMatrix4fv(glGetUniformLocation(uiShader.ID, "projection"), 1, GL_FALSE, glm::value_ptr(Camera::main->Ortho()));
         game.DrawBackUI(uiShader);
 
-        Object::ActivateNewlyEnabledObjects();
-
-        if (Time::checkShouldPhysicsUpdate()) {
-            Object::ExecuteEarlyFixedUpdate();
-            Object::ExecuteFixedUpdate();
-        }
-
-        Object::ExecuteUpdate();
-
+        manager.Tick(clock);
         game.Step();
 
         glEnable(GL_DEPTH_TEST);

@@ -1,7 +1,7 @@
 #ifndef AUDIOSOURCE_H
 #define AUDIOSOURCE_H
 #include <memory>
-#include "infrastructure/component.hpp"
+#include "infrastructure/object.hpp"
 #include "audio_clip.hpp"
 
 class AudioSource : public Component {
@@ -13,8 +13,8 @@ public:
 	bool disableWhileNotPlaying;
 
 	AudioSource(std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& components, Transform& transform, Object* object);
-	void FixedUpdate() override;
-	void Update() override;
+	void FixedUpdate(Clock& clock) override;
+	void Update(Clock& clock) override;
 	void SetAudioClip(std::shared_ptr<AudioClip>& clip);
 	void SetLoopEnabled(bool value);
 	void Play() const;

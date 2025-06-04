@@ -5,7 +5,7 @@
 #include <functional>
 
 template<typename T>
-class ObjectPool {
+class ObjectPool : public std::enable_shared_from_this<ObjectPool<T>>{
 private:
 	size_t size;
 	std::stack<T*> pool;
@@ -21,8 +21,15 @@ public:
 		if (!pool.empty()) {
 			auto item = pool.top();
 			pool.pop();
-			auto deleter = [this](T* ptr) { 
-				pool.push(ptr); 
+			std::weak_ptr<ObjectPool<T>> weakPtr = this->shared_from_this();
+			auto deleter = [weakPtr](T* ptr) { 
+				auto poolPtr = weakPtr.lock();
+				if (poolPtr) {
+					poolPtr->pool.push(ptr);
+				}
+				else {
+					delete ptr;
+				}
 			};
 			return std::unique_ptr < T, decltype(deleter) > (item, deleter);
 		}

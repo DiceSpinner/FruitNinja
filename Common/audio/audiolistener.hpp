@@ -1,12 +1,12 @@
 #ifndef AUDIOLISTENER_H
 #define AUDIOLISTENER_H
 #include <iostream>
-#include "infrastructure/component.hpp"
+#include "infrastructure/object.hpp"
 
 class AudioListener : public Component {
 public:
 	AudioListener(std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& components, Transform& transform, Object* object);
-	void FixedUpdate() override;
+	void FixedUpdate(Clock& clock) override;
 };
 
 template<>

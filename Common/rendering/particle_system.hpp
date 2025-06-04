@@ -4,7 +4,7 @@
 #include <list>
 #include <functional>
 #include "mesh.hpp"
-#include "infrastructure/component.hpp"
+#include "infrastructure/object.hpp"
 #include "renderer.hpp"
 
 struct Particle {
@@ -49,7 +49,7 @@ public:
 	void SpawnParticle();
 	void SetParticleLifeTime(float min, float max);
 	void Draw(Shader& shader) const;
-	void FixedUpdate() override;
+	void FixedUpdate(Clock& clock) override;
 	void OnEnabled() override;
 	void OnDisabled() override;
 	~ParticleSystem() override;

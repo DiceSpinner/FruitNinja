@@ -2,35 +2,41 @@
 #define OBJECT_H
 #include <memory>
 #include <unordered_map>
-#include <unordered_set>
+#include <list>
 #include <typeindex>
 #include "rendering/model.hpp"
-#include "component.hpp"
+#include "clock.hpp"
 #include "transform.hpp"
 
+class ObjectManager;
+class Component;
+
+template<typename T>
+class ComponentFactory;
+
 class Object : public std::enable_shared_from_this<Object> {
+	friend class ObjectManager;
 private:
-	/// <summary>
-	/// The queue that stores all of the newly enabled objects, they will respond to updates in the next frame
-	/// </summary>
-	static std::unordered_set<std::shared_ptr<Object>> newObjectSet;
-	/// <summary>
-	/// A table of components, only 1 instance is allowed for each type
-	/// </summary>
-	std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>> components;
-	bool enabled;
+	bool isUpdating = false;
+	bool signaledDetachment = false;
+	// The manager that currently manages this object, only 1 manager can be manager this object at the same time
+	ObjectManager* manager = nullptr; 
+	// Iterator to ObjectManager::updateList for fast removal
+	std::list<Object*>::iterator pointer = {};
+	std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>> components = {};
 
-	Object(bool isEnabled);
+	// Only called by ObjectManager
+	void DisableAllComponents() const;
+	void EnableAllComponents() const;
 public:
-	Transform transform;
-	static void ActivateNewlyEnabledObjects();
-	static void ExecuteEarlyFixedUpdate();
-	static void ExecuteFixedUpdate();
-	static void ExecuteUpdate();
-
-	static std::shared_ptr<Object> Create(bool isEnabled = true);
+	Transform transform = {};
 
 	Object();
+	Object(const Object&) = delete;
+	Object(Object&&) = delete;
+	Object& operator = (const Object&) = delete;
+	Object& operator = (Object&&) = delete;
+	~Object();
 
 	template<typename T, typename... Args>
 	T* AddComponent(Args&&... args) {
@@ -42,13 +48,13 @@ public:
 			if (item == components.end()) {
 				auto pair = components.emplace(std::type_index(typeid(T)), std::vector<std::unique_ptr<Component>>());
 				pair.first->second.push_back(std::move(obj));
-				if (enabled) {
+				if (manager) {
 					pair.first->second.back()->OnEnabled();
 				}
 			}
 			else {
 				item->second.push_back(std::move(obj));
-				if (enabled) {
+				if (manager) {
 					item->second.back()->OnEnabled();
 				}
 			}
@@ -66,7 +72,71 @@ public:
 		return nullptr;
 	}
 
-	void SetEnable(bool value);
+	void Detach();
 	bool IsActive() const;
+	ObjectManager* Manager() const;
+};
+
+class ObjectManager {
+	friend class Object;
+private:
+	std::unordered_map<Object*, std::shared_ptr<Object>> activeObjects;
+	/// <summary>
+	/// The queue that stores all of the newly enabled objects, they will respond to updates in the next frame
+	/// </summary>
+	std::list<Object*> updateList = {};
+	void ExecuteEarlyFixedUpdate(Clock& clock);
+	void ExecuteFixedUpdate(Clock& clock);
+	void ExecuteUpdate(Clock& clock);
+public:
+	ObjectManager();
+	ObjectManager(const ObjectManager& other) = delete;
+	ObjectManager(ObjectManager&& other) = delete;
+	ObjectManager& operator = (const ObjectManager&) = delete;
+	ObjectManager& operator = (ObjectManager&&) = delete;
+	~ObjectManager();
+
+	std::shared_ptr<Object> CreateObject();
+	void Register(const std::shared_ptr<Object>& obj);
+	void Unregister(Object* obj);
+	void Tick(Clock& clock);
+};
+
+
+
+class Component {
+	template <typename T> friend class ComponentFactory;
+private:
+	std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& componentMap;
+public:
+	Object* const object;
+	Transform& transform;
+	Component(std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& collection, Transform& transform, Object* object);
+	void virtual Update(Clock& clock);
+	void virtual Initialize();
+	void virtual EarlyFixedUpdate(Clock& clock);
+	void virtual FixedUpdate(Clock& clock);
+	void virtual OnEnabled();
+	void virtual OnDisabled();
+	virtual ~Component() = default;
+
+	template<typename T>
+	T* GetComponent(size_t index = 0) {
+		auto item = componentMap.find(std::type_index(typeid(T)));
+		if (item != componentMap.end()) {
+			return dynamic_cast<T*>(item->second.at(index).get());
+		}
+		return nullptr;
+	}
+};
+
+template<typename T>
+class ComponentFactory {
+public:
+	template<typename... Args>
+	static std::unique_ptr<T> Construct(Args&&... args)
+	{
+		return std::make_unique<T>(std::forward<Args>(args)...);
+	}
 };
 #endif

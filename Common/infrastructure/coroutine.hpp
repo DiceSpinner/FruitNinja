@@ -4,6 +4,7 @@
 #include <list>
 #include <coroutine>
 #include <optional>
+#include "clock.hpp"
 
 struct Coroutine {
 public:
@@ -33,7 +34,7 @@ public:
 	Coroutine(Coroutine&& other) noexcept;
 	~Coroutine();
 
-	bool Advance() const;
+	bool Advance(Clock& clock) const;
 	bool Finished() const;
 };
 
@@ -41,7 +42,7 @@ class CoroutineManager {
 	std::list<std::shared_ptr<Coroutine>> coroutines;
 public:
 	CoroutineManager() = default;
-	void Run();
+	void Run(Clock& clock);
 	std::weak_ptr<Coroutine> AddCoroutine(Coroutine&& coroutine);
 	bool Empty() const;
 };

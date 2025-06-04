@@ -32,16 +32,16 @@ void Fruit::PlayVFX() const {
 		return;
 	}
 	shared_ptr<Object> particleSystemObj = channel.particleSystemPool->Acquire();
-	particleSystemObj->SetEnable(true);
+	object->Manager()->Register(particleSystemObj);
 	particleSystemObj->transform.SetPosition(transform.position());
 	ParticleSystem* particleSystem = particleSystemObj->GetComponent<ParticleSystem>();
 	particleSystem->texture = slicedParticleTexture;
 	particleSystem->color = color;
 }
 
-void Fruit::Update() {
+void Fruit::Update(Clock& clock) {
 	if (channel.disableNonUI && reward > 0) {
-		object->SetEnable(false);
+		object->Detach();
 		return;
 	}
 
@@ -58,7 +58,7 @@ void Fruit::Update() {
 				source->Play();
 			}
 		}
-		object->SetEnable(false);
+		object->Detach();
 		return;
 	}
 	if (!Cursor::mouseClicked || glm::length(cursorDirection) == 0) { return; }
@@ -77,17 +77,14 @@ void Fruit::Update() {
 			}
 		}
 		
-		// cout << "Score " << Game::score << "\n";
-		object->SetEnable(false);
-
 		if (assets.slice1 && assets.slice2) {
-			shared_ptr<Object> topSlice = Object::Create();
+			shared_ptr<Object> topSlice = object->Manager()->CreateObject();
 			Renderer* renderer = topSlice->AddComponent<Renderer>(assets.slice1);
 			renderer->drawOverlay = true;
 			topSlice->AddComponent<FruitSlice>(channel, reward == 0);
 			auto r1 = topSlice->AddComponent<Rigidbody>();
 
-			shared_ptr<Object> bottomSlice = Object::Create();
+			shared_ptr<Object> bottomSlice = object->Manager()->CreateObject();
 			renderer = bottomSlice->AddComponent<Renderer>(assets.slice2);
 			renderer->drawOverlay = true;
 			bottomSlice->AddComponent<FruitSlice>(channel, reward == 0);
@@ -105,15 +102,15 @@ void Fruit::Update() {
 			// slice1->transform.SetForward(transform.forward());
 			topSlice->transform.SetUp(up);
 			r1->velocity = rb->velocity;
-			r1->AddForce(sliceForce * up, ForceMode::Impulse);
-			r1->AddRelativeTorque(-180.0f * glm::vec3(1, 0, 0), ForceMode::Impulse);
+			r1->AddForce(clock, sliceForce * up, ForceMode::Impulse);
+			r1->AddRelativeTorque(clock, -180.0f * glm::vec3(1, 0, 0), ForceMode::Impulse);
 
 			bottomSlice->transform.SetPosition(transform.position());
 			// slice2->transform.SetForward(transform.forward());
 			bottomSlice->transform.SetUp(up);
 			r2->velocity = rb->velocity;
-			r2->AddForce(-sliceForce * up, ForceMode::Impulse);
-			r2->AddRelativeTorque(180.0f * glm::vec3(1, 0, 0), ForceMode::Impulse);
+			r2->AddForce(clock, -sliceForce * up, ForceMode::Impulse);
+			r2->AddRelativeTorque(clock, 180.0f * glm::vec3(1, 0, 0), ForceMode::Impulse);
 		}
 
 		if (assets.clipOnSliced) {
@@ -124,5 +121,6 @@ void Fruit::Update() {
 				source->Play();
 			}
 		}
+		object->Detach();
 	}
 }

@@ -1,5 +1,4 @@
 #include "game/modes/classic.hpp"
-#include "state/time.hpp"
 #include "physics/rigidbody.hpp"
 #include "audio/audiosource.hpp"
 #include "audio/audiolistener.hpp"
@@ -14,7 +13,7 @@ static float randFloat(float min, float max) {
 	return rand() / static_cast<float>(RAND_MAX) * (max - min) + min;
 }
 
-ClassicMode::ClassicMode(Game* game) 
+ClassicMode::ClassicMode(Game& game) 
 	: GameState(game), 
 	fruitSpawners {
 		bind(&ClassicMode::spawnCoconut, this), bind(&ClassicMode::spawnApple, this), bind(&ClassicMode::spawnPineapple, this), bind(&ClassicMode::spawnWatermelon, this), bind(&ClassicMode::spawnBomb, this)
@@ -23,23 +22,23 @@ ClassicMode::ClassicMode(Game* game)
 }
 
 void ClassicMode::spawnFruit(shared_ptr<Model>& fruitModel, shared_ptr<Model>& slice1Model, shared_ptr<Model>& slice2Model, shared_ptr<AudioClip> sliceAudio, glm::vec4 color, float radius, int sinfrastructure) {
-	shared_ptr<Object> fruit = Object::Create();
+	shared_ptr<Object> fruit = game.manager.CreateObject();
 	FruitAsset asset = {
 		slice1Model,
 		slice2Model,
 		sliceAudio,
-		game->audios.fruitMissAudio
+		game.audios.fruitMissAudio
 	};
 
 	auto renderer = fruit->AddComponent<Renderer>(fruitModel);
 	renderer->drawOverlay = true;
 	Fruit* ft = fruit->AddComponent<Fruit>(radius, sinfrastructure, setting.fruitSliceForce, context.fruitChannel, asset);
-	ft->slicedParticleTexture = game->textures.sliceParticleTexture;
+	ft->slicedParticleTexture = game.textures.sliceParticleTexture;
 	ft->color = color;
 	Rigidbody* rb = fruit->AddComponent<Rigidbody>();
 	float upForce = randFloat(setting.fruitUpMin, setting.fruitUpMax);
 	float horizontalForce = randFloat(setting.fruitHorizontalMin, setting.fruitHorizontalMax);
-	rb->AddForce(glm::vec3(horizontalForce, upForce, 0), ForceMode::Impulse);
+	rb->AddForce(game.gameClock, glm::vec3(horizontalForce, upForce, 0), ForceMode::Impulse);
 
 	glm::vec3 torque(
 		randFloat(setting.spawnMinRotation.x, setting.spawnMaxRotation.x),
@@ -47,7 +46,7 @@ void ClassicMode::spawnFruit(shared_ptr<Model>& fruitModel, shared_ptr<Model>& s
 		randFloat(setting.spawnMinRotation.z, setting.spawnMaxRotation.z)
 	);
 
-	rb->AddRelativeTorque(torque, ForceMode::Impulse);
+	rb->AddRelativeTorque(game.gameClock, torque, ForceMode::Impulse);
 	float startX = randFloat(setting.fruitSpawnCenter - setting.fruitSpawnWidth / 2, setting.fruitSpawnCenter + setting.fruitSpawnWidth / 2);
 	glm::vec3 position(startX, setting.fruitSpawnHeight, 0);
 	// cout << "Spawn at " << glm::to_string(position) << "\n";
@@ -55,19 +54,19 @@ void ClassicMode::spawnFruit(shared_ptr<Model>& fruitModel, shared_ptr<Model>& s
 }
 
 void ClassicMode::spawnApple() {
-	spawnFruit(game->models.appleModel, game->models.appleTopModel, game->models.appleBottomModel, game->audios.fruitSliceAudio1, glm::vec4(1, 1, 1, 1), setting.sizeApple);
+	spawnFruit(game.models.appleModel, game.models.appleTopModel, game.models.appleBottomModel, game.audios.fruitSliceAudio1, glm::vec4(1, 1, 1, 1), setting.sizeApple);
 }
 
 void ClassicMode::spawnPineapple() {
-	spawnFruit(game->models.pineappleModel, game->models.pineappleTopModel, game->models.pineappleBottomModel, game->audios.fruitSliceAudio1, glm::vec4(1, 1, 0, 1), setting.sizePineapple);
+	spawnFruit(game.models.pineappleModel, game.models.pineappleTopModel, game.models.pineappleBottomModel, game.audios.fruitSliceAudio1, glm::vec4(1, 1, 0, 1), setting.sizePineapple);
 }
 
 void ClassicMode::spawnWatermelon() {
-	spawnFruit(game->models.watermelonModel, game->models.watermelonTopModel, game->models.watermelonBottomModel, game->audios.fruitSliceAudio2, glm::vec4(1, 0, 0, 1), setting.sizeWatermelon);
+	spawnFruit(game.models.watermelonModel, game.models.watermelonTopModel, game.models.watermelonBottomModel, game.audios.fruitSliceAudio2, glm::vec4(1, 0, 0, 1), setting.sizeWatermelon);
 }
 
 void ClassicMode::spawnCoconut() {
-	spawnFruit(game->models.coconutModel, game->models.coconutTopModel, game->models.coconutBottomModel, game->audios.fruitSliceAudio2, glm::vec4(1, 1, 1, 1), setting.sizeCoconut);
+	spawnFruit(game.models.coconutModel, game.models.coconutTopModel, game.models.coconutBottomModel, game.audios.fruitSliceAudio2, glm::vec4(1, 1, 1, 1), setting.sizeCoconut);
 }
 
 static void sparkModifier(Particle& particle, ParticleSystem& system) {
@@ -90,24 +89,24 @@ static void smokeModifier(Particle& particle, ParticleSystem& system) {
 }
 
 void ClassicMode::spawnBomb() {
-	shared_ptr<Object> bomb = Object::Create();
+	shared_ptr<Object> bomb = game.manager.CreateObject();
 	bomb->transform.SetScale(0.7f * glm::vec3(1, 1, 1));
 
-	auto renderer = bomb->AddComponent<Renderer>(game->models.bombModel);
+	auto renderer = bomb->AddComponent<Renderer>(game.models.bombModel);
 	renderer->drawOverlay = true;
 	renderer->drawOutline = true;
 	renderer->outlineColor = glm::vec4(1, 0, 0, 1);
-	bomb->AddComponent<Bomb>(game->audios.explosionAudio, setting.sizeBomb, context.bombChannel);
+	bomb->AddComponent<Bomb>(game.audios.explosionAudio, setting.sizeBomb, context.bombChannel);
 
 	AudioSource* audioSource = bomb->AddComponent<AudioSource>();
-	audioSource->SetAudioClip(game->audios.fuseAudio);
+	audioSource->SetAudioClip(game.audios.fuseAudio);
 	audioSource->SetLoopEnabled(true);
 	audioSource->Play();
 
 	Rigidbody* rb = bomb->AddComponent<Rigidbody>();
 	float upForce = randFloat(setting.fruitUpMin, setting.fruitUpMax);
 	float horizontalForce = randFloat(setting.fruitHorizontalMin, setting.fruitHorizontalMax);
-	rb->AddForce(glm::vec3(horizontalForce, upForce, 0), ForceMode::Impulse);
+	rb->AddForce(game.gameClock, glm::vec3(horizontalForce, upForce, 0), ForceMode::Impulse);
 
 	glm::vec3 torque(
 		randFloat(setting.spawnMinRotation.x, setting.spawnMaxRotation.x),
@@ -115,7 +114,7 @@ void ClassicMode::spawnBomb() {
 		randFloat(setting.spawnMinRotation.z, setting.spawnMaxRotation.z)
 	);
 
-	rb->AddRelativeTorque(torque, ForceMode::Impulse);
+	rb->AddRelativeTorque(game.gameClock, torque, ForceMode::Impulse);
 	float startX = randFloat(setting.fruitSpawnCenter - setting.fruitSpawnWidth / 2, setting.fruitSpawnCenter + setting.fruitSpawnWidth / 2);
 	glm::vec3 position(startX, setting.fruitSpawnHeight, 5);
 	// cout << "Spawn at " << glm::to_string(position) << "\n";
@@ -124,13 +123,13 @@ void ClassicMode::spawnBomb() {
 	auto audioSourceObj = acquireAudioSource();
 	if (audioSourceObj) {
 		auto source = audioSourceObj->GetComponent<AudioSource>();
-		source->SetAudioClip(game->audios.fruitSpawnAudio);
+		source->SetAudioClip(game.audios.fruitSpawnAudio);
 		source->Play();
 	}
 
 	ParticleSystem* spark = bomb->AddComponent<ParticleSystem>(50, sparkModifier);
 	spark->SetParticleLifeTime(1, 1);
-	spark->texture = game->textures.sparkTexture;
+	spark->texture = game.textures.sparkTexture;
 	spark->spawnAmount = 1;
 	spark->spawnFrequency = 10;
 	spark->relativeOffset = glm::vec3(0, 1, 0);
@@ -141,7 +140,7 @@ void ClassicMode::spawnBomb() {
 
 	ParticleSystem* smoke = bomb->AddComponent<ParticleSystem>(50, smokeModifier);
 	smoke->SetParticleLifeTime(1, 1);
-	smoke->texture = game->textures.smokeTexture;
+	smoke->texture = game.textures.smokeTexture;
 	smoke->spawnAmount = 1;
 	smoke->spawnFrequency = 20;
 	smoke->relativeOffset = glm::vec3(0, 1, 0);
@@ -154,47 +153,47 @@ void ClassicMode::spawnBomb() {
 
 void ClassicMode::Init() {
 	context.fruitChannel.killHeight = setting.fruitKillHeight;
-	context.fruitChannel.particleSystemPool = make_unique<ObjectPool<Object>>(50, Game::createFruitParticleSystem);
+	context.fruitChannel.particleSystemPool = make_unique<ObjectPool<Object>>(50, std::bind(&Game::createFruitParticleSystem, &game));
 	context.bombChannel.killHeight = setting.bombKillHeight;
 
 	context.current = ClassicModeContext::Start;
 	// BackUI
-	ui.background = make_unique<UI>(game->textures.backgroundTexture);
+	ui.background = make_unique<UI>(game.textures.backgroundTexture);
 	ui.backgroundText = make_unique<UI>(0, "Fruit Ninja", 100);
 	ui.backgroundText->textColor = glm::vec4(1, 1, 0, 1);
 
 	// Start Game Button
 	FruitAsset watermelonAsset = {
-		game->models.watermelonTopModel,
-		game->models.watermelonBottomModel,
-		game->audios.fruitSliceAudio2,
-		game->audios.fruitMissAudio
+		game.models.watermelonTopModel,
+		game.models.watermelonBottomModel,
+		game.audios.fruitSliceAudio2,
+		game.audios.fruitMissAudio
 	};
 
-	ui.startGame = game->createUIObject(game->models.watermelonModel, glm::vec4(0, 1, 0, 1));
-	auto slicable = ui.startGame->AddComponent<Fruit>(setting.sizeWatermelon, 0, setting.fruitSliceForce, game->uiConfig.control, watermelonAsset);
+	ui.startGame = game.createUIObject(game.models.watermelonModel, glm::vec4(0, 1, 0, 1));
+	auto slicable = ui.startGame->AddComponent<Fruit>(setting.sizeWatermelon, 0, setting.fruitSliceForce, game.uiConfig.control, watermelonAsset);
 	slicable->color = glm::vec4(1, 0, 0, 1);
-	slicable->slicedParticleTexture = game->textures.sliceParticleTexture;
+	slicable->slicedParticleTexture = game.textures.sliceParticleTexture;
 
 	// Exit button
-	ui.back = game->createUIObject(game->models.bombModel, glm::vec4(1, 0, 0, 1));
-	ui.back->AddComponent<Fruit>(setting.sizeBomb, 0, setting.fruitSliceForce, game->uiConfig.control, FruitAsset{});
+	ui.back = game.createUIObject(game.models.bombModel, glm::vec4(1, 0, 0, 1));
+	ui.back->AddComponent<Fruit>(setting.sizeBomb, 0, setting.fruitSliceForce, game.uiConfig.control, FruitAsset{});
 
 	// Reset Button
 	FruitAsset pineappleAsset = {
-		game->models.pineappleTopModel,
-		game->models.pineappleBottomModel,
-		game->audios.fruitSliceAudio1,
-		game->audios.fruitMissAudio
+		game.models.pineappleTopModel,
+		game.models.pineappleBottomModel,
+		game.audios.fruitSliceAudio1,
+		game.audios.fruitMissAudio
 	};
 
-	ui.restart = game->createUIObject(game->models.pineappleModel);
-	slicable = ui.restart->AddComponent<Fruit>(setting.sizePineapple, 0, setting.fruitSliceForce, game->uiConfig.control, pineappleAsset);
+	ui.restart = game.createUIObject(game.models.pineappleModel);
+	slicable = ui.restart->AddComponent<Fruit>(setting.sizePineapple, 0, setting.fruitSliceForce, game.uiConfig.control, pineappleAsset);
 	slicable->color = glm::vec4(1, 1, 0, 1);
-	slicable->slicedParticleTexture = game->textures.sliceParticleTexture;
+	slicable->slicedParticleTexture = game.textures.sliceParticleTexture;
 
 	// Front UI
-	ui.fadeOutEffect = make_unique<UI>(game->textures.fadeTexture);
+	ui.fadeOutEffect = make_unique<UI>(game.textures.fadeTexture);
 	ui.scoreBoard = make_unique<UI>(0, "Score: ");
 	ui.scoreBoard->textColor = glm::vec4(1, 1, 0, 1);
 
@@ -212,8 +211,8 @@ void ClassicMode::Init() {
 	ui.restartButton->transform.SetPosition(setting.finalSinfrastructurePos);
 
 	for (auto i = 0; i < 3; i++) {
-		ui.redCrosses[i] = make_unique<UI>(game->textures.redCross);
-		ui.emptyCrosses[i] = make_unique<UI>(game->textures.emptyCross);
+		ui.redCrosses[i] = make_unique<UI>(game.textures.redCross);
+		ui.emptyCrosses[i] = make_unique<UI>(game.textures.emptyCross);
 		glm::mat4 rotation = glm::rotate(glm::mat4(1), (float)glm::radians(10 + 10.0f * (2 - i)), glm::vec3(0, 0, -1));
 		ui.redCrosses[i]->transform.SetRotation(rotation);
 		ui.redCrosses[i]->transform.SetScale(glm::vec3(0.1, 0.1, 0.1));
@@ -243,7 +242,7 @@ void ClassicMode::OnDrawBackUI(Shader& uiShader) {
 void ClassicMode::OnDrawFrontUI(Shader& uiShader) {
 	auto screenSize = RenderContext::Context->Dimension();
 	if (context.current == ClassicModeContext::Explosion) {
-		game->enableMouseTrail = false;
+		game.enableMouseTrail = false;
 		context.drawFadeOut = true;
 		if (context.explosionTimer > setting.fadeStart) {
 			ui.fadeOutEffect->imageColor.a = 1;
@@ -252,10 +251,10 @@ void ClassicMode::OnDrawFrontUI(Shader& uiShader) {
 		}
 		return;
 	};
-	game->enableMouseTrail = true;
+	game.enableMouseTrail = true;
 
 	if (context.drawFadeOut && context.current == ClassicModeContext::Score && ui.fadeOutEffect->imageColor.a > 0) {
-		ui.fadeOutEffect->imageColor.a -= Time::deltaTime();
+		ui.fadeOutEffect->imageColor.a -= game.gameClock.DeltaTime();
 		if (ui.fadeOutEffect->imageColor.a < 0) {
 			ui.fadeOutEffect->imageColor.a = 0;
 			context.drawFadeOut = false;
@@ -301,8 +300,8 @@ void ClassicMode::OnDrawFrontUI(Shader& uiShader) {
 
 void ClassicMode::OnEnter() {
 	context.current = ClassicModeContext::Start;
-	ui.startGame->SetEnable(true);
-	ui.back->SetEnable(true);
+	game.manager.Register(ui.startGame);
+	game.manager.Register(ui.back);
 	PositionUI();
 
 	Rigidbody* rb = ui.startGame->GetComponent<Rigidbody>();
@@ -317,7 +316,7 @@ void ClassicMode::OnEnter() {
 	rb->velocity = {};
 	rb->useGravity = false;
 
-	game->uiConfig.control.enableSlicing = false;
+	game.uiConfig.control.enableSlicing = false;
 	StartCoroutine(FadeInUI(1.0f));
 }
 
@@ -339,11 +338,11 @@ void ClassicMode::enterGame() {
 	context.fruitChannel.miss = 0;
 	context.fruitChannel.recovery = 0;
 	context.bombChannel.bombHit = false;
-	game->player->GetComponent<AudioSource>()->Pause();
+	game.player->GetComponent<AudioSource>()->Pause();
 	auto source = acquireAudioSource();
 	if (source) {
 		auto audioSource = source->GetComponent<AudioSource>();
-		audioSource->SetAudioClip(game->audios.gameStartAudio);
+		audioSource->SetAudioClip(game.audios.gameStartAudio);
 		audioSource->Play();
 	}
 	StartCoroutine(FadeOutUI(0.5f));
@@ -351,7 +350,7 @@ void ClassicMode::enterGame() {
 
 void ClassicMode::enterExplosion() {
 	context.current = ClassicModeContext::Explosion;
-	Time::timeScale = 0;
+	game.gameClock.timeScale = 0;
 	context.explosionTimer = 0;
 	context.fruitChannel.enableSlicing = false;
 	context.bombChannel.enableSlicing = false;
@@ -361,12 +360,12 @@ void ClassicMode::enterScore() {
 	context.current = ClassicModeContext::Score;
 
 	PositionUI();
-	ui.back->SetEnable(true);
+	game.manager.Register(ui.back);
 	auto rb = ui.back->GetComponent<Rigidbody>();
 	rb->useGravity = false;
 	rb->velocity = glm::vec3(0);
-	
-	ui.restart->SetEnable(true);
+
+	game.manager.Register(ui.restart);
 	rb = ui.restart->GetComponent<Rigidbody>();
 	rb->velocity = {};
 	rb->useGravity = false;
@@ -376,7 +375,7 @@ void ClassicMode::enterScore() {
 	auto source = acquireAudioSource();
 	if (source) {
 		auto audioSource = source->GetComponent<AudioSource>();
-		audioSource->SetAudioClip(game->audios.gameOverAudio);
+		audioSource->SetAudioClip(game.audios.gameOverAudio);
 		audioSource->Play();
 	}
 
@@ -398,7 +397,7 @@ void ClassicMode::processStart() {
 }
 
 void ClassicMode::processGame() {
-	context.spawnTimer += Time::deltaTime();
+	context.spawnTimer += game.gameClock.DeltaTime();
 	if (context.spawnTimer >= context.spawnCooldown) {
 		int spawnAmount = round(randFloat(setting.spawnAmountMin, setting.spawnAmountMax));
 		for (int i = 0; i < spawnAmount; i++) {
@@ -411,7 +410,7 @@ void ClassicMode::processGame() {
 		auto audioSourceObj = acquireAudioSource();
 		if (audioSourceObj) {
 			auto source = audioSourceObj->GetComponent<AudioSource>();
-			source->SetAudioClip(game->audios.fruitSpawnAudio);
+			source->SetAudioClip(game.audios.fruitSpawnAudio);
 			source->Play();
 		}
 	}
@@ -427,16 +426,16 @@ void ClassicMode::processGame() {
 		auto source = acquireAudioSource();
 		if (source) {
 			auto audioSource = source->GetComponent<AudioSource>();
-			audioSource->SetAudioClip(game->audios.recoveryAudio);
+			audioSource->SetAudioClip(game.audios.recoveryAudio);
 			audioSource->Play();
 		}
 	}
 }
 
 void ClassicMode::processExplosion() {
-	context.explosionTimer += Time::unscaledDeltaTime();
+	context.explosionTimer += game.gameClock.UnscaledDeltaTime();
 	if (context.explosionTimer > setting.explosionDuration) {
-		Time::timeScale = 1;
+		game.gameClock.timeScale = 1;
 		exitExplosion();
 		enterScore();
 	}
@@ -505,7 +504,7 @@ Coroutine ClassicMode::FadeInUI(float duration) {
 	Renderer* restart = ui.restart->GetComponent<Renderer>();
 	
 	while (time < duration) {
-		time += Time::deltaTime();
+		time += game.gameClock.DeltaTime();
 		float opacity = time / duration;
 		back->color.a = opacity;
 		back->outlineColor.a = opacity;
@@ -529,14 +528,14 @@ Coroutine ClassicMode::FadeInUI(float duration) {
 	ui.backButton->textColor.a = 1;
 	ui.startButton->textColor.a = 1;
 	ui.restartButton->textColor.a = 1;
-	game->uiConfig.control.enableSlicing = true;
+	game.uiConfig.control.enableSlicing = true;
 }
 
 Coroutine ClassicMode::FadeOutUI(float duration) {
 	float time = 0;
 
 	while (time < duration) {
-		time += Time::deltaTime();
+		time += game.gameClock.DeltaTime();
 		float opacity = 1 - time / duration;
 
 		ui.backButton->textColor.a = opacity;
@@ -548,5 +547,5 @@ Coroutine ClassicMode::FadeOutUI(float duration) {
 	ui.backButton->textColor.a = 0;
 	ui.startButton->textColor.a = 0;
 	ui.restartButton->textColor.a = 0;
-	game->uiConfig.control.enableSlicing = true;
+	game.uiConfig.control.enableSlicing = true;
 }

@@ -121,7 +121,7 @@ private:
 	Coroutine FadeInUI(float duration);
 	Coroutine FadeOutUI(float duration);
 public:
-	ClassicMode(Game* game);
+	ClassicMode(Game& game);
 	void Init() override;
 	void OnEnter() override;
 	void OnExit() override;

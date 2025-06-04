@@ -3,23 +3,26 @@
 #include "input.hpp"
 #include "rendering/camera.hpp"
 #include "cursor.hpp"
-#include "state/time.hpp"
 
-using namespace Time;
 using namespace Input;
 
 static double pitch = 0;
 static double yaw = 0;
 static float cameraSpeed = 4;
+static Clock* gameClock = nullptr;
 bool Input::lockedCamera = true;
 
 void Input::onKeyPressed(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
+    if (!gameClock) {
+        std::cout << "Clock reference is not set for input handler" << std::endl;
+        return;
+    }
     if (key == GLFW_KEY_ESCAPE && action == GLFW_RELEASE) {
         glfwSetWindowShouldClose(window, true);
     }
     if (key == GLFW_KEY_F && action == GLFW_RELEASE) {
-        Time::timeScale = !Time::timeScale;
+        gameClock->timeScale = !gameClock->timeScale;
     }
 
     if (key == GLFW_KEY_R && action == GLFW_RELEASE) {
@@ -81,6 +84,10 @@ static bool wasMouseClicked;
 
 void Input::processInput(GLFWwindow* window)
 {
+    if (!gameClock) {
+        std::cout << "Clock reference is not set for input handler" << std::endl;
+        return;
+    }
     wasMouseClicked = Cursor::mouseClicked;
     if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
         
@@ -101,22 +108,23 @@ void Input::processInput(GLFWwindow* window)
         auto cameraUp = camera->transform.up();
         auto pos = camera->transform.position();
         if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-            pos += cameraSpeed * unscaledDeltaTime() * cameraFront;
+            pos += cameraSpeed * gameClock->UnscaledDeltaTime() * cameraFront;
         if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-            pos -= cameraSpeed * unscaledDeltaTime() * cameraFront;
+            pos -= cameraSpeed * gameClock->UnscaledDeltaTime() * cameraFront;
         if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-            pos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * unscaledDeltaTime() * cameraSpeed;
+            pos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * gameClock->UnscaledDeltaTime() * cameraSpeed;
         if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-            pos += glm::normalize(glm::cross(cameraFront, cameraUp)) * unscaledDeltaTime() * cameraSpeed;
+            pos += glm::normalize(glm::cross(cameraFront, cameraUp)) * gameClock->UnscaledDeltaTime() * cameraSpeed;
         if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
-            pos += cameraSpeed * unscaledDeltaTime() * cameraUp;
+            pos += cameraSpeed * gameClock->UnscaledDeltaTime() * cameraUp;
         if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
-            pos -= cameraSpeed * unscaledDeltaTime() * cameraUp;
+            pos -= cameraSpeed * gameClock->UnscaledDeltaTime() * cameraUp;
         camera->transform.SetPosition(pos);
     }
 }
 
-void Input::initInput(GLFWwindow* window) {
+void Input::initInput(GLFWwindow* window, Clock& clock) {
+    gameClock = &clock;
     glfwSetKeyCallback(window, onKeyPressed);
     glfwSetCursorPosCallback(window, cursorAim);
 }

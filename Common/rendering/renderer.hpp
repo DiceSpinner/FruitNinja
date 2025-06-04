@@ -1,7 +1,7 @@
 #ifndef RENDERER_H
 #define RENDERER_H
 #include "rendering/model.hpp"
-#include "infrastructure/component.hpp"
+#include "infrastructure/object.hpp"
 class Renderer : public Component {
 private:
 	std::shared_ptr<Model> model;

@@ -12,17 +12,17 @@ AudioSource::AudioSource(unordered_map<type_index, vector<unique_ptr<Component>>
 	alGenSources(1, &sourceID);
 }
 
-void AudioSource::FixedUpdate() {
+void AudioSource::FixedUpdate(Clock& clock) {
 	auto pos = transform.position();
 	alSource3f(sourceID, AL_POSITION, pos.x, pos.y, pos.z);
 }
 
-void AudioSource::Update() {
+void AudioSource::Update(Clock& clock) {
 	if (disableWhileNotPlaying) {
 		ALint result;
 		alGetSourcei(sourceID, AL_SOURCE_STATE, &result);
 		if (result != AL_PLAYING) {
-			object->SetEnable(false);
+			object->Detach();
 		}
 	}
 }
@@ -42,7 +42,7 @@ AudioSource::~AudioSource() {
 }
 
 void AudioSource::Play() const {
-	object->SetEnable(true);
+	if (!object->IsActive()) return;
 	alSourcePlay(sourceID);
 }
 

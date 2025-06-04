@@ -2,7 +2,7 @@
 #define FRUIT_H
 #include <memory>
 #include <functional>
-#include "infrastructure/component.hpp"
+#include "infrastructure/object.hpp"
 #include "rendering/model.hpp"
 #include "audio/audio_clip.hpp"
 #include "infrastructure/object_pool.hpp"
@@ -15,7 +15,7 @@ struct FruitChannel {
 	bool enableSlicing = true;
 	bool disableNonUI = false;
 	float killHeight = 0;
-	std::unique_ptr<ObjectPool<Object>> particleSystemPool;
+	std::shared_ptr<ObjectPool<Object>> particleSystemPool;
 };
 
 struct FruitAsset {
@@ -41,7 +41,7 @@ public:
 		std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& components, Transform& transform, Object* object,
 		float radius, int score, float sliceForce, FruitChannel& channel, const FruitAsset& assets
 	);
-	void Update() override;
+	void Update(Clock& clock) override;
 };
 
 #endif

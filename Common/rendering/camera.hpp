@@ -2,7 +2,7 @@
 #define CAMERA_H
 #include <vector>
 #include "render_context.hpp"
-#include "infrastructure/component.hpp"
+#include "infrastructure/object.hpp"
 
 class Camera : public Component {
 private:

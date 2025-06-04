@@ -3,17 +3,19 @@
 #include "infrastructure/object_pool.hpp"
 
 using namespace std;
-static ObjectPool<Object>* pool;
+static std::shared_ptr<ObjectPool<Object>> pool;
+ObjectManager* objManager;
 
 static Object* createAudioSource() {
-	Object* obj = new Object();
+	auto obj = new Object();
 	AudioSource* source = obj->AddComponent<AudioSource>();
 	source->disableWhileNotPlaying = true;
 	return obj;
 }
 
-void initializeAudioSourcePool(size_t size) {
-	pool = new ObjectPool<Object>(size, createAudioSource);
+void initializeAudioSourcePool(ObjectManager& manager, size_t size) {
+	objManager = &manager;
+	pool = std::make_shared<ObjectPool<Object>>(size, &createAudioSource);
 }
 
 shared_ptr<Object> acquireAudioSource() {
@@ -22,6 +24,6 @@ shared_ptr<Object> acquireAudioSource() {
 		return {};
 	}
 	shared_ptr<Object> result = move(ptr);
-	result->SetEnable(true);
+	objManager->Register(result);
 	return result;
 }

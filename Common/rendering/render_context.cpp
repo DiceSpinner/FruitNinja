@@ -8,13 +8,7 @@ static void onWindowResize(GLFWwindow* window, int width, int height)
 {
     glViewport(0, 0, width, height);
 
-    RenderContext* context = static_cast<RenderContext*>(glfwGetWindowUserPointer(window));
-    if (!context) {
-        std::cout << "The user pointer is not set for the render context" << std::endl;
-        return;
-    }
-
-    context->SetDimension({width, height});
+    RenderContext::Context->SetDimension({width, height});
     for (auto& camera : *Camera::cameras) {
         camera->SetPerspective(0.1f, 300.0f);
         camera->SetOrthoWidth(width);

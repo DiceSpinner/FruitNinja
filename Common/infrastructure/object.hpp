@@ -85,9 +85,9 @@ private:
 	/// The queue that stores all of the newly enabled objects, they will respond to updates in the next frame
 	/// </summary>
 	std::list<Object*> updateList = {};
-	void ExecuteEarlyFixedUpdate(Clock& clock);
-	void ExecuteFixedUpdate(Clock& clock);
-	void ExecuteUpdate(Clock& clock);
+	void ExecuteEarlyFixedUpdate(const Clock& clock);
+	void ExecuteFixedUpdate(const Clock& clock);
+	void ExecuteUpdate(const Clock& clock);
 public:
 	ObjectManager();
 	ObjectManager(const ObjectManager& other) = delete;
@@ -99,6 +99,7 @@ public:
 	std::shared_ptr<Object> CreateObject();
 	void Register(const std::shared_ptr<Object>& obj);
 	void Unregister(Object* obj);
+	void UnregisterAll();
 	void Tick(Clock& clock);
 };
 
@@ -112,10 +113,10 @@ public:
 	Object* const object;
 	Transform& transform;
 	Component(std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& collection, Transform& transform, Object* object);
-	void virtual Update(Clock& clock);
+	void virtual Update(const Clock& clock);
 	void virtual Initialize();
-	void virtual EarlyFixedUpdate(Clock& clock);
-	void virtual FixedUpdate(Clock& clock);
+	void virtual EarlyFixedUpdate(const Clock& clock);
+	void virtual FixedUpdate(const Clock& clock);
 	void virtual OnEnabled();
 	void virtual OnDisabled();
 	virtual ~Component() = default;

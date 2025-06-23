@@ -2,11 +2,12 @@
 #include "rendering/render_context.hpp"
 #include "rendering/shader.hpp"
 #include "networking/networking.hpp"
-#include "state/time.hpp"
-#include "default_state.hpp"
+#include "server.hpp"
 
 const char* objVertexPath = SHADER_DIR "object.vert";
 const char* objFragPath = SHADER_DIR "object.frag";
+
+const uint32_t FPS = 60;
 
 int main() {
     RenderContext context({ 1920, 1080 });
@@ -21,17 +22,15 @@ int main() {
             .requestTimeout = std::chrono::seconds(3),
             .requestRetryInterval = std::chrono::milliseconds(300),
             .impRetryInterval = std::chrono::milliseconds(200)
-        }
+        }, FPS
      );
-    std::chrono::steady_clock::duration tickInterval(std::chrono::milliseconds(10));
-    std::chrono::steady_clock::time_point tickTime = std::chrono::steady_clock::now();
+    std::chrono::duration<float> tickInterval(1.0 / FPS);
+
     while (server.running) {
         server.ProcessInput();
         server.Step();
-        server.BroadCastState();
         
-        tickTime += tickInterval;
-        std::this_thread::sleep_until(tickTime);
+        std::this_thread::sleep_for(tickInterval);
     }
     
     Networking::destroy();

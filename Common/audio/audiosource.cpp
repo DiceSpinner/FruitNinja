@@ -12,12 +12,12 @@ AudioSource::AudioSource(unordered_map<type_index, vector<unique_ptr<Component>>
 	alGenSources(1, &sourceID);
 }
 
-void AudioSource::FixedUpdate(Clock& clock) {
+void AudioSource::FixedUpdate(const Clock& clock) {
 	auto pos = transform.position();
 	alSource3f(sourceID, AL_POSITION, pos.x, pos.y, pos.z);
 }
 
-void AudioSource::Update(Clock& clock) {
+void AudioSource::Update(const Clock& clock) {
 	if (disableWhileNotPlaying) {
 		ALint result;
 		alGetSourcei(sourceID, AL_SOURCE_STATE, &result);

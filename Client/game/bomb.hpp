@@ -21,6 +21,6 @@ private:
 public:
 	Bomb(std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& collection, Transform& transform, Object* object,
 		std::shared_ptr<AudioClip> explosionSFX, float radius, BombChannel& channel);
-	void Update(Clock& clock) override;
+	void Update(const Clock& clock) override;
 };
 #endif

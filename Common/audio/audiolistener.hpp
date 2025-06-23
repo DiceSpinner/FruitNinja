@@ -6,7 +6,7 @@
 class AudioListener : public Component {
 public:
 	AudioListener(std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& components, Transform& transform, Object* object);
-	void FixedUpdate(Clock& clock) override;
+	void FixedUpdate(const Clock& clock) override;
 };
 
 template<>

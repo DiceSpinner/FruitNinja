@@ -8,7 +8,7 @@ private:
 	bool isUI;
 public:
 	FruitSlice(std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& components, Transform& transform, Object* object, FruitChannel& control, bool isUI);
-	void Update(Clock& clock) override;
+	void Update(const Clock& clock) override;
 };
 
 #endif

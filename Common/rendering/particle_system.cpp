@@ -122,7 +122,7 @@ void ParticleSystem::SpawnParticle() {
 	}
 }
 
-void ParticleSystem::FixedUpdate(Clock& clock) {
+void ParticleSystem::FixedUpdate(const Clock& clock) {
 	if (init) {
 		init = false;
 		for (auto i = 0; i < spawnAmount; i++) {

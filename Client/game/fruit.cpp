@@ -39,7 +39,7 @@ void Fruit::PlayVFX() const {
 	particleSystem->color = color;
 }
 
-void Fruit::Update(Clock& clock) {
+void Fruit::Update(const Clock& clock) {
 	if (channel.disableNonUI && reward > 0) {
 		object->Detach();
 		return;

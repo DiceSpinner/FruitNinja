@@ -15,10 +15,10 @@ public:
 	glm::vec3 localAngularVelocity;
 	bool useGravity;
 
-	void AddForce(Clock& clock, glm::vec3 force, ForceMode forcemode = ForceMode::Force);
-	void AddTorque(Clock& clock, glm::vec3 torque, ForceMode forcemode = ForceMode::Force);
-	void AddRelativeTorque(Clock& clock, glm::vec3 torque, ForceMode forcemode = ForceMode::Force);
-	void EarlyFixedUpdate(Clock& clock) override;
+	void AddForce(const Clock& clock, glm::vec3 force, ForceMode forcemode = ForceMode::Force);
+	void AddTorque(const Clock& clock, glm::vec3 torque, ForceMode forcemode = ForceMode::Force);
+	void AddRelativeTorque(const Clock& clock, glm::vec3 torque, ForceMode forcemode = ForceMode::Force);
+	void EarlyFixedUpdate(const Clock& clock) override;
 };
 
 #endif

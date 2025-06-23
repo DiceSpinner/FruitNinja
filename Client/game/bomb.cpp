@@ -10,7 +10,7 @@ Bomb::Bomb(unordered_map<type_index, vector<unique_ptr<Component>>>& collection,
 	
 }
 
-void Bomb::Update(Clock& clock) {
+void Bomb::Update(const Clock& clock) {
 	if (channel.disableAll) {
 		object->Detach();
 		return;

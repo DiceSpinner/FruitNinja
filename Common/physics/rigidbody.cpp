@@ -11,7 +11,7 @@ const glm::vec3 Rigidbody::Gravity(0, -25, 0);
 Rigidbody::Rigidbody(unordered_map<type_index, vector<unique_ptr<Component>>>& components, Transform& transform, Object* object) :
 	Component(components, transform, object), velocity(0), localAngularVelocity(0), useGravity(true) {}
 
-void Rigidbody::AddForce(Clock& clock, glm::vec3 force, ForceMode forcemode) {
+void Rigidbody::AddForce(const Clock& clock, glm::vec3 force, ForceMode forcemode) {
 	if (forcemode == ForceMode::Force) {
 		velocity += clock.FixedDeltaTime() * force;
 	}
@@ -20,7 +20,7 @@ void Rigidbody::AddForce(Clock& clock, glm::vec3 force, ForceMode forcemode) {
 	}
 }
 
-void Rigidbody::AddTorque(Clock& clock, glm::vec3 torque, ForceMode forcemode) {
+void Rigidbody::AddTorque(const Clock& clock, glm::vec3 torque, ForceMode forcemode) {
 	glm::vec4 force(torque, 0);
 	force = glm::inverse(transform.matrix) * force;
 	glm::vec3 localTorque(force);
@@ -32,7 +32,7 @@ void Rigidbody::AddTorque(Clock& clock, glm::vec3 torque, ForceMode forcemode) {
 	}
 }
 
-void Rigidbody::AddRelativeTorque(Clock& clock, glm::vec3 torque, ForceMode forcemode) {
+void Rigidbody::AddRelativeTorque(const Clock& clock, glm::vec3 torque, ForceMode forcemode) {
 	if (forcemode == ForceMode::Force) {
 		localAngularVelocity += clock.FixedDeltaTime() * torque;
 	}
@@ -41,7 +41,7 @@ void Rigidbody::AddRelativeTorque(Clock& clock, glm::vec3 torque, ForceMode forc
 	}
 }
 
-void Rigidbody::EarlyFixedUpdate(Clock& clock) {
+void Rigidbody::EarlyFixedUpdate(const Clock& clock) {
 	glm::vec3 translation = transform.position();
 	translation += velocity * clock.FixedDeltaTime();
 	transform.matrix[3] = glm::vec4(translation, 1);

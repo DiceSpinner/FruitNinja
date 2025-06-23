@@ -6,120 +6,47 @@
 #include <typeindex>
 #include <memory>
 #include <concepts>
-#include "networking/connection.hpp"
-#include "infrastructure/coroutine.hpp"
-
-constexpr auto SERVER_SOCKET_CAPACITY = 30;
-
-struct ServerContext {
-	std::unique_ptr<UDPConnectionManager> connectionManager;
-	std::shared_ptr<UDPConnection> player1;
-	std::shared_ptr<UDPConnection> player2;
-};
-
-class ServerState;
-class Server;
-
-template<typename T>
-concept TState = std::derived_from<T, ServerState>;
-
-class ServerState {
-private:
-	std::unordered_map<std::type_index, std::unique_ptr<ServerState>> states = {};
-	ServerState* currSubState = {};
-	CoroutineManager coroutineManager = {};
-	std::optional<std::type_index> transition = {};
-	bool terminated = false;
-	ServerState* enterSubState = {};
-	void Terminate();
-protected:
-	Server& server;
-
-	template<TState T>
-	std::optional<std::type_index> EnterSubState() {
-		if (terminated || currSubState) {
-			std::cout << "Cannot enter sub state while terminated/has active sub state" << std::endl;
-			return {};
-		}
-		auto type = std::type_index(typeid(T));
-		auto state = states.find(type);
-		if (state == states.end()) {
-			std::cout << "Cannot find substate" << std::endl;
-			return {};
-		}
-		enterSubState = state->second.get();
-		OnEnterSubState();
-		return Self();
-	}
-public:
-	ServerState(Server& server);
-
-	template<TState T, typename... Args>
-	T* AddSubState(Args&&... args) {
-		auto type = std::type_index(typeid(T));
-		auto state = states.find(type);
-		if (state != states.end()) {
-			return {};
-		}
-		auto& inserted = states.emplace(type, std::make_unique<T>(server, std::forward<Args>(args)...)).first->second;
-		inserted->Init();
-
-		return static_cast<T*>(inserted.get());
-	}
-
-	std::type_index Self() const;
-	std::optional<std::type_index> Run();
-	void StartCoroutine(Coroutine&& coroutine);
-	virtual void Init();
-	virtual void ProcessInput();
-	virtual std::optional<std::type_index> Step();
-	virtual void BroadCastState();
-	virtual void OnEnterSubState();
-	virtual void OnExitSubState();
-	virtual void OnEnter();
-	virtual void OnExit();
-};
+#include "infrastructure/clock.hpp"
+#include "multiplayer/game_packet.hpp"
+#include "multiplayer_game.hpp"
+#include "multiplayer/player_input.hpp"
 
 class Server {
-	friend class ServerState;
 private:
-	std::unique_ptr<ServerState> state = {};
-	std::chrono::steady_clock::time_point startTime;
 	TimeoutSetting timeout;
+	Clock gameClock;
 
-	ServerContext context;
-	enum ServerStatus {
+	std::unique_ptr<UDPConnectionManager> connectionManager;
+	Game game;
+	std::shared_ptr<UDPConnection> player1;
+	std::shared_ptr<UDPConnection> player2;
+
+	enum ServerState {
 		OnHold,
 		InGame,
+		Score
 	};
 
-	std::atomic<ServerStatus> status;
-	
+	std::atomic<ServerState> state;
 public:
 	std::atomic<bool> running;
 
-	Server(TimeoutSetting timeout);
+	Server(TimeoutSetting timeout, uint32_t fps);
 	Server(const Server& other) = delete;
 	Server(Server&& other) = delete;
 	Server& operator = (const Server& other) = delete;
 	Server& operator = (Server&& other) = delete;
 
-	void CleanUp();
-
-	template<TState T>
-	void SetInitialState() {
-		if (state) return;
-		auto type = std::type_index(typeid(T));
-		if (std::type_index(typeid(state.get())) == type) return;
-
-		state = std::make_unique<T>(*this);
-		state->Init();
-		state->OnEnter();
-	}
-
+	void OnEnterState();
+	void OnExitState();
+	void ChangeState(ServerState state);
+	void UpdateState();
+	void Terminate();
 	void ProcessInput();
 	void Step();
-	void BroadCastState();
+	void DrawBackUI();
+	void DrawObjects();
+	void DrawFrontUI();
 };
 
 #endif

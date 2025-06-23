@@ -41,7 +41,7 @@ public:
 		std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& components, Transform& transform, Object* object,
 		float radius, int score, float sliceForce, FruitChannel& channel, const FruitAsset& assets
 	);
-	void Update(Clock& clock) override;
+	void Update(const Clock& clock) override;
 };
 
 #endif

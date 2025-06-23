@@ -89,7 +89,7 @@ void UDPSocket::SendPacket(const Packet& packet) {
 	}
 }
 
-void UDPSocket::SendPacket(std::span<const char> payload, const sockaddr_in& target) {
+void UDPSocket::SendPacket(const std::span<const char> payload, const sockaddr_in& target) {
 	if (closed) {
 		std::cout << "[Error] Attempting to write to a closed socket!\n";
 		return;

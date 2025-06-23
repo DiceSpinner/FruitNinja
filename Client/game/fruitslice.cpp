@@ -7,7 +7,7 @@ FruitSlice::FruitSlice(unordered_map<type_index, vector<unique_ptr<Component>>>&
 	: Component(components, transform, object), channel(channel), isUI(isUI) {
 }
 
-void FruitSlice::Update(Clock& clock) {
+void FruitSlice::Update(const Clock& clock) {
 	if (transform.position().y <= channel.killHeight || (channel.disableNonUI && !isUI)) {
 		object->Detach();
 	}

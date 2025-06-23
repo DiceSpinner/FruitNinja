@@ -49,7 +49,7 @@ public:
 	void SpawnParticle();
 	void SetParticleLifeTime(float min, float max);
 	void Draw(Shader& shader) const;
-	void FixedUpdate(Clock& clock) override;
+	void FixedUpdate(const Clock& clock) override;
 	void OnEnabled() override;
 	void OnDisabled() override;
 	~ParticleSystem() override;

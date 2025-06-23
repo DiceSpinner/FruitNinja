@@ -51,7 +51,7 @@ public:
 	~UDPSocket();
 
 	void SendPacket(const Packet& packet);
-	void SendPacket(std::span<const char> payload, const sockaddr_in& target);
+	void SendPacket(const std::span<const char> payload, const sockaddr_in& target);
 	const DWORD MaxPacketSize() const;
 	const USHORT Port() const;
 	std::optional<Packet> Read();

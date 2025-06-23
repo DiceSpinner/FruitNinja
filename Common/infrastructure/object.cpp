@@ -8,7 +8,7 @@ using namespace std;
 
 ObjectManager::ObjectManager() {}
 
-void ObjectManager::ExecuteEarlyFixedUpdate(Clock& clock) {
+void ObjectManager::ExecuteEarlyFixedUpdate(const Clock& clock) {
 	for (auto i = updateList.begin(); i != updateList.end();) {
 		auto& obj = *(i++);
 		obj->isUpdating = true;
@@ -25,7 +25,7 @@ void ObjectManager::ExecuteEarlyFixedUpdate(Clock& clock) {
 	}
 }
 
-void ObjectManager::ExecuteFixedUpdate(Clock& clock) {
+void ObjectManager::ExecuteFixedUpdate(const Clock& clock) {
 	for (auto i = updateList.begin(); i != updateList.end();) {
 		auto& obj = *(i++);
 		obj->isUpdating = true;
@@ -37,12 +37,12 @@ void ObjectManager::ExecuteFixedUpdate(Clock& clock) {
 		obj->isUpdating = false;
 		if (obj->signaledDetachment) {
 			obj->signaledDetachment = false;
-			Unregister(obj);
+			Unregister(obj); 
 		}
 	}
 }
 
-void ObjectManager::ExecuteUpdate(Clock& clock) {
+void ObjectManager::ExecuteUpdate(const Clock& clock) {
 	for (auto i = updateList.begin(); i != updateList.end();) {
 		auto& obj = *(i++);
 		obj->isUpdating = true;
@@ -92,6 +92,15 @@ void ObjectManager::Unregister(Object* obj) {
 	activeObjects.erase(obj);
 }
 
+void ObjectManager::UnregisterAll() {
+	for (auto& obj : updateList) {
+		obj->manager = nullptr;
+		obj->DisableAllComponents();
+	}
+	updateList.clear();
+	activeObjects.clear();
+}
+
 ObjectManager::~ObjectManager() {
 	for (auto& cmp : updateList) {
 		cmp->manager = nullptr;
@@ -132,7 +141,7 @@ void Object::EnableAllComponents() const {
 	}
 }
 
-ObjectManager* Object::Manager() const { return manager; }
+ObjectManager* Object::Manager() const { return manager;  }
 
 Component::Component(std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& collection, Transform& transform, Object* object) :
 	componentMap(collection),
@@ -142,9 +151,9 @@ Component::Component(std::unordered_map<std::type_index, std::vector<std::unique
 
 }
 
-void Component::Update(Clock& clock) {}
+void Component::Update(const Clock& clock) {}
 void Component::Initialize() {}
-void Component::EarlyFixedUpdate(Clock& clock) {}
-void Component::FixedUpdate(Clock& clock) {}
+void Component::EarlyFixedUpdate(const Clock& clock) {}
+void Component::FixedUpdate(const Clock& clock) {}
 void Component::OnEnabled() {}
 void Component::OnDisabled() {}

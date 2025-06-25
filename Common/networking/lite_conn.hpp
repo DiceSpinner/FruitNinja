@@ -1,5 +1,5 @@
-#ifndef CONNECTION_H
-#define CONNECTION_H
+#ifndef LITE_CONN_H
+#define LITE_CONN_H
 #include <random>
 #include <chrono>
 #include <future>
@@ -9,72 +9,47 @@
 #include "debug/log.hpp"
 
 // Forward declarations
-class UDPConnectionManager;
-class UDPConnection;
-class RequestHandle;
+class LiteConnManager;
+class LiteConnConnection;
+class LiteConnResponse;
 
-class ResponseHandle {
+class LiteConnRequest {
 private:
-	std::weak_ptr<UDPConnection> connection;
+	std::weak_ptr<LiteConnConnection> connection;
 	bool isValid;
 	uint64_t requestID;
 public:
-	ResponseHandle(std::weak_ptr<UDPConnection>&& connection, const uint64_t& id);
-	ResponseHandle(const ResponseHandle&) noexcept = delete;
-	ResponseHandle& operator = (const ResponseHandle&) noexcept = delete;
-	ResponseHandle(ResponseHandle&&) noexcept = default;
-	ResponseHandle& operator = (ResponseHandle&&) noexcept = default;
-	~ResponseHandle();
+	LiteConnRequest(std::weak_ptr<LiteConnConnection>&& connection, const uint64_t& id);
+	LiteConnRequest(const LiteConnRequest&) noexcept = delete;
+	LiteConnRequest& operator = (const LiteConnRequest&) noexcept = delete;
+	LiteConnRequest(LiteConnRequest&&) noexcept = default;
+	LiteConnRequest& operator = (LiteConnRequest&&) noexcept = default;
+	~LiteConnRequest();
 
 	operator bool() const;
 	bool IsValid() const;
 	void Reject();
 	void Respond(const std::span<const char> response);
-	std::optional<RequestHandle> Converse(const std::span<const char> data);
+	std::optional<LiteConnResponse> Converse(const std::span<const char> data);
 };
 
-struct Message {
+struct LiteConnMessage {
 	std::vector<char> data;
-	std::optional<ResponseHandle> responseHandle;
-	uint32_t index;
-
-	bool operator < (const Message& other) const {
-		return int32_t(index) - int32_t(other.index) < 0;
-	}
-
-	bool operator <= (const Message& other) const {
-		return int32_t(index) - int32_t(other.index) <= 0;
-	}
-
-	bool operator > (const Message& other) const {
-		return int32_t(index) - int32_t(other.index) > 0;
-	}
-
-	bool operator >= (const Message& other) const {
-		return int32_t(index) - int32_t(other.index) >= 0;
-	}
-
-	bool operator == (const Message& other) const {
-		return index == other.index;
-	}
-
-	bool operator != (const Message& other) const {
-		return index != other.index;
-	}
+	std::optional<LiteConnRequest> requestHandle;
 };
 
-class RequestHandle {
+class LiteConnResponse {
 private:
-	std::weak_ptr<UDPConnection> connection;
+	std::weak_ptr<LiteConnConnection> connection;
 	uint64_t requestID;
-	std::future<std::optional<Message>> response;
+	std::future<std::optional<LiteConnMessage>> response;
 public:
-	RequestHandle(std::weak_ptr<UDPConnection>&& connection, const uint64_t& id, std::future<std::optional<Message>>&& value);
-	RequestHandle(const RequestHandle&) = delete;
-	RequestHandle(RequestHandle&&) noexcept = default;
-	RequestHandle& operator = (const RequestHandle&) noexcept = delete;
-	RequestHandle& operator = (RequestHandle&&) noexcept = default;
-	~RequestHandle();
+	LiteConnResponse(std::weak_ptr<LiteConnConnection>&& connection, const uint64_t& id, std::future<std::optional<LiteConnMessage>>&& value);
+	LiteConnResponse(const LiteConnResponse&) = delete;
+	LiteConnResponse(LiteConnResponse&&) noexcept = default;
+	LiteConnResponse& operator = (const LiteConnResponse&) noexcept = delete;
+	LiteConnResponse& operator = (LiteConnResponse&&) noexcept = default;
+	~LiteConnResponse();
 
 	void Cancel();
 
@@ -84,13 +59,10 @@ public:
 
 		return response.wait_for(timeout) == std::future_status::ready;
 	}
-	std::optional<Message> GetResponse();
+	std::optional<LiteConnMessage> GetResponse();
 };
 
-/// <summary>
-/// Options available for sending UDPPacket.
-/// </summary>
-class UDPHeaderFlag {
+class LiteConnHeaderFlag {
 public:
 	enum Flag : uint8_t {
 		DATA = 1,        // Indicate this packet contains data
@@ -102,24 +74,24 @@ public:
 		FIN = 1 << 6,    // Tells the peer the connection is closed
 		HBT = 1 << 7	   // Indicates a heartbeat packet, used to query the connection is still alive
 	} value;
-	UDPHeaderFlag(Flag value) : value(value) {}
-	UDPHeaderFlag(uint8_t value) : value(static_cast<Flag>(value)) {}
+	LiteConnHeaderFlag(Flag value) : value(value) {}
+	LiteConnHeaderFlag(uint8_t value) : value(static_cast<Flag>(value)) {}
 
 	constexpr operator uint8_t() const {
 		return value;
 	}
 };
 
-struct UDPHeader {
-	static constexpr size_t Size = sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint64_t) + sizeof(UDPHeaderFlag);
+struct LiteConnHeader {
+	static constexpr size_t Size = sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint64_t) + sizeof(LiteConnHeaderFlag);
 
 	uint32_t sessionID;     // Connection/session identifier
 	uint32_t index;         // Transport-level sequencing
-	UDPHeaderFlag flag;     // Packet behavior (REQ, IMP, etc.)
+	LiteConnHeaderFlag flag;     // Packet behavior (REQ, IMP, etc.)
 	uint32_t id32;         // Used as reliability identifier during connection and storage for sessionID negatiation.
 	uint64_t id64;       // Identifier for REQ
 
-	static std::optional<UDPHeader> Deserialize(std::span<const char> buffer) {
+	static std::optional<LiteConnHeader> Deserialize(std::span<const char> buffer) {
 		if (buffer.size() < Size) return {};
 		auto base = buffer.data();
 
@@ -134,15 +106,15 @@ struct UDPHeader {
 		uint64_t extra64; 
 		memcpy(&extra64, base, sizeof(uint64_t));
 		
-		return UDPHeader{
+		return LiteConnHeader{
 			.sessionID = ntohl(sessionID),
 			.index = ntohl(index),
-			.flag = static_cast<UDPHeaderFlag>(flag),
+			.flag = static_cast<LiteConnHeaderFlag>(flag),
 			.id32 = ntohl(extra),
 			.id64 = ntohll(extra64)
 		};
 	}
-	static void Serialize(const UDPHeader& header, std::span<char> buffer) {
+	static void Serialize(const LiteConnHeader& header, std::span<char> buffer) {
 		if (buffer.size() < Size) {
 			Debug::Log("Size of buffer too small for UDPHeader");
 			return;
@@ -159,7 +131,7 @@ struct UDPHeader {
 		std::memcpy(std::exchange(base, base + sizeof(uint32_t)), &extra, sizeof(uint32_t));
 		std::memcpy(base, &extra64, sizeof(uint64_t));
 	}
-	static std::vector<char> Serialize(const UDPHeader& header) {
+	static std::vector<char> Serialize(const LiteConnHeader& header) {
 		std::vector<char> buffer;
 		buffer.resize(Size);
 		auto index = htonl(header.index);
@@ -176,7 +148,7 @@ struct UDPHeader {
 		return buffer;
 	}
 
-	bool operator == (const UDPHeader&) const = default;
+	bool operator == (const LiteConnHeader&) const = default;
 };
 
 struct TimeoutSetting {
@@ -187,10 +159,10 @@ struct TimeoutSetting {
 	std::chrono::steady_clock::duration replyKeepDuration;
 };
 
-class UDPConnection : public std::enable_shared_from_this<UDPConnection> {
-	friend class UDPConnectionManager;
-	friend class RequestHandle;
-	friend class ResponseHandle;
+class LiteConnConnection : public std::enable_shared_from_this<LiteConnConnection> {
+	friend class LiteConnManager;
+	friend class LiteConnResponse;
+	friend class LiteConnRequest;
 private:
 	/// <summary>
 	/// Represents a packet that needs to be acknowledged
@@ -227,9 +199,9 @@ private:
 	std::mutex lock;
 	std::unordered_map<uint64_t, AutoResendEntry> autoResendEntries;
 	std::unordered_map<uint32_t, std::chrono::steady_clock::time_point> autoAcks;
-	std::unordered_map<uint64_t, std::promise<std::optional<Message>>> requestHandles;
-	std::unordered_set<uint64_t> responseHandles;
-	std::list<Message> packetQueue;
+	std::unordered_map<uint64_t, std::promise<std::optional<LiteConnMessage>>> requestHandles;
+	std::unordered_set<uint64_t> LiteConnResponses;
+	std::list<LiteConnMessage> packetQueue;
 	sockaddr_in peerAddr;
 	ConnectionStatus status;
 
@@ -237,44 +209,44 @@ private:
 	void CloseRequest(uint64_t index);
 	void RejectRequest(uint64_t index);
 	void Respond(uint64_t index, const std::span<const char>& data);
-	std::optional<RequestHandle> Converse(uint64_t index, const std::span<const char>& data);
+	std::optional<LiteConnResponse> Converse(uint64_t index, const std::span<const char>& data);
 
 	/// <summary>
 	/// Called by UDPConnectionManager to remove await entries that have expired
 	/// </summary>
 	bool UpdateTimeout();
-	void ParsePacket(const UDPHeader& header, std::vector<char>&& data, const sockaddr_in& address);
+	void ParsePacket(const LiteConnHeader& header, std::vector<char>&& data, const sockaddr_in& address);
 	
 	// Assumes lock is acquired
-	void AckReceival(const UDPHeader& index);
-	void SendPacket(UDPHeader& header, const std::span<const char> data);
-	void SendPacketReliable(UDPHeader& header, const std::span<const char> data);
+	void AckReceival(const LiteConnHeader& index);
+	void SendPacket(LiteConnHeader& header, const std::span<const char> data);
+	void SendPacketReliable(LiteConnHeader& header, const std::span<const char> data);
 
 	// Packet handlers when status is connected
-	void UpdateAddress(const UDPHeader& header, const sockaddr_in& address);
-	bool TryHandleDisconnect(const UDPHeader& header);
-	bool TryHandleMissedHandshake(const UDPHeader& header, const std::vector<char>& data);
-	bool TryHandleDuplicates(const UDPHeader& header);
-	bool TryHandleAcknowledgement(const UDPHeader& header, std::vector<char>& data);
-	bool TryHandleRequestCancellation(const UDPHeader& header, const std::vector<char>& data);
-	bool TryHandleData(const UDPHeader& header, std::vector<char>& data);
-	bool TryHandleHeartBeat(const UDPHeader& header, const std::vector<char>& data);
+	void UpdateAddress(const LiteConnHeader& header, const sockaddr_in& address);
+	bool TryHandleDisconnect(const LiteConnHeader& header);
+	bool TryHandleMissedHandshake(const LiteConnHeader& header, const std::vector<char>& data);
+	bool TryHandleDuplicates(const LiteConnHeader& header);
+	bool TryHandleAcknowledgement(const LiteConnHeader& header, std::vector<char>& data);
+	bool TryHandleRequestCancellation(const LiteConnHeader& header, const std::vector<char>& data);
+	bool TryHandleData(const LiteConnHeader& header, std::vector<char>& data);
+	bool TryHandleHeartBeat(const LiteConnHeader& header, const std::vector<char>& data);
 	
 	// Packet handlers when status is connecting
-	void HandleServerAcknowledgement(const UDPHeader& header, const std::vector<char>& data);
+	void HandleServerAcknowledgement(const LiteConnHeader& header, const std::vector<char>& data);
 
 	// Packet handlers when status is pending
-	bool TryHandleMissedAcknowledgement(const UDPHeader& header, const std::vector<char>& data);
-	void HandleClientAcknowledgement(const UDPHeader& header, const std::vector<char>& data);
+	bool TryHandleMissedAcknowledgement(const LiteConnHeader& header, const std::vector<char>& data);
+	void HandleClientAcknowledgement(const LiteConnHeader& header, const std::vector<char>& data);
 
 public:
 	const TimeoutSetting timeout;
 
-	UDPConnection(std::shared_ptr<UDPSocket> socket, size_t packetQueueCapacity, sockaddr_in peerAddr, uint32_t sessionID, TimeoutSetting setting);
-	UDPConnection(UDPConnection&& other) = delete;
-	UDPConnection(const UDPConnection& other) = delete;
-	UDPConnection& operator = (UDPConnection&& other) = delete;
-	UDPConnection& operator = (const UDPConnection& other) = delete;
+	LiteConnConnection(std::shared_ptr<UDPSocket> socket, size_t packetQueueCapacity, sockaddr_in peerAddr, uint32_t sessionID, TimeoutSetting setting);
+	LiteConnConnection(LiteConnConnection&& other) = delete;
+	LiteConnConnection(const LiteConnConnection& other) = delete;
+	LiteConnConnection& operator = (LiteConnConnection&& other) = delete;
+	LiteConnConnection& operator = (const LiteConnConnection& other) = delete;
 
 	template<typename Rep, typename Period>
 	bool WaitForConnectionComplete(std::chrono::duration<Rep, Period> timeout) {
@@ -302,8 +274,8 @@ public:
 
 	void SendData(const std::span<const char> data);
 	void SendReliableData(const std::span<const char> data);
-	std::optional<RequestHandle> SendRequest(const std::span<const char> data);
-	std::optional<Message> Receive();
+	std::optional<LiteConnResponse> SendRequest(const std::span<const char> data);
+	std::optional<LiteConnMessage> Receive();
 
 #ifdef ENABLE_TEST_HOOKS
 	void SimulateDisconnect() {
@@ -320,7 +292,7 @@ public:
 #endif
 };
 
-class UDPConnectionManager {
+class LiteConnManager {
 private:
 	const size_t numConnections;
 	size_t queueCapacity;
@@ -331,7 +303,7 @@ private:
 	// The lock guards the following fields
 	std::mutex lock = {};
 	std::condition_variable cv = {};
-	std::vector<std::weak_ptr<UDPConnection>> connections;
+	std::vector<std::weak_ptr<LiteConnConnection>> connections;
 
 	struct ConnectionRequest {
 		sockaddr_in address;
@@ -345,16 +317,16 @@ private:
 public:
 	std::atomic<bool> isListening = false;
 
-	UDPConnectionManager(USHORT port, size_t numConnections, size_t packetQueueCapacity, DWORD maxPacketSize, std::chrono::steady_clock::duration updateInterval);
+	LiteConnManager(USHORT port, size_t numConnections, size_t packetQueueCapacity, DWORD maxPacketSize, std::chrono::steady_clock::duration updateInterval);
 
-	UDPConnectionManager(size_t packetQueueCapacity, size_t numConnections, DWORD maxPacketSize, std::chrono::steady_clock::duration updateInterval);
+	LiteConnManager(size_t packetQueueCapacity, size_t numConnections, DWORD maxPacketSize, std::chrono::steady_clock::duration updateInterval);
 
-	UDPConnectionManager(const UDPConnectionManager& other) = delete;
-	UDPConnectionManager(UDPConnectionManager&& other) = delete;
-	UDPConnectionManager& operator = (const UDPConnectionManager& other) = delete;
-	UDPConnectionManager& operator = (UDPConnectionManager&& other) = delete;
+	LiteConnManager(const LiteConnManager& other) = delete;
+	LiteConnManager(LiteConnManager&& other) = delete;
+	LiteConnManager& operator = (const LiteConnManager& other) = delete;
+	LiteConnManager& operator = (LiteConnManager&& other) = delete;
 
-	~UDPConnectionManager();
+	~LiteConnManager();
 
 	void RouteAndTimeout();
 	
@@ -363,7 +335,7 @@ public:
 	/// </summary>
 	/// <param name="timeout"> The duration of the timeout </param>
 	/// <returns> An half-established UDPConnection pointer, or nullptr when timed out or the connection limit is reached </returns>
-	std::shared_ptr<UDPConnection> Accept(TimeoutSetting timeout, std::optional<std::chrono::steady_clock::duration> waitTime = {});
+	std::shared_ptr<LiteConnConnection> Accept(TimeoutSetting timeout, std::optional<std::chrono::steady_clock::duration> waitTime = {});
 
 	/// <summary>
 	/// Check if the underlying socket is opened, no connection can be established when the socket is closed.
@@ -378,6 +350,6 @@ public:
 	/// </summary>
 	/// <param name="address"> The address of the host </param>
 	/// <returns> A pointer to a half established connection, or nullptr if timed out or socket is closed </returns>
-	std::shared_ptr<UDPConnection> ConnectPeer(sockaddr_in peerAddr, TimeoutSetting timeout);
+	std::shared_ptr<LiteConnConnection> ConnectPeer(sockaddr_in peerAddr, TimeoutSetting timeout);
 };
 #endif

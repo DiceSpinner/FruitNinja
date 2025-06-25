@@ -1,11 +1,11 @@
 #include <catch2/catch_test_macros.hpp>
-#include "networking/connection.hpp"
+#include "networking/lite_conn.hpp"
 
 TEST_CASE("UDPConnection 3-way handshake succeeds and closure", "[UDPConnection]") {
-    UDPConnectionManager host1(30000, 2, 10, 1500, std::chrono::milliseconds(10));
+    LiteConnManager host1(30000, 2, 10, 1500, std::chrono::milliseconds(10));
     REQUIRE(host1.Good());
 
-    UDPConnectionManager host2(40000, 2, 10, 1500, std::chrono::milliseconds(10));
+    LiteConnManager host2(40000, 2, 10, 1500, std::chrono::milliseconds(10));
     REQUIRE(host2.Good());
     host1.isListening = true;
     host2.isListening = true;
@@ -54,7 +54,7 @@ TEST_CASE("UDPConnection 3-way handshake succeeds and closure", "[UDPConnection]
 }
 
 TEST_CASE("UDPConnection 3-way handshake client retry connection", "[UDPConnection]") {
-    UDPConnectionManager host1(30000, 2, 10, 1500, std::chrono::milliseconds(10));
+    LiteConnManager host1(30000, 2, 10, 1500, std::chrono::milliseconds(10));
     REQUIRE(host1.Good());
 
     TimeoutSetting timeout = {
@@ -84,11 +84,11 @@ TEST_CASE("UDPConnection 3-way handshake client retry connection", "[UDPConnecti
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         auto pkt = server.Read();
         REQUIRE(pkt.has_value());
-        auto optHeader = UDPHeader::Deserialize(pkt.value().payload);
+        auto optHeader = LiteConnHeader::Deserialize(pkt.value().payload);
         REQUIRE(optHeader.has_value());
-        UDPHeader& header = optHeader.value();
-        REQUIRE(header.flag & UDPHeaderFlag::SYN);
-        REQUIRE(!(header.flag & UDPHeaderFlag::DATA));
+        LiteConnHeader& header = optHeader.value();
+        REQUIRE(header.flag & LiteConnHeaderFlag::SYN);
+        REQUIRE(!(header.flag & LiteConnHeaderFlag::DATA));
         // Currently no more packets should be in the queue
         REQUIRE(!server.Read().has_value());
     }
@@ -97,11 +97,11 @@ TEST_CASE("UDPConnection 3-way handshake client retry connection", "[UDPConnecti
         std::this_thread::sleep_for(std::chrono::milliseconds(300));
         auto pkt = server.Read();
         REQUIRE(pkt.has_value());
-        auto optHeader = UDPHeader::Deserialize(pkt.value().payload);
+        auto optHeader = LiteConnHeader::Deserialize(pkt.value().payload);
         REQUIRE(optHeader.has_value());
-        UDPHeader& header = optHeader.value();
-        REQUIRE(header.flag & UDPHeaderFlag::SYN);
-        REQUIRE(!(header.flag & UDPHeaderFlag::DATA));
+        LiteConnHeader& header = optHeader.value();
+        REQUIRE(header.flag & LiteConnHeaderFlag::SYN);
+        REQUIRE(!(header.flag & LiteConnHeaderFlag::DATA));
         // Currently no more packets should be in the queue
         REQUIRE(!server.Read().has_value());
     }
@@ -115,7 +115,7 @@ TEST_CASE("UDPConnection 3-way handshake client retry connection", "[UDPConnecti
 }
 
 TEST_CASE("UDPConnection 3-way handshake server retry connection", "[UDPConnection]") {
-    UDPConnectionManager serverHost(30000, 2, 10, 1500, std::chrono::milliseconds(10));
+    LiteConnManager serverHost(30000, 2, 10, 1500, std::chrono::milliseconds(10));
     REQUIRE(serverHost.Good());
     serverHost.isListening = true;
 
@@ -138,13 +138,13 @@ TEST_CASE("UDPConnection 3-way handshake server retry connection", "[UDPConnecti
 
     // Client initialize connection
     {
-        UDPHeader header = {
+        LiteConnHeader header = {
             .sessionID = 0,
-            .flag = UDPHeaderFlag::SYN,
+            .flag = LiteConnHeaderFlag::SYN,
             .id32 = 5,
         };
         
-        client.SendPacket(UDPHeader::Serialize(header), serverAddr);
+        client.SendPacket(LiteConnHeader::Serialize(header), serverAddr);
     }
 
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -157,10 +157,10 @@ TEST_CASE("UDPConnection 3-way handshake server retry connection", "[UDPConnecti
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         auto pkt = client.Read();
         REQUIRE(pkt.has_value());
-        auto optHeader = UDPHeader::Deserialize(pkt.value().payload);
+        auto optHeader = LiteConnHeader::Deserialize(pkt.value().payload);
         REQUIRE(optHeader.has_value());
-        UDPHeader& header = optHeader.value();
-        REQUIRE(header.flag == (UDPHeaderFlag::SYN | UDPHeaderFlag::ACK));
+        LiteConnHeader& header = optHeader.value();
+        REQUIRE(header.flag == (LiteConnHeaderFlag::SYN | LiteConnHeaderFlag::ACK));
         REQUIRE(header.sessionID == 5);
 
         // Currently no more packets should be present in the queue
@@ -172,18 +172,18 @@ TEST_CASE("UDPConnection 3-way handshake server retry connection", "[UDPConnecti
         // Case 1 client ACK is lost so server request for retransmission
         pkt = client.Read();
         REQUIRE(pkt.has_value());
-        auto optHeader2 = UDPHeader::Deserialize(pkt.value().payload);
+        auto optHeader2 = LiteConnHeader::Deserialize(pkt.value().payload);
         REQUIRE(optHeader2.has_value());
-        UDPHeader& header2 = optHeader2.value();
-        REQUIRE(header2.flag == UDPHeaderFlag::SYN);
+        LiteConnHeader& header2 = optHeader2.value();
+        REQUIRE(header2.flag == LiteConnHeaderFlag::SYN);
         REQUIRE(header2.sessionID == header.id32);
 
         // Case 2 server ACK is lost so server retransmits sessionID
         pkt = client.Read();
         REQUIRE(pkt.has_value());
-        auto optHeader3 = UDPHeader::Deserialize(pkt.value().payload);
+        auto optHeader3 = LiteConnHeader::Deserialize(pkt.value().payload);
         REQUIRE(optHeader3.has_value());
-        UDPHeader& header3 = optHeader3.value();
+        LiteConnHeader& header3 = optHeader3.value();
         REQUIRE(header3 == header);
     }
 
@@ -196,7 +196,7 @@ TEST_CASE("UDPConnection 3-way handshake server retry connection", "[UDPConnecti
 }
 
 TEST_CASE("UDPConnection 3-way handshake client retransmit acknoledgement", "[UDPConnection]") {
-    UDPConnectionManager clientHost(30000, 2, 10, 1500, std::chrono::milliseconds(10));
+    LiteConnManager clientHost(30000, 2, 10, 1500, std::chrono::milliseconds(10));
     REQUIRE(clientHost.Good());
 
     TimeoutSetting timeout = {
@@ -226,19 +226,19 @@ TEST_CASE("UDPConnection 3-way handshake client retransmit acknoledgement", "[UD
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         auto pkt = server.Read();
         REQUIRE(pkt.has_value());
-        auto optHeader = UDPHeader::Deserialize(pkt.value().payload);
+        auto optHeader = LiteConnHeader::Deserialize(pkt.value().payload);
         REQUIRE(optHeader.has_value());
-        UDPHeader& header = optHeader.value();
-        REQUIRE(header.flag == UDPHeaderFlag::SYN);
+        LiteConnHeader& header = optHeader.value();
+        REQUIRE(header.flag == LiteConnHeaderFlag::SYN);
         // Currently no more packets should be in the queue
         REQUIRE(!server.Read().has_value());
 
-        UDPHeader replyHeader = {
+        LiteConnHeader replyHeader = {
             .sessionID = header.id32,
-            .flag = UDPHeaderFlag::SYN | UDPHeaderFlag::ACK,
+            .flag = LiteConnHeaderFlag::SYN | LiteConnHeaderFlag::ACK,
             .id32 = 10,
         };
-        server.SendPacket(UDPHeader::Serialize(replyHeader), clientAddr);
+        server.SendPacket(LiteConnHeader::Serialize(replyHeader), clientAddr);
     }
     // Verify client connection and ask for retransmission of ack
     {
@@ -248,37 +248,37 @@ TEST_CASE("UDPConnection 3-way handshake client retransmit acknoledgement", "[UD
         // Client should send back ACK
         auto clientReplyPkt = server.Read();
         REQUIRE(clientReplyPkt.has_value());
-        auto optClientHeader = UDPHeader::Deserialize(clientReplyPkt.value().payload);
+        auto optClientHeader = LiteConnHeader::Deserialize(clientReplyPkt.value().payload);
         REQUIRE(optClientHeader.has_value());
-        UDPHeader& clientReplyHeader = optClientHeader.value();
+        LiteConnHeader& clientReplyHeader = optClientHeader.value();
         REQUIRE(clientReplyHeader.sessionID == 10);
-        REQUIRE(clientReplyHeader.flag == UDPHeaderFlag::ACK);
+        REQUIRE(clientReplyHeader.flag == LiteConnHeaderFlag::ACK);
 
         // Send first reply for the case where client did not receive the first syn-ack packet
-        UDPHeader replyHeader = {
+        LiteConnHeader replyHeader = {
             .sessionID = client->SessionID(),
-            .flag = UDPHeaderFlag::SYN | UDPHeaderFlag::ACK,
+            .flag = LiteConnHeaderFlag::SYN | LiteConnHeaderFlag::ACK,
             .id32 = 10,
         };
-        server.SendPacket(UDPHeader::Serialize(replyHeader), clientAddr);
+        server.SendPacket(LiteConnHeader::Serialize(replyHeader), clientAddr);
 
         // Client should ignore since sessionID does not match
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         REQUIRE(!server.Read().has_value());
 
         // Send syc request
-        UDPHeader replyHeader2 = {
+        LiteConnHeader replyHeader2 = {
             .sessionID = 10,
-            .flag = UDPHeaderFlag::SYN
+            .flag = LiteConnHeaderFlag::SYN
         };
-        server.SendPacket(UDPHeader::Serialize(replyHeader2), clientAddr);
+        server.SendPacket(LiteConnHeader::Serialize(replyHeader2), clientAddr);
 
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
         auto pkt = server.Read();
         REQUIRE(pkt.has_value());
-        auto optHeader = UDPHeader::Deserialize(pkt.value().payload);
+        auto optHeader = LiteConnHeader::Deserialize(pkt.value().payload);
         REQUIRE(optHeader.has_value());
-        UDPHeader& header = optHeader.value();
+        LiteConnHeader& header = optHeader.value();
         REQUIRE(header == clientReplyHeader);
         // Currently no more packets should be in the queue
         REQUIRE(!server.Read().has_value());
@@ -286,10 +286,10 @@ TEST_CASE("UDPConnection 3-way handshake client retransmit acknoledgement", "[UD
 }
 
 TEST_CASE("UDPConnection drop overflowed connection requests", "[UDPConnection]") {
-    UDPConnectionManager host1(30000, 2, 10, 1500, std::chrono::milliseconds(10));
+    LiteConnManager host1(30000, 2, 10, 1500, std::chrono::milliseconds(10));
     REQUIRE(host1.Good());
 
-    UDPConnectionManager host2(40000, 1, 10, 1500, std::chrono::milliseconds(10));
+    LiteConnManager host2(40000, 1, 10, 1500, std::chrono::milliseconds(10));
     REQUIRE(host2.Good());
     host1.isListening = true;
     host2.isListening = true;
@@ -344,10 +344,10 @@ TEST_CASE("UDPConnection drop overflowed connection requests", "[UDPConnection]"
 }
 
 TEST_CASE("UDPConnection timeout after one side forcefully disconnect", "[UDPConnection]") {
-    UDPConnectionManager host1(30000, 2, 10, 1500, std::chrono::milliseconds(10));
+    LiteConnManager host1(30000, 2, 10, 1500, std::chrono::milliseconds(10));
     REQUIRE(host1.Good());
 
-    UDPConnectionManager host2(40000, 2, 10, 1500, std::chrono::milliseconds(10));
+    LiteConnManager host2(40000, 2, 10, 1500, std::chrono::milliseconds(10));
     REQUIRE(host2.Good());
     host1.isListening = true;
     host2.isListening = true;
@@ -395,10 +395,10 @@ TEST_CASE("UDPConnection timeout after one side forcefully disconnect", "[UDPCon
 }
 
 TEST_CASE("UDPConnection send regular data packets with respect to queue capacity constraint", "[UDPConnection]") {
-    UDPConnectionManager host1(30000, 2, 2, 1500, std::chrono::milliseconds(10));
+    LiteConnManager host1(30000, 2, 2, 1500, std::chrono::milliseconds(10));
     REQUIRE(host1.Good());
 
-    UDPConnectionManager host2(40000, 2, 1, 1500, std::chrono::milliseconds(10));
+    LiteConnManager host2(40000, 2, 1, 1500, std::chrono::milliseconds(10));
     REQUIRE(host2.Good());
     host1.isListening = true;
     host2.isListening = true;
@@ -509,10 +509,10 @@ TEST_CASE("UDPConnection send regular data packets with respect to queue capacit
 }
 
 TEST_CASE("UDPConnection send request data packets", "[UDPConnection]") {
-    UDPConnectionManager host1(30000, 2, 5, 1500, std::chrono::milliseconds(10));
+    LiteConnManager host1(30000, 2, 5, 1500, std::chrono::milliseconds(10));
     REQUIRE(host1.Good());
 
-    UDPConnectionManager host2(40000, 2, 5, 1500, std::chrono::milliseconds(10));
+    LiteConnManager host2(40000, 2, 5, 1500, std::chrono::milliseconds(10));
     REQUIRE(host2.Good());
     host1.isListening = true;
     host2.isListening = true;
@@ -542,7 +542,8 @@ TEST_CASE("UDPConnection send request data packets", "[UDPConnection]") {
     REQUIRE(s1);
     REQUIRE(host2.Count() == 1);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    REQUIRE(c1->WaitForConnectionComplete(std::chrono::milliseconds(200)));
+    REQUIRE(s1->WaitForConnectionComplete(std::chrono::milliseconds(200)));
     REQUIRE(c1->IsConnected());
     REQUIRE(s1->IsConnected());
 
@@ -566,10 +567,10 @@ TEST_CASE("UDPConnection send request data packets", "[UDPConnection]") {
             auto& reply1 = reply1Opt.value();
             std::string replyStr1 = { reply1.data.begin(), reply1.data.end()};
             REQUIRE(sm1 == replyStr1);
-            REQUIRE(reply1.responseHandle.has_value());
+            REQUIRE(reply1.requestHandle.has_value());
 
             // Send second request
-            auto& crpHandle1 = reply1.responseHandle.value();
+            auto& crpHandle1 = reply1.requestHandle.value();
             REQUIRE(crpHandle1.IsValid());
             auto crHandle2Opt = crpHandle1.Converse(cm2);
             REQUIRE(crHandle2Opt.has_value());
@@ -585,10 +586,10 @@ TEST_CASE("UDPConnection send request data packets", "[UDPConnection]") {
             auto& reply2 = reply2Opt.value();
             std::string replyStr2 = { reply2.data.begin(), reply2.data.end() };
             REQUIRE(sm2 == replyStr2);
-            REQUIRE(reply2.responseHandle.has_value());
+            REQUIRE(reply2.requestHandle.has_value());
 
             // Close request
-            auto& crpHandle2 = reply2.responseHandle.value();
+            auto& crpHandle2 = reply2.requestHandle.value();
             REQUIRE(crpHandle2.IsValid());
             crpHandle2.Reject();
             REQUIRE(!crpHandle2.IsValid());
@@ -603,8 +604,8 @@ TEST_CASE("UDPConnection send request data packets", "[UDPConnection]") {
         REQUIRE(inquiryStr == cm1);
 
         // Send reply
-        REQUIRE(msg1.responseHandle.has_value());
-        auto& srqHandle1 = msg1.responseHandle.value();
+        REQUIRE(msg1.requestHandle.has_value());
+        auto& srqHandle1 = msg1.requestHandle.value();
         REQUIRE(srqHandle1.IsValid());
         auto sr1HandleOpt = srqHandle1.Converse(sm1);
         REQUIRE(!srqHandle1.IsValid());
@@ -621,8 +622,8 @@ TEST_CASE("UDPConnection send request data packets", "[UDPConnection]") {
         REQUIRE(msgStr2 == cm2);
         
         // Sent second reply
-        REQUIRE(msg2.responseHandle.has_value());
-        auto& srqHandle2 = msg2.responseHandle.value();
+        REQUIRE(msg2.requestHandle.has_value());
+        auto& srqHandle2 = msg2.requestHandle.value();
         REQUIRE(srqHandle2.IsValid());
         auto sr2HandleOpt = srqHandle2.Converse(sm2);
         REQUIRE(!srqHandle2.IsValid());
@@ -647,10 +648,10 @@ TEST_CASE("UDPConnection send request data packets", "[UDPConnection]") {
 }
 
 TEST_CASE("UDPConnection send IMP data packets with respect to queue capacity constraint", "[UDPConnection]") {
-    UDPConnectionManager host1(30000, 2, 2, 1500, std::chrono::milliseconds(10));
+    LiteConnManager host1(30000, 2, 2, 1500, std::chrono::milliseconds(10));
     REQUIRE(host1.Good());
 
-    UDPConnectionManager host2(40000, 2, 1, 1500, std::chrono::milliseconds(10));
+    LiteConnManager host2(40000, 2, 1, 1500, std::chrono::milliseconds(10));
     REQUIRE(host2.Good());
     host1.isListening = true;
     host2.isListening = true;

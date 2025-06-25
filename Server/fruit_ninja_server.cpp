@@ -19,9 +19,8 @@ int main() {
         TimeoutSetting{
             .connectionTimeout = std::chrono::seconds(5),
             .connectionRetryInterval = std::chrono::milliseconds(300),
-            .requestTimeout = std::chrono::seconds(3),
-            .requestRetryInterval = std::chrono::milliseconds(300),
-            .impRetryInterval = std::chrono::milliseconds(200)
+            .impRetryInterval = std::chrono::milliseconds(200),
+            .replyKeepDuration = std::chrono::seconds(1)
         }, FPS
      );
     std::chrono::duration<float> tickInterval(1.0 / FPS);

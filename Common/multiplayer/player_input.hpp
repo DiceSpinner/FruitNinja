@@ -4,9 +4,7 @@
 #include <utility>
 #include <memory>
 #include <optional>
-#include "networking/connection.hpp"
-
-static_assert(sizeof(float) == sizeof(uint32_t), "float must be 32 bits (same as uint32_t)");
+#include "networking/lite_conn.hpp"
 
 class PlayerKeyPress {
 public:

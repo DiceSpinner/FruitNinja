@@ -16,10 +16,10 @@ private:
 	TimeoutSetting timeout;
 	Clock gameClock;
 
-	std::unique_ptr<UDPConnectionManager> connectionManager;
+	std::unique_ptr<LiteConnManager> connectionManager;
 	Game game;
-	std::shared_ptr<UDPConnection> player1;
-	std::shared_ptr<UDPConnection> player2;
+	std::shared_ptr<LiteConnConnection> player1;
+	std::shared_ptr<LiteConnConnection> player2;
 
 	enum ServerState {
 		OnHold,

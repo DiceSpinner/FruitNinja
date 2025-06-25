@@ -31,8 +31,8 @@ private:
 	GameState state = GameState::Wait;
 public:
 	Game();
-	void Step(const Clock& clock, std::shared_ptr<UDPConnection>& player1, std::shared_ptr<UDPConnection>& player2);
-	void ProcessInput(std::shared_ptr<UDPConnection>& player1, std::shared_ptr<UDPConnection>& player2);
+	void Step(const Clock& clock, std::shared_ptr<LiteConnConnection>& player1, std::shared_ptr<LiteConnConnection>& player2);
+	void ProcessInput(std::shared_ptr<LiteConnConnection>& player1, std::shared_ptr<LiteConnConnection>& player2);
 	void Reset();
 };
 #endif

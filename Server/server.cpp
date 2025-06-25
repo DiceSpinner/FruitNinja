@@ -2,7 +2,7 @@
 
 Server::Server(TimeoutSetting timeout, uint32_t fps) : running(true), timeout(timeout), gameClock(fps)
 {
-	connectionManager = std::make_unique<UDPConnectionManager>(30000, 10, 1500, std::chrono::milliseconds(10));
+	connectionManager = std::make_unique<LiteConnManager>(30000, 10, 1500, std::chrono::milliseconds(10));
 	connectionManager->isListening = true;
 	if (!connectionManager->Good()) {
 		std::cout << "Connection managed failed to initialzie" << "\n";

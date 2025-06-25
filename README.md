@@ -22,6 +22,7 @@ For an in-depth look at the game's architecture, features, and development insig
 ## Under Development
 
 The classic singleplayer mode is fully functional and playable. A multiplayer mode is currently under development and planned for future releases.
+The documentation for custom network protocol used can be found [here](https://github.com/DiceSpinner/FruitNinja/blob/main/Common/doc/lite_conn_protocol_spec.md).
 
 Additional gameplay features such as combo scoring and critical strikes are also being worked on to enhance scoring depth and player engagement.
 
@@ -36,7 +37,7 @@ Additional gameplay features such as combo scoring and critical strikes are also
 ### Quick Start
 
 1. **Clone the repository** and open the folder in Visual Studio.
-2. **Create a `CMakeUserPresets.json`** file in the project root with the following content:
+2. **Create a `CMakeUserPresets.json`** file in the project root with the following content, replace the placeholder with the path to `vcpkg`:
 
 ```json
 {

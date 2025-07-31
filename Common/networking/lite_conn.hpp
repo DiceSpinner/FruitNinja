@@ -247,6 +247,7 @@ public:
 	LiteConnConnection(const LiteConnConnection& other) = delete;
 	LiteConnConnection& operator = (LiteConnConnection&& other) = delete;
 	LiteConnConnection& operator = (const LiteConnConnection& other) = delete;
+	~LiteConnConnection();
 
 	template<typename Rep, typename Period>
 	bool WaitForConnectionComplete(std::chrono::duration<Rep, Period> timeout) {

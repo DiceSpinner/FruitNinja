@@ -11,6 +11,7 @@ static double yaw = 0;
 static float cameraSpeed = 4;
 static Clock* gameClock = nullptr;
 bool Input::lockedCamera = true;
+std::unordered_map<std::type_index, std::function<void(int, int)>> Input::keyCallbacks = {};
 
 void Input::onKeyPressed(GLFWwindow* window, int key, int scancode, int action, int mods)
 {
@@ -40,6 +41,10 @@ void Input::onKeyPressed(GLFWwindow* window, int key, int scancode, int action, 
         else {
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         }
+    }
+
+    for (auto& callback : keyCallbacks) {
+        callback.second(key, action);
     }
 }
 

@@ -12,7 +12,7 @@ void Clock::Tick() {
 	unscaledDelta = now - lastTick;
 	delta = unscaledDelta * timeScale;
 	lastTick = now;
-
+	totalTime += delta;
 	accumulator += delta;
 }
 
@@ -24,6 +24,7 @@ bool Clock::ShouldUpdatePhysics() {
 	}
 	return false; 
 }
+float Clock::Time() const { return totalTime.count(); }
 float Clock::DeltaTime() const { return delta.count(); }
 float Clock::UnscaledDeltaTime() const { return unscaledDelta.count(); }
 float Clock::FixedDeltaTime() const { return 1.0 / physicsFPS; }

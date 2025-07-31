@@ -2,6 +2,7 @@
 #include "rendering/camera.hpp"
 #include "state_selection.hpp"
 #include "game/modes/classic.hpp"
+#include "game/modes/mtp_classic.hpp"
 #include "physics/rigidbody.hpp"
 
 using namespace std;
@@ -55,6 +56,7 @@ void SelectionState::Init() {
 
 	// Game Modes
 	AddSubState<ClassicMode>(game);
+	AddSubState<MTP_ClassicMode>(game);
 }
 
 void SelectionState::OnEnter() {
@@ -139,6 +141,9 @@ optional<type_index> SelectionState::Step() {
 	}
 	if (!ui.classicModeSelection->IsActive()) {
 		return EnterSubState<ClassicMode>();
+	}
+	if (!ui.multiplayerSelection->IsActive()) {
+		return EnterSubState<MTP_ClassicMode>();
 	}
 	if (!ui.multiplayerSelection->IsActive()) {
 		// SetSubState<NClassicMode>();

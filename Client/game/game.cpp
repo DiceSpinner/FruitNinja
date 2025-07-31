@@ -22,6 +22,11 @@
 
 using namespace std;
 
+static constexpr int numConnections = 1;
+static constexpr int packetQueueCapacity = 100;
+static constexpr int maxPacketSize = 1500;
+static constexpr int networkTickRate = 100;
+
 // Given three collinear points p, q, r, the function checks if 
 // point q lies on line segment 'pr' 
 static bool onSegment(glm::vec2 p, glm::vec2 q, glm::vec2 r)
@@ -193,7 +198,7 @@ optional<type_index> GameState::Run() {
 	return Self();
 }
 
-Game::Game(ObjectManager& manager, Clock& clock) : gameClock(clock), manager(manager), state(), textures() {
+Game::Game(ObjectManager& manager, Clock& clock, USHORT localPort, const sockaddr_in& serverAddr) : serverAddr(serverAddr), gameClock(clock), manager(manager), state(), textures(), connectionManager(localPort, numConnections, 100, maxPacketSize, std::chrono::seconds(1) / networkTickRate) {
 	trailShader = make_unique<Shader>(SHADER_DIR "mouse_trail.vert", SHADER_DIR "mouse_trail.frag");
 	trailTexture = textureFromFile(TEXTURE_DIR "FruitNinja_blade0.png");
 	trailArrow = textureFromFile(TEXTURE_DIR "blade0_arrow.png");

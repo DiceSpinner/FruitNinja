@@ -7,6 +7,5 @@
 namespace Networking {
 	extern WSADATA wsaData;
 	void init();
-	void destroy();
 }
 #endif

@@ -1,17 +1,16 @@
 {
   "dependencies": [
-    {
-      "name": "glad"
-    },
+    "assimp",
+    "audiofile",
+    "enet",
     "freetype",
+    "glad",
     "glfw3",
     "glm",
-    "assimp",
     {
       "name": "openal-soft",
       "version>=": "1.24.2"
     },
-    "audiofile",
-    "enet"
+    "boost-program-options"
   ]
 }

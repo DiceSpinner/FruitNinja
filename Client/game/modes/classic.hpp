@@ -22,7 +22,7 @@ struct ClassicModeUI {
 
 	// Front UI
 	std::unique_ptr<UI> scoreBoard;
-	std::unique_ptr<UI> largeSinfrastructureBoard;
+	std::unique_ptr<UI> largeScoreBoard;
 	std::unique_ptr<UI> startButton;
 	std::unique_ptr<UI> backButton;
 	std::unique_ptr<UI> restartButton;
@@ -59,7 +59,7 @@ struct ClassicModeSetting {
 	// UI
 	glm::vec2 startButtonPos = { -0.5, -0.5 };
 	glm::vec2 exitButtonPos = { 0.5, -0.5 };
-	glm::vec3 finalSinfrastructurePos = { 0, 0, 0 };
+	glm::vec3 finalScorePos = { 0, 0, 0 };
 	
 	float explosionDuration = 2;
 	glm::vec4 scoreColor = { 1, 1, 0, 1 };

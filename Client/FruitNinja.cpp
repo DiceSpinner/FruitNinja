@@ -1,11 +1,10 @@
-﻿#include "rendering/render_context.hpp"
+﻿#include <boost/program_options.hpp>
+#include <iostream>
+#include "rendering/render_context.hpp"
 #include "audio/audio_context.hpp"
 #include "rendering/font.hpp"
 #include "infrastructure/clock.hpp"
-
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/string_cast.hpp>
-#include <iostream>
+#include "networking/networking.hpp"
 #include "infrastructure/object.hpp"
 #include "input.hpp"
 #include "rendering/shader.hpp"
@@ -30,7 +29,30 @@ const char* vfxShaderVertPath = SHADER_DIR "simple.vert";
 const char* vfxShaderFragPath = SHADER_DIR "simple.frag";
 const uint32_t PHYSICS_FPS = 60;
 
-int main() {
+namespace po = boost::program_options;
+
+
+int main(int argc, char* argv[]) {
+    std::string serverIP;
+    USHORT serverPort;
+    USHORT localPort;
+
+    po::options_description cmdOptions("Options:");
+    cmdOptions.add_options()
+        ("help,h", "show help message")
+        ("ip_server,ips", po::value<std::string>(&serverIP)->required(), "Public IP for the server")
+        ("port_server,ps", po::value<USHORT>(&serverPort)->required(), "Port number used by the server")
+        ("port,p", po::value<USHORT>(&localPort)->required(), "Port number used by the client");
+    po::variables_map vm;
+    po::store(po::parse_command_line(argc, argv, cmdOptions), vm);
+    po::notify(vm);
+
+    if (vm.count("help")) {
+        std::cout << cmdOptions;
+        return 0;
+    }
+
+    Networking::init();
     RenderContext renderContext({1920, 1080});
     Font::init();
 
@@ -53,7 +75,14 @@ int main() {
 
     glBindVertexArray(0);
 
-    Game game(manager, clock);
+    sockaddr_in serverAddr = {
+        .sin_family = AF_INET,
+        .sin_port = htons(serverPort)
+    };
+
+    inet_pton(AF_INET, serverIP.c_str(), &serverAddr.sin_addr);
+
+    Game game(manager, clock, localPort, serverAddr);
     game.Init();
     game.SetInitialGameState<SelectionState>();
 

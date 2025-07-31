@@ -21,7 +21,7 @@ ClassicMode::ClassicMode(Game& game)
 {
 }
 
-void ClassicMode::spawnFruit(shared_ptr<Model>& fruitModel, shared_ptr<Model>& slice1Model, shared_ptr<Model>& slice2Model, shared_ptr<AudioClip> sliceAudio, glm::vec4 color, float radius, int sinfrastructure) {
+void ClassicMode::spawnFruit(shared_ptr<Model>& fruitModel, shared_ptr<Model>& slice1Model, shared_ptr<Model>& slice2Model, shared_ptr<AudioClip> sliceAudio, glm::vec4 color, float radius, int score) {
 	shared_ptr<Object> fruit = game.manager.CreateObject();
 	FruitAsset asset = {
 		slice1Model,
@@ -32,7 +32,7 @@ void ClassicMode::spawnFruit(shared_ptr<Model>& fruitModel, shared_ptr<Model>& s
 
 	auto renderer = fruit->AddComponent<Renderer>(fruitModel);
 	renderer->drawOverlay = true;
-	Fruit* ft = fruit->AddComponent<Fruit>(radius, sinfrastructure, setting.fruitSliceForce, context.fruitChannel, asset);
+	Fruit* ft = fruit->AddComponent<Fruit>(radius, score, setting.fruitSliceForce, context.fruitChannel, asset);
 	ft->slicedParticleTexture = game.textures.sliceParticleTexture;
 	ft->color = color;
 	Rigidbody* rb = fruit->AddComponent<Rigidbody>();
@@ -197,8 +197,8 @@ void ClassicMode::Init() {
 	ui.scoreBoard = make_unique<UI>(0, "Score: ");
 	ui.scoreBoard->textColor = glm::vec4(1, 1, 0, 1);
 
-	ui.largeSinfrastructureBoard = make_unique<UI>(0, "Score", 70);
-	ui.largeSinfrastructureBoard->textColor = glm::vec4(1, 1, 0, 1);
+	ui.largeScoreBoard = make_unique<UI>(0, "Score", 70);
+	ui.largeScoreBoard->textColor = glm::vec4(1, 1, 0, 1);
 
 	ui.startButton = make_unique<UI>(0, "Start");
 	ui.startButton->textColor = glm::vec4(0, 1, 0, 1);
@@ -208,7 +208,7 @@ void ClassicMode::Init() {
 
 	ui.restartButton = make_unique<UI>(0, "Restart");
 	ui.restartButton->textColor = glm::vec4(1, 1, 0, 1);
-	ui.restartButton->transform.SetPosition(setting.finalSinfrastructurePos);
+	ui.restartButton->transform.SetPosition(setting.finalScorePos);
 
 	for (auto i = 0; i < 3; i++) {
 		ui.redCrosses[i] = make_unique<UI>(game.textures.redCross);
@@ -293,8 +293,8 @@ void ClassicMode::OnDrawFrontUI(Shader& uiShader) {
 		ui.backButton->DrawInNDC(setting.exitButtonPos, uiShader);
 
 		uiShader.SetVec4("textColor", setting.scoreColor);
-		ui.largeSinfrastructureBoard->UpdateText("Score: " + to_string(context.fruitChannel.score));
-		ui.largeSinfrastructureBoard->Draw(uiShader);
+		ui.largeScoreBoard->UpdateText("Score: " + to_string(context.fruitChannel.score));
+		ui.largeScoreBoard->Draw(uiShader);
 	}
 }
 

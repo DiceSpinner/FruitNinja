@@ -9,6 +9,7 @@ private:
 	std::chrono::duration<float> unscaledDelta = {};
 
 	uint32_t physicsFPS;
+	std::chrono::duration<float> totalTime = {};
 	std::chrono::duration<float> accumulator;
 public:
 	float timeScale = 1;
@@ -18,6 +19,7 @@ public:
 	bool ShouldUpdatePhysics();
 	uint32_t PhysicsFPS() const;
 	float DeltaTime() const;
+	float Time() const;
 	float UnscaledDeltaTime() const;
 	float FixedDeltaTime() const;
 };

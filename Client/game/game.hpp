@@ -11,6 +11,7 @@
 #include "infrastructure/object.hpp"
 #include "infrastructure/state_machine.hpp"
 #include "infrastructure/coroutine.hpp"
+#include "networking/lite_conn.hpp"
 #include "rendering/model.hpp"
 #include "audio/audio_clip.hpp"
 #include "game/fruit.hpp"
@@ -168,6 +169,7 @@ public:
 		glm::vec3 spawnMinRotation = { 30, 30, 30 };
 		glm::vec3 spawnMaxRotation = { 90, 90, 90 };
 	} uiConfig;
+	LiteConnManager connectionManager;
 
 	std::shared_ptr<Object> player;
 	GameModels models;
@@ -175,11 +177,12 @@ public:
 	GameTextures textures;
 	ObjectManager& manager;
 	Clock& gameClock;
+	const sockaddr_in serverAddr;
 
 	// Mouse Trail
 	bool enableMouseTrail = true;
 
-	Game(ObjectManager& manager, Clock& clock);
+	Game(ObjectManager& manager, Clock& clock, USHORT localPort, const sockaddr_in& serverAddr);
 	~Game();
 	void Init();
 

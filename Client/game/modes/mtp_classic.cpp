@@ -1,0 +1,278 @@
+#include "mtp_classic.hpp"
+#include "multiplayer/setting.hpp"
+#include "physics/rigidbody.hpp"
+#include "rendering/renderer.hpp"
+#include "rendering/camera.hpp"
+#include "input.hpp"
+
+MTP_ClassicMode::MTP_ClassicMode(Game& game) : GameState(game), state(Connecting)
+{ }
+
+void MTP_ClassicMode::Init() {
+	ui.background = std::make_unique<UI>(game.textures.backgroundTexture);
+
+	ui.modeText = std::make_unique<UI>(0, "Multiplayer", 75);
+	ui.modeText->textColor = { 1, 1, 0, 1 };
+
+	ui.readyPrompt = std::make_unique<UI>(0, "Press R to Ready/Cancel");
+	ui.readyPrompt->textColor = { 0, 1, 0, 1 };
+	
+	ui.readyText = std::make_unique<UI>(0, "Ready");
+	ui.readyText->textColor = { 0, 1, 0, 1 };
+	
+	ui.onholdText = std::make_unique<UI>(0, "On Hold");
+	ui.onholdText->textColor = { 1, 0.6, 0, 1 };
+
+	ui.connectingText = std::make_unique<UI>(0, "Connecting");
+	ui.connectingText->textColor = { 0, 1, 1, 1 };
+
+	ui.disconnectedText = std::make_unique<UI>(0, "Disconnected");
+	ui.disconnectedText->textColor = { 1, 0, 0, 1 };
+	
+	ui.exit = game.createUIObject(game.models.bombModel, { 1, 0, 0, 1 });
+	{
+		auto slicable = ui.exit->AddComponent<Fruit>(
+			MultiplayerSetting.sizeBomb,
+			0,
+			MultiplayerSetting.fruitSliceForce,
+			game.uiConfig.control,
+			FruitAsset{}
+		);
+	}
+	ui.exitText = std::make_unique<UI>(0, "Exit");
+	ui.exitText->textColor = { 1, 0, 0, 1 };
+
+	ui.reconnect = game.createUIObject(game.models.pineappleModel, { 1, 1, 0, 1 });
+	FruitAsset pineappleAsset = {
+		game.models.pineappleTopModel,
+		game.models.pineappleBottomModel,
+		game.audios.fruitSliceAudio1,
+		game.audios.fruitMissAudio
+	};
+	{
+		auto slicable = ui.reconnect->AddComponent<Fruit>(
+			MultiplayerSetting.sizePineapple,
+			0,
+			MultiplayerSetting.fruitSliceForce,
+			game.uiConfig.control, 
+			pineappleAsset
+		);
+	}
+	ui.reconnectText = std::make_unique<UI>(0, "Reconnect");
+	ui.reconnectText->textColor = { 1, 1, 0, 1 };
+}
+
+void MTP_ClassicMode::PositionUI() {
+	glm::mat4 inverse = glm::inverse(Camera::main->Perspective() * Camera::main->View());
+	float z = Camera::main->ComputerNormalizedZ(30);
+	{
+		auto pos = inverse * glm::vec4(0.5, -0.5, z, 1);
+		pos /= pos.w;
+		ui.exit->transform.SetPosition(pos);
+	}
+
+	{
+		auto pos = inverse * glm::vec4(0, -0.5, z, 1);
+		pos /= pos.w;
+		ui.reconnect->transform.SetPosition(pos);
+	}
+}
+
+Coroutine MTP_ClassicMode::FadeInUI(float duration) {
+	float time = 0;
+
+	{
+		auto rb = ui.exit->GetComponent<Rigidbody>();
+		rb->useGravity = false;
+		rb->velocity = {};
+	}
+	{
+		auto rb = ui.reconnect->GetComponent<Rigidbody>();
+		rb->useGravity = false;
+		rb->velocity = {};
+	}
+
+	Renderer* exitRenderer = ui.exit->GetComponent<Renderer>();
+	Renderer* reconnectRenderer = ui.reconnect->GetComponent<Renderer>();
+
+	while (time < duration) {
+		time += game.gameClock.DeltaTime();
+		float opacity = time / duration;
+		exitRenderer->color.a = opacity;
+		exitRenderer->outlineColor.a = opacity;
+		reconnectRenderer->color.a = opacity;
+		reconnectRenderer->outlineColor.a = opacity;
+
+		ui.modeText->textColor.a = opacity;
+		ui.onholdText->textColor.a = opacity;
+		ui.readyPrompt->textColor.a = opacity;
+		ui.readyText->textColor.a = opacity;
+		ui.disconnectedText->textColor.a = opacity;
+		ui.connectingText->textColor.a = opacity;
+		ui.exitText->textColor.a = opacity;
+		ui.reconnectText->textColor.a = opacity;
+		co_yield{};
+	}
+	exitRenderer->color.a = 1;
+	exitRenderer->outlineColor.a = 1;
+	reconnectRenderer->color.a = 1;
+	reconnectRenderer->outlineColor.a = 1;
+
+	ui.modeText->textColor.a = 1;
+	ui.onholdText->textColor.a = 1;
+	ui.readyPrompt->textColor.a = 1;
+	ui.readyText->textColor.a = 1;
+	ui.disconnectedText->textColor.a = 1;
+	ui.connectingText->textColor.a = 1;
+	ui.exitText->textColor.a = 1;
+	ui.reconnectText->textColor.a = 1;
+
+	game.uiConfig.control.enableSlicing = true;
+}
+
+Coroutine MTP_ClassicMode::FadeOutUI(float duration) {
+	float time = 0;
+
+	{
+		auto rb = ui.reconnect->GetComponent<Rigidbody>();
+		rb->useGravity = true;
+	}
+
+	while (time < duration) {
+		time += game.gameClock.DeltaTime();
+		float opacity = 1 - time / duration;
+
+		ui.modeText->textColor.a = opacity;
+		ui.onholdText->textColor.a = opacity;
+		ui.readyPrompt->textColor.a = opacity;
+		ui.readyText->textColor.a = opacity;
+		ui.disconnectedText->textColor.a = opacity;
+		ui.connectingText->textColor.a = opacity;
+		ui.exitText->textColor.a = opacity;
+		ui.reconnectText->textColor.a = opacity;
+		co_yield{};
+	}
+
+	ui.modeText->textColor.a = 0;
+	ui.onholdText->textColor.a = 0;
+	ui.readyPrompt->textColor.a = 0;
+	ui.readyText->textColor.a = 0;
+	ui.disconnectedText->textColor.a = 0;
+	ui.connectingText->textColor.a = 0;
+	ui.exitText->textColor.a = 0;
+	ui.reconnectText->textColor.a = 0;
+	game.uiConfig.control.enableSlicing = false;
+}
+
+void MTP_ClassicMode::OnEnter() {
+	Input::keyCallbacks.emplace(typeid(MTP_ClassicMode), std::bind(&MTP_ClassicMode::RecordKeyboardInput, this, std::placeholders::_1, std::placeholders::_2));
+	server = game.connectionManager.ConnectPeer(game.serverAddr, ConnectionTimeOut);
+	state = Connecting;
+	game.manager.Register(ui.exit);
+	PositionUI();
+	StartCoroutine(FadeInUI(1));
+}
+
+void MTP_ClassicMode::OnExit() {
+	Input::keyCallbacks.erase(typeid(MTP_ClassicMode));
+	ui.exit->Detach();
+	if (server) {
+		server->Disconnect();
+	}
+	StartCoroutine(FadeOutUI(1));
+}
+
+void MTP_ClassicMode::EnterConnected() {
+	inputState = { .index = 0, .keys = 0, .mouseX = 0, .mouseY = 0 };
+}
+
+void MTP_ClassicMode::EnterDisconnected() {
+	game.manager.Register(ui.reconnect);
+}
+
+void MTP_ClassicMode::EnterConnecting() {
+	server = game.connectionManager.ConnectPeer(game.serverAddr, ConnectionTimeOut);
+}
+
+void MTP_ClassicMode::RecordKeyboardInput(int key, int action) {
+	if (key == GLFW_KEY_SPACE && action == GLFW_RELEASE) {
+		Debug::Log("Pressed Space");
+		inputState.keys = inputState.keys | PlayerKeyPressed::Space;
+	}
+}
+
+void MTP_ClassicMode::SendInput() {
+	if (glfwGetMouseButton(RenderContext::Context->Window(), GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+		inputState.keys = inputState.keys | PlayerKeyPressed::MouseLeft;
+	}
+
+	double cursorX, cursorY;
+	glfwGetCursorPos(RenderContext::Context->Window(), &cursorX, &cursorY);
+
+	auto dim = RenderContext::Context->Dimension();
+
+	inputState.index++;
+	inputState.mouseX = static_cast<float>(cursorX / dim.x);
+	inputState.mouseY= static_cast<float>(cursorY / dim.y);
+	server->SendData(ClientPacket::Serialize(inputState));
+	inputState.keys = PlayerKeyPressed::None;
+}
+
+std::optional<std::type_index> MTP_ClassicMode::Step() {
+	PositionUI();
+	if (!ui.exit->IsActive()) {
+		return {};
+	}
+	
+	switch (state) {
+	case Connecting:
+		if (!server || server->IsDisconnected()) {
+			state = Disconnected;
+			EnterDisconnected();
+		}
+		else if (server->IsConnected()) {
+			state = Connected;
+			EnterConnected();
+		}
+		break;
+
+	case Disconnected:
+		if (!ui.reconnect->IsActive()) {
+			state = Connecting;
+			EnterConnecting();
+		}
+		break;
+
+	case Connected:
+		if (!server || server->IsDisconnected()) {
+			state = Disconnected;
+			EnterDisconnected();
+		}
+		else {
+			SendInput();
+		}
+		break;
+	}
+
+	return Self();
+}
+
+void MTP_ClassicMode::OnDrawFrontUI(Shader& uiShader) {
+	if (state == Connected) {
+		ui.readyPrompt->DrawInNDC({ 0, 0 }, uiShader);
+		ui.readyText->DrawInNDC({ -0.5, -0.5 }, uiShader);
+		ui.onholdText->DrawInNDC({ -0.5, -0.5 }, uiShader);
+	}
+	else if (state == Connecting) {
+		ui.connectingText->DrawInNDC({0, 0}, uiShader);
+	}
+	else if (state == Disconnected) {
+		ui.disconnectedText->DrawInNDC({ 0, 0 }, uiShader);
+		ui.reconnectText->DrawInNDC({0, -0.5}, uiShader);
+	}
+	ui.exitText->DrawInNDC({0.5, -0.5}, uiShader);
+}
+
+void MTP_ClassicMode::OnDrawBackUI(Shader& uiShader) {
+	ui.modeText->DrawInNDC({ 0, 0.75 }, uiShader);
+}

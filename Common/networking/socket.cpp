@@ -1,5 +1,6 @@
 #include <iostream>
 #include "socket.hpp"
+#include "debug/log.hpp"
 
 UDPSocket::UDPSocket(DWORD maxPacketSize)
 	: port(), sock(socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP)),
@@ -15,7 +16,7 @@ UDPSocket::UDPSocket(DWORD maxPacketSize)
 	bufferSize = min(bufferSize, maxPacketSize);
 
 	if (bind(sock, (sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR) {
-		std::cout << "[Error] Failed to bind socket due to error " << WSAGetLastError() << std::endl;
+		Debug::LogError("[Error] Failed to bind socket due to error ", WSAGetLastError());
 	}
 	else {
 		closed = false;
@@ -40,7 +41,7 @@ UDPSocket::UDPSocket(USHORT port,DWORD maxPacketSize)
 	bufferSize = min(bufferSize, maxPacketSize);
 
 	if (bind(sock, (sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR) {
-		std::cout << "[Error] Failed to bind socket due to error " << WSAGetLastError() << std::endl;
+		Debug::LogError("[Error] Failed to bind socket due to error ", WSAGetLastError());
 	}
 	else {
 		closed = false;
@@ -55,7 +56,7 @@ UDPSocket::~UDPSocket() {
 }
 
 bool UDPSocket::Rebind() {
-	std::cout << "[Warning] The ip bound to the socket has gone down, attempting to reconfigure" << std::endl;
+	Debug::Log("[Warning] The ip bound to the socket has gone down, attempting to reconfigure");
 	closesocket(sock);
 	sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
 	sockaddr_in addr = {};
@@ -64,7 +65,7 @@ bool UDPSocket::Rebind() {
 	addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
 	if (bind(sock, (sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR) {
-		std::cout << "[Error] Failed to rebind socket due to error " << WSAGetLastError() << std::endl;
+		Debug::LogError("[Error] Failed to rebind socket due to error ", WSAGetLastError());
 		closed = true;
 		return false;
 	}
@@ -73,36 +74,36 @@ bool UDPSocket::Rebind() {
 
 void UDPSocket::SendPacket(const Packet& packet) {
 	if (closed) {
-		std::cout << "[Error] Attempting to write to a closed socket!\n"; 
+		Debug::LogError("[Error] Attempting to write to a closed socket!"); 
 		return;
 	}
 
 	std::lock_guard<std::mutex> guard(lock);
 	while (sendto(sock, packet.payload.data(), packet.payload.size(), 0, reinterpret_cast<const sockaddr*>(&packet.address), sizeof(packet.address)) == SOCKET_ERROR) {
 		auto error = WSAGetLastError();
-		if (error == WSAENETUNREACH || error == WSAEADDRNOTAVAIL) {
-			if (!Rebind()) { std::cout << "[Error] Failed to send packet since all network interfaces have gone down" << std::endl; return; }
+		if (error == WSAENETDOWN) {
+			if (!Rebind()) { Debug::LogError("[Error] Failed to send packet since all network interfaces have gone down"); return; }
 			continue;
 		}
-		std::cout << "[Error] Failed to send packet due to error " << error << std::endl;
+		Debug::LogError("[Error] Failed to send packet due to error ", error);
 		return;
 	}
 }
 
 void UDPSocket::SendPacket(const std::span<const char> payload, const sockaddr_in& target) {
 	if (closed) {
-		std::cout << "[Error] Attempting to write to a closed socket!\n";
+		Debug::LogError("[Error] Attempting to write to a closed socket!");
 		return;
 	}
 
 	std::lock_guard<std::mutex> guard(lock);
 	while (sendto(sock, payload.data(), payload.size(), 0, reinterpret_cast<const sockaddr*>(&target), sizeof(target)) == SOCKET_ERROR) {
 		auto error = WSAGetLastError();
-		if (error == WSAENETUNREACH || error == WSAEADDRNOTAVAIL) {
-			if (!Rebind()) { std::cout << "[Error] Failed to send packet since all network interfaces have gone down" << std::endl; return; }
+		if (error == WSAENETDOWN) {
+			if (!Rebind()) { Debug::LogError("[Error] Failed to send packet since all network interfaces have gone down"); return; }
 			continue;
 		}
-		std::cout << "[Error] Failed to send packet due to error " << error << std::endl;
+		Debug::LogError("[Error] Failed to send packet due to error ", error);
 		return;
 	}
 }
@@ -154,7 +155,7 @@ std::optional<Packet> UDPSocket::Read() {
 		}
 	}
 	if (error == SOCKET_ERROR) {
-		std::cout << "[Error] select() returned with error " << WSAGetLastError() << std::endl;
+		Debug::LogError("[Error] select() returned with error ", WSAGetLastError());
 	}
 	return {};
 }

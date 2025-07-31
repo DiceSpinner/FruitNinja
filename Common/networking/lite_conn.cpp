@@ -644,6 +644,31 @@ bool LiteConnConnection::WaitForDataPacket() {
 	return status == ConnectionStatus::Connected && !packetQueue.empty();
 }
 
+LiteConnConnection::~LiteConnConnection() {
+	if (status == ConnectionStatus::Disconnected) {
+		return;
+	}
+	Debug::Log("Closing connection.");
+	status = ConnectionStatus::Disconnected;
+	for (auto i = requestHandles.begin(); i != requestHandles.end();) {
+		i->second.set_value(std::nullopt);
+		i = requestHandles.erase(i);
+	}
+	packetQueue.clear();
+	autoAcks.clear();
+
+	LiteConnHeader header = {
+		.sessionID = sessionID,
+		.index = pktIndex,
+		.flag = LiteConnHeaderFlag::FIN
+	};
+
+	auto packet = LiteConnHeader::Serialize(header);
+
+	socket->SendPacket(packet, peerAddr);
+	cv.notify_all();
+}
+
 uint32_t LiteConnManager::GenerateChecksum() {
 	checksumGenerator.seed(std::random_device{}());
 	return std::uniform_int_distribution<uint32_t>{1, UINT32_MAX}(checksumGenerator);
@@ -657,7 +682,7 @@ LiteConnManager::LiteConnManager(USHORT port, size_t numConnections, size_t pack
 }
 
 LiteConnManager::LiteConnManager(size_t packetQueueCapacity, size_t numConnections, DWORD maxPacketSize, std::chrono::steady_clock::duration updateInterval)
-	: socket(std::make_shared<UDPSocket>(maxPacketSize)), numConnections(numConnections), updateInterval(updateInterval), queueCapacity(packetQueueCapacity),
+	: socket(std::make_shared<UDPSocket>(maxPacketSize)), numConnections(numConnections), connections(numConnections), updateInterval(updateInterval), queueCapacity(packetQueueCapacity),
 	routeThread(&LiteConnManager::RouteAndTimeout, this)
 {
 
@@ -680,17 +705,12 @@ LiteConnManager::~LiteConnManager() {
 }
 
 void LiteConnManager::RouteAndTimeout() {
-	std::vector<std::shared_ptr<LiteConnConnection>> tempConnections(numConnections);
 	while (true) { 
 		auto currentTime = std::chrono::steady_clock::now();
 		{
 			std::lock_guard<std::mutex> guard(lock);
 			
 			if (socket->IsClosed()) break;
-
-			for (auto i = 0; i < numConnections; i++) {
-				tempConnections[i] = connections[i].lock();
-			}
 
 			auto packet = socket->Read();
 			while (packet) {
@@ -701,14 +721,15 @@ void LiteConnManager::RouteAndTimeout() {
 				if (hd) {
 					const LiteConnHeader& header = hd.value();
 					bool routed = false;
-					Debug::Log("Host received packet with sessionID ", header.sessionID);
+					// Debug::Log("Host received packet with sessionID ", header.sessionID);
 
 					for (auto i = 0; i < numConnections; i++) {
-						if (tempConnections[i] && !tempConnections[i]->IsDisconnected() && header.sessionID == tempConnections[i]->sessionID) {
-							Debug::Log("Routed to connection with sessionID ", tempConnections[i]->sessionID);
+						auto temp = connections[i].lock();
+						if (temp && !temp->IsDisconnected() && header.sessionID == temp->sessionID) {
+							// Debug::Log("Routed to connection with sessionID ", tempConnections[i]->sessionID);
 							routed = true;
 							payload.erase(payload.begin(), payload.begin() + LiteConnHeader::Size);
-							tempConnections[i]->ParsePacket(header, std::move(payload), address);
+							temp->ParsePacket(header, std::move(payload), address);
 							break;
 						}
 					}
@@ -732,8 +753,9 @@ void LiteConnManager::RouteAndTimeout() {
 
 			// Ask active connections to process timeouts and remove closed connections
 			for (auto i = 0; i < numConnections; i++) {
-				if (tempConnections[i] &&
-					(tempConnections[i]->IsDisconnected() || !tempConnections[i]->UpdateTimeout())
+				auto temp = connections[i].lock();
+				if (temp &&
+					(temp->IsDisconnected() || !temp->UpdateTimeout())
 					)
 				{
 					connections[i].reset();

@@ -11,8 +11,5 @@ void Networking::init() {
         printf("WSAStartup failed: %d\n", iResult);
         exit(1);
     }
-}
-
-void Networking::destroy() {
-    WSACleanup();
+    onexit(WSACleanup);
 }

@@ -29,12 +29,13 @@ void MultiplayerGame::CheckPlayerReadiness(const std::vector<PlayerInputState>& 
 	for (auto& input : inputs) {
 		if (input.keys & PlayerKeyPressed::Space) {
 			context.isReady = !context.isReady;
-			Debug::Log("Player Ready: ", context.isReady);
+			Debug::Log("Player 1 Ready ", context.isReady);
 		}	
 	}
 }
 
 void MultiplayerGame::ProcessMousePositions(const std::vector<PlayerInputState>& inputs, PlayerContext& context) {
+	context.slices.clear();
 	std::optional<glm::vec2> lastPressed = {};
 	for (auto& input : inputs) {
 		if (input.keys & PlayerKeyPressed::MouseLeft) {
@@ -117,20 +118,27 @@ void MultiplayerGame::Step() {
 
 		// Spawn fruits
 		float currTime = gameClock.Time();
-		if (currTime >= spawnTimer1) {
-			spawnTimer1 = currTime + randFloat(MultiplayerSetting.spawnCooldownMin, MultiplayerSetting.spawnCooldownMax);
-			SpawnFruit(player1, player2, slicableGroup1, spawnIndex1);
-		}
-		if (currTime >= spawnTimer2) {
-			spawnTimer2 = currTime + randFloat(MultiplayerSetting.spawnCooldownMin, MultiplayerSetting.spawnCooldownMax);
-			SpawnFruit(player2, player1, slicableGroup2, spawnIndex2);
+		if (currTime >= spawnTimer) {
+			spawnTimer = currTime + randFloat(MultiplayerSetting.spawnCooldownMin, MultiplayerSetting.spawnCooldownMax);
+			spawnIndex++;
+			SpawnFruit(player1, player2, slicableGroup1, spawnIndex);
+			SpawnFruit(player2, player1, slicableGroup2, spawnIndex);
 		}
 	}
+	SendUpdate();
 }
 
 void MultiplayerGame::SendUpdate() {
-	if (state == GameState::Game) {
-		
+	context1.index++;
+	context2.index++;
+	context1.isConnected = player1 && player1->IsConnected();
+	context2.isConnected = player2 && player2->IsConnected();
+
+	if (context1.isConnected) {
+		player1->SendData(ServerPacket::SerializeGameState(context1, context2));
+	}
+	if (context2.isConnected) {
+		player2->SendData(ServerPacket::SerializeGameState(context2, context1));
 	}
 }
 
@@ -139,8 +147,12 @@ void MultiplayerGame::ProcessInput() {
 	std::vector<PlayerInputState> input1;
 	std::vector<PlayerInputState> input2;
 
-	if (!player1 || player1->IsDisconnected()) { player1 = connectionManager.Accept(timeout, std::chrono::seconds()); }
+	if (!player1 || player1->IsDisconnected()) {
+		context1.isConnected = true;
+		player1 = connectionManager.Accept(timeout, std::chrono::seconds()); 
+	}
 	else if (player1->IsConnected()) {
+		context1.isConnected = false;
 		for (auto pkt = player1->Receive(); pkt.has_value(); pkt = player1->Receive()) {
 			auto clientData = ClientPacket::Deserialize(pkt->data);
 
@@ -154,8 +166,12 @@ void MultiplayerGame::ProcessInput() {
 		}
 	}
 
-	if (!player2 || player2->IsDisconnected()) { player2 = connectionManager.Accept(timeout, std::chrono::seconds()); }
+	if (!player2 || player2->IsDisconnected()) {
+		context2.isConnected = false;
+		player2 = connectionManager.Accept(timeout, std::chrono::seconds()); 
+	}
 	else if (player2->IsConnected()) {
+		context2.isConnected = true;
 		for (auto pkt = player2->Receive(); pkt.has_value(); pkt = player2->Receive()) {
 			auto clientData = ClientPacket::Deserialize(pkt->data);
 			std::visit(
@@ -183,7 +199,6 @@ void MultiplayerGame::ProcessInput() {
 			slicableGroup1.clear();
 			slicableGroup2.clear();
 			state = GameState::Wait;
-			NotifyDisconnect();
 		}
 		else {
 			ProcessMousePositions(input1, context1);
@@ -202,35 +217,11 @@ void MultiplayerGame::ProcessInput() {
 	gameClock.Tick();
 }
 
-void MultiplayerGame::NotifyDisconnect() {
-	auto reply = ServerPacket::PlayerDisconnected();
-	if (player1 && player1->IsConnected()) {
-		player1->SendReliableData(reply);
-	}
-	if (player2 && player2->IsConnected()) {
-		player2->SendReliableData(reply);
-	}
-}
-
 void MultiplayerGame::NotifyGameStart() {
-	auto reply = ServerPacket::GameStart();
-	if (player1 && player1->IsConnected()) {
-		player1->SendReliableData(reply);
-	}
-	if (player2 && player2->IsConnected()) {
-		player2->SendReliableData(reply);
-	}
 }
 
 void MultiplayerGame::NotifyGameEnd() {
-	if (player1 && player1->IsConnected()) {
-		auto reply = ServerPacket::GameEnd(context1, context2);
-		player1->SendReliableData(reply);
-	}
-	if (player2 && player2->IsConnected()) {
-		auto reply = ServerPacket::GameEnd(context2, context1);
-		player2->SendReliableData(reply);
-	}
+	
 }
 
 void MultiplayerGame::SpawnFruit(
@@ -253,10 +244,6 @@ void MultiplayerGame::SpawnFruit(
 
 		auto index = spawnIndex++;
 
-		auto request = player->SendRequest(ServerPacket::SpawnSlicable(fruitType,  position, velocity, index));
-		if (request) {
-			slicables.emplace_back(SlicableAwaitResult{ .isBomb = fruitType == SlicableType::Bomb, .score = 1, .result = std::move(request.value())});
-			other->SendReliableData(ServerPacket::ForwardSpawnSlicable(fruitType, position, velocity, index));
-		}
+		
 	}
 }

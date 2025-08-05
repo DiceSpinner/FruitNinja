@@ -37,11 +37,8 @@ private:
 	std::list<SlicableAwaitResult> slicableGroup1 = {};
 	std::list<SlicableAwaitResult> slicableGroup2 = {};
 
-	float spawnTimer1 = 0;
-	uint64_t spawnIndex1 = 0;
-	
-	float spawnTimer2 = 0;
-	uint64_t spawnIndex2 = 0;
+	float spawnTimer = 0;
+	uint64_t spawnIndex = 0;
 
 	ObjectManager objManager = {};
 	LiteConnManager connectionManager;
@@ -49,7 +46,6 @@ private:
 
 	GameState state = GameState::Wait;
 
-	void NotifyDisconnect();
 	void NotifyGameEnd();
 	void NotifyGameStart();
 	void CheckPlayerReadiness(const std::vector<PlayerInputState>& inputs, PlayerContext& context);

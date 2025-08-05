@@ -33,6 +33,7 @@ class MTP_ClassicMode : public GameState {
 		Connected
 	} state;
 	PlayerInputState inputState = {.index = 0, .keys = 0, .mouseX = 0, .mouseY = 0};
+	PlayerContext context;
 
 	void EnterConnecting();
 	void EnterDisconnected();
@@ -48,6 +49,7 @@ public:
 	void OnEnter() override;
 	void OnExit() override;
 	std::optional<std::type_index> Step() override;
+	void ProcessServerData();
 	
 	void OnDrawBackUI(Shader& uiShader) override;
 	void OnDrawFrontUI(Shader& uiShader) override;

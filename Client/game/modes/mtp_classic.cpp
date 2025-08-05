@@ -5,6 +5,11 @@
 #include "rendering/camera.hpp"
 #include "input.hpp"
 
+template<typename... T>
+struct overload : T... {
+	using T::operator()...;
+};
+
 MTP_ClassicMode::MTP_ClassicMode(Game& game) : GameState(game), state(Connecting)
 { }
 
@@ -194,6 +199,26 @@ void MTP_ClassicMode::EnterConnecting() {
 	server = game.connectionManager.ConnectPeer(game.serverAddr, ConnectionTimeOut);
 }
 
+void MTP_ClassicMode::ProcessServerData() {
+	if (server && server->IsConnected()) {
+		for (auto pkt = server->Receive(); pkt.has_value(); pkt = server->Receive()) {
+			auto serverData = ServerPacket::Deserialize(pkt->data);
+			std::visit(
+				overload{
+					[](std::monostate) { Debug::LogError("Server data failed to deserialize!"); },
+					[this](std::pair<PlayerContext, PlayerContext> contexts){ 
+						auto& thisContext = contexts.first;
+						if ((int32_t)(thisContext.index - context.index) > 0) {
+							context = std::move(thisContext);
+						}
+					},
+					[](ServerPacket::ServerCommand cmd){  }
+				}, serverData
+			);
+		}
+	}
+}
+
 void MTP_ClassicMode::RecordKeyboardInput(int key, int action) {
 	if (key == GLFW_KEY_SPACE && action == GLFW_RELEASE) {
 		Debug::Log("Pressed Space");
@@ -249,6 +274,7 @@ std::optional<std::type_index> MTP_ClassicMode::Step() {
 			EnterDisconnected();
 		}
 		else {
+			ProcessServerData();
 			SendInput();
 		}
 		break;
@@ -259,9 +285,13 @@ std::optional<std::type_index> MTP_ClassicMode::Step() {
 
 void MTP_ClassicMode::OnDrawFrontUI(Shader& uiShader) {
 	if (state == Connected) {
+		if (context.isReady) {
+			ui.readyText->DrawInNDC({ -0.5, -0.5 }, uiShader);
+		}
+		else {
+			ui.onholdText->DrawInNDC({ -0.5, -0.5 }, uiShader);
+		}
 		ui.readyPrompt->DrawInNDC({ 0, 0 }, uiShader);
-		ui.readyText->DrawInNDC({ -0.5, -0.5 }, uiShader);
-		ui.onholdText->DrawInNDC({ -0.5, -0.5 }, uiShader);
 	}
 	else if (state == Connecting) {
 		ui.connectingText->DrawInNDC({0, 0}, uiShader);

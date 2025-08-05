@@ -13,11 +13,14 @@
 
 
 struct PlayerContext {
-	static constexpr size_t MinSize = sizeof(uint8_t) + sizeof(uint32_t) * 4 + sizeof(uint64_t);
+	static constexpr size_t MinSize = sizeof(uint8_t) + sizeof(uint16_t) + sizeof(uint32_t) * 5 + sizeof(uint64_t) * 1;
 	static constexpr size_t POS_SIZE = sizeof(uint32_t) * 4;
-	static constexpr uint8_t READY_BIT = 1;
-	static constexpr uint8_t BOMB_HIT_BIT = 1 << 1;
+	static constexpr uint8_t CONNECT_BIT = 1;
+	static constexpr uint8_t READY_BIT = 1 << 1;
+	static constexpr uint8_t BOMB_HIT_BIT = 1 << 2;
 
+	uint32_t index = 0;
+	bool isConnected = false;
 	bool isReady = false;
 	bool bombHit = false;
 	uint32_t maxMisses = 3;
@@ -25,15 +28,19 @@ struct PlayerContext {
 	uint32_t energy = 0;
 	uint32_t bombThrowCost = 10;
 	uint64_t score = 0;
-	std::vector<std::array<glm::vec2, 2>> slices;
+	std::vector<std::pair<glm::vec2, glm::vec2>> slices;
 
-	static std::optional<PlayerContext> Deserialize(std::span<const char> buffer) {
-		if (buffer.size() < MinSize) return {};
+	static std::optional<PlayerContext> Deserialize(std::span<const char>& buffer) {
+		if (buffer.size() < MinSize) {
+			Debug::LogError("Cannot deserialize PlayerContext: Not enough space in the buffer!");
+			return {}; 
+		}
 		auto base = buffer.data();
 		uint8_t bitfield;
-		uint32_t maxMisses, numMisses, energy, bombThrowCost;
+		uint32_t index, maxMisses, numMisses, energy, bombThrowCost;
 		uint64_t score;
 
+		memcpy(&index, std::exchange(base, base + sizeof(uint32_t)), sizeof(uint32_t));
 		memcpy(&bitfield, std::exchange(base, base + sizeof(uint8_t)), sizeof(uint8_t));
 		memcpy(&maxMisses, std::exchange(base, base + sizeof(uint32_t)), sizeof(uint32_t));
 		memcpy(&numMisses, std::exchange(base, base + sizeof(uint32_t)), sizeof(uint32_t));
@@ -42,16 +49,28 @@ struct PlayerContext {
 		memcpy(&score, std::exchange(base, base + sizeof(uint64_t)), sizeof(uint64_t));
 
 		PlayerContext context = {
-			.isReady = bool(bitfield | READY_BIT),
-			.bombHit = bool(bitfield | BOMB_HIT_BIT),
+			.index = ntohl(index),
+			.isConnected = bool(bitfield & CONNECT_BIT),
+			.isReady = bool(bitfield & READY_BIT),
+			.bombHit = bool(bitfield & BOMB_HIT_BIT),
 			.maxMisses = ntohl(maxMisses),
 			.numMisses = ntohl(numMisses),
 			.energy = ntohl(energy),
 			.bombThrowCost = ntohl(bombThrowCost),
 			.score = ntohll(score)
 		};
+
+		uint16_t numSlices;
+		memcpy(&numSlices, std::exchange(base, base + sizeof(uint16_t)), sizeof(uint16_t));
+		numSlices = ntohs(numSlices);
+
 		auto remainder = buffer.size() - MinSize;
-		while (remainder > POS_SIZE) {
+		if (numSlices * POS_SIZE > remainder) {
+			Debug::LogError("Cannot deserialize player context: Buffer does not contain enough mouse positions as advertised.");
+			return {};
+		}
+
+		while (numSlices-- != 0) {
 			remainder -= POS_SIZE;
 			uint32_t x1, y1, x2, y2;
 			memcpy(&x1, std::exchange(base, base + sizeof(uint32_t)), sizeof(uint32_t));
@@ -60,16 +79,59 @@ struct PlayerContext {
 			memcpy(&y2, std::exchange(base, base + sizeof(uint32_t)), sizeof(uint32_t));
 			context.slices.push_back({ glm::vec2{ ntohf(x1), ntohf(y1) }, glm::vec2{ ntohf(x2), ntohf(y2) } });
 		}
+		buffer = buffer.subspan(base -  buffer.data());
 		return context;
 	}
 
-	static std::vector<char> Serialize(const PlayerContext& context) {
-		std::vector<char> buffer;
-		buffer.resize(MinSize + POS_SIZE * context.slices.size());
-	}
+	static void AppendSerialize(const PlayerContext& context, std::vector<char>& buffer) {
+		auto originalSize = buffer.size();
+		buffer.resize(originalSize + MinSize + POS_SIZE * 4);
+		auto base = buffer.data() + originalSize;
 
-	static void AppendSerialize(const PlayerContext& context, std::vector<char> buffer) {
+		uint32_t index = htonl(context.index);
+		memcpy(std::exchange(base, base + sizeof(uint32_t)), &index, sizeof(uint32_t));
 
+		uint8_t flags = 0;
+		if (context.isConnected) {
+			flags |= CONNECT_BIT;
+		}
+		if (context.isReady) {
+			flags |= READY_BIT;
+		}
+		if (context.bombHit) {
+			flags |= BOMB_HIT_BIT;
+		}
+		memcpy(std::exchange(base, base + 1), &flags, 1);
+
+		uint32_t maxMisses = htonl(context.maxMisses);
+		memcpy(std::exchange(base, base + sizeof(uint32_t)), &maxMisses, sizeof(uint32_t));
+
+		uint32_t numMisses = htonl(context.numMisses);
+		memcpy(std::exchange(base, base + sizeof(uint32_t)), &numMisses, sizeof(uint32_t));
+
+		uint32_t energy = htonl(context.energy);
+		memcpy(std::exchange(base, base + sizeof(uint32_t)), &energy, sizeof(uint32_t));
+
+		uint32_t bombThrowCost = htonl(context.bombThrowCost);
+		memcpy(std::exchange(base, base + sizeof(uint32_t)), &bombThrowCost, sizeof(uint32_t));
+
+		uint64_t score = htonll(context.score);
+		memcpy(std::exchange(base, base + sizeof(uint64_t)), &score, sizeof(uint64_t));
+
+		uint16_t numSlices = htons(context.slices.size());
+		memcpy(std::exchange(base, base + sizeof(uint16_t)), &numSlices, sizeof(uint16_t));
+
+		for (auto i = context.slices.begin(); i != context.slices.end();++i) {
+			uint32_t x1 = htonf(i->first.x);
+			uint32_t y1 = htonf(i->first.y);
+			uint32_t x2 = htonf(i->second.x);
+			uint32_t y2 = htonf(i->second.y);
+
+			memcpy(std::exchange(base, base + sizeof(uint32_t)), &x1, sizeof(uint32_t));
+			memcpy(std::exchange(base, base + sizeof(uint32_t)), &y1, sizeof(uint32_t));
+			memcpy(std::exchange(base, base + sizeof(uint32_t)), &x2, sizeof(uint32_t));
+			memcpy(std::exchange(base, base + sizeof(uint32_t)), &y2, sizeof(uint32_t));
+		}
 	}
 };
 
@@ -157,63 +219,53 @@ struct SpawnRequest {
 	}
 };
 
-enum ServerPacketType : uint8_t {
-	ForwardPlayerInput,
-	ForwardSlicableUpdate,
-	ForwardSpawnSlicable,
-	ForwardContextUpdate,
-	SpawnSlicable,
-	ContextUpdate,  // Update player context
-	StartGame, // Notify game start
-	GameEnd,   // Notify game end
-	SetPlayerID, // When first connected with player
-	PlayerConnected, // When connected with a player
-	PlayerDisconnected,	 // When a player is disconnected
-};
-
 namespace ServerPacket {
-	static std::vector<char> PlayerDisconnected() {
-		return { static_cast<char>(ServerPacketType::PlayerDisconnected) };
-	}
-	static std::vector<char> PlayerConnected() {
-		return { static_cast<char>(ServerPacketType::PlayerConnected) };
+	enum ServerPacketType : uint8_t {
+		SlicableUpdate,
+		SpawnSlicable,
+		ContextUpdate,  // Update player context
+		Command,
+	};
+
+	enum ServerCommand : uint8_t {
+		StartGame,
+		EndGame,
+	};
+
+	static std::variant<std::pair<PlayerContext, PlayerContext>, ServerCommand, std::monostate> Deserialize(std::span<const char> buffer) {
+		if (buffer.size() < 1) return std::monostate{};
+		auto base = buffer.data();
+		ServerPacketType packetType;
+		memcpy(&packetType, std::exchange(base, base + 1), 1);
+
+		if (packetType == ContextUpdate) {
+			std::span<const char> sub = buffer.subspan(1);
+			auto context = PlayerContext::Deserialize(sub);
+			if (!context) { 
+				Debug::LogError("Context 1 failed to deserialize");
+				return std::monostate{}; 
+			}
+			auto context2 = PlayerContext::Deserialize(sub);
+			if (!context2) {
+				Debug::LogError("Context 2 failed to deserialize");
+				return std::monostate{}; 
+			}
+			return std::pair<PlayerContext, PlayerContext> { std::move(context.value()), std::move(context2.value()) };
+		}
+		else if (packetType == Command) {
+			if (buffer.size() < 2) return std::monostate{};
+			ServerCommand cmd;
+			memcpy(&cmd, std::exchange(base, base + 1), 1);
+			return cmd;
+		}
+		return std::monostate{};
 	}
 
-	static std::vector<char> GameStart() {
-		return { static_cast<char>(ServerPacketType::StartGame) };
-	}
-	static std::vector<char> GameEnd(const PlayerContext& context1, const PlayerContext& context2) {
-		std::vector<char> payload = { static_cast<char>(ServerPacketType::GameEnd) };
+	static std::vector<char> SerializeGameState(const PlayerContext& context1, const PlayerContext& context2) {
+		std::vector<char> payload;
+		payload.push_back(static_cast<char>(ServerPacketType::ContextUpdate));
 		PlayerContext::AppendSerialize(context1, payload);
 		PlayerContext::AppendSerialize(context2, payload);
-		return payload;
-	}
-
-	static std::vector<char> SpawnSlicable(SlicableType type, glm::vec3 pos, glm::vec3 vel, uint64_t index) {
-		std::vector<char> payload = { static_cast<char>(ServerPacketType::SpawnSlicable) };
-		payload.resize(1 + 6 * sizeof(uint32_t) + sizeof(uint64_t));
-		SpawnRequest::AppendSerialize(
-			SpawnRequest{
-				.index = index,
-				.pos = pos,
-				.vel = vel,
-				.fruitType = type
-			}, payload
-		);
-		return payload;
-	}
-
-	static std::vector<char> ForwardSpawnSlicable(SlicableType type, glm::vec3 pos, glm::vec3 vel, uint64_t index) {
-		std::vector<char> payload = { static_cast<char>(ServerPacketType::ForwardSpawnSlicable) };
-		payload.resize(1 + 6 * sizeof(uint32_t) + sizeof(uint64_t));
-		SpawnRequest::AppendSerialize(
-			SpawnRequest{
-				.index = index,
-				.pos = pos,
-				.vel = vel,
-				.fruitType = type
-			}, payload
-		);
 		return payload;
 	}
 };

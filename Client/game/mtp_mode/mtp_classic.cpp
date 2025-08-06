@@ -10,7 +10,7 @@ struct overload : T... {
 	using T::operator()...;
 };
 
-MTP_ClassicMode::MTP_ClassicMode(Game& game) : GameState(game), state(Connecting)
+MTP_ClassicMode::MTP_ClassicMode(Game& game) : GameState(game), connectionState(ConnectionState::Connecting)
 { }
 
 void MTP_ClassicMode::Init() {
@@ -19,7 +19,7 @@ void MTP_ClassicMode::Init() {
 	ui.modeText = std::make_unique<UI>(0, "Multiplayer", 75);
 	ui.modeText->textColor = { 1, 1, 0, 1 };
 
-	ui.readyPrompt = std::make_unique<UI>(0, "Press R to Ready/Cancel");
+	ui.readyPrompt = std::make_unique<UI>(0, "Press Space to Ready/Cancel");
 	ui.readyPrompt->textColor = { 0, 1, 0, 1 };
 	
 	ui.readyText = std::make_unique<UI>(0, "Ready");
@@ -65,6 +65,31 @@ void MTP_ClassicMode::Init() {
 	}
 	ui.reconnectText = std::make_unique<UI>(0, "Reconnect");
 	ui.reconnectText->textColor = { 1, 1, 0, 1 };
+
+	ui.score1 = std::make_unique<UI>(0, "0");
+	ui.score1->textColor = { 0.271f, 0.482f, 0.616f, 1 };
+	ui.score2 = std::make_unique<UI>(0, "0");
+	ui.score2->textColor = { 0.902f, 0.224f, 0.275f, 1 };
+	for (auto i = 0; i < MultiplayerSetting.missTolerence; i++) {
+		ui.missFiller1[i] = std::make_unique<UI>(game.textures.redCross);
+		ui.missBase1[i] = std::make_unique<UI>(game.textures.emptyCross);
+		ui.missBase1[i]->textColor = { 0.271f, 0.482f, 0.616f, 1 };
+		ui.missFiller2[i] = std::make_unique<UI>(game.textures.redCross);
+		ui.missBase2[i] = std::make_unique<UI>(game.textures.emptyCross);
+		ui.missBase2[i]->textColor = { 0.902f, 0.224f, 0.275f, 1 };
+
+		glm::mat4 rotation = glm::rotate(glm::mat4(1), (float)glm::radians(10 + 10.0f * (2 - i)), glm::vec3(0, 0, -1));
+		ui.missFiller1[i]->transform.SetRotation(rotation);
+		ui.missFiller1[i]->transform.SetScale(glm::vec3(0.1, 0.1, 0.1));
+		ui.missBase1[i]->transform.SetRotation(rotation);
+		ui.missBase1[i]->transform.SetScale(glm::vec3(0.05, 0.05, 0.05));
+
+		rotation = glm::rotate(glm::mat4(1), -(float)glm::radians(10 + 10.0f * (2 - i)), glm::vec3(0, 0, -1));
+		ui.missFiller2[i]->transform.SetRotation(rotation);
+		ui.missFiller2[i]->transform.SetScale(glm::vec3(0.1, 0.1, 0.1));
+		ui.missBase2[i]->transform.SetRotation(rotation);
+		ui.missBase2[i]->transform.SetScale(glm::vec3(0.05, 0.05, 0.05));
+	}
 }
 
 void MTP_ClassicMode::PositionUI() {
@@ -172,7 +197,8 @@ Coroutine MTP_ClassicMode::FadeOutUI(float duration) {
 void MTP_ClassicMode::OnEnter() {
 	Input::keyCallbacks.emplace(typeid(MTP_ClassicMode), std::bind(&MTP_ClassicMode::RecordKeyboardInput, this, std::placeholders::_1, std::placeholders::_2));
 	server = game.connectionManager.ConnectPeer(game.serverAddr, ConnectionTimeOut);
-	state = Connecting;
+	connectionState = ConnectionState::Connecting;
+	currIndex = 0;
 	game.manager.Register(ui.exit);
 	PositionUI();
 	StartCoroutine(FadeInUI(1));
@@ -206,13 +232,29 @@ void MTP_ClassicMode::ProcessServerData() {
 			std::visit(
 				overload{
 					[](std::monostate) { Debug::LogError("Server data failed to deserialize!"); },
-					[this](std::pair<PlayerContext, PlayerContext> contexts){ 
-						auto& thisContext = contexts.first;
-						if ((int32_t)(thisContext.index - context.index) > 0) {
-							context = std::move(thisContext);
+					[this](std::tuple<uint64_t, PlayerContext, PlayerContext> contexts){ 
+						auto index = std::get<0>(contexts);
+						if (index > currIndex) {
+							currIndex = index;
+							context1 = std::move(std::get<1>(contexts));
+							context2 = std::move(std::get<2>(contexts));
 						}
 					},
-					[](ServerPacket::ServerCommand cmd){  }
+					[this](ServerPacket::ServerCommand cmd){ 
+						if (cmd == ServerPacket::ServerCommand::StartGame) {
+							gameState = InGameState::InGame;
+						}
+						else if (cmd == ServerPacket::ServerCommand::GameLost) {
+							gameState = InGameState::GameLost;
+						}
+						else if (cmd == ServerPacket::ServerCommand::GameWon) {
+							gameState = InGameState::GameWon;
+						}
+						else if (cmd == ServerPacket::ServerCommand::Disconnect) {
+							gameState = InGameState::PlayerDisconnect;
+						}
+					},
+					[](SpawnRequest request) {  }
 				}, serverData
 			);
 		}
@@ -245,32 +287,32 @@ void MTP_ClassicMode::SendInput() {
 
 std::optional<std::type_index> MTP_ClassicMode::Step() {
 	PositionUI();
-	if (!ui.exit->IsActive()) {
+	if (!(gameState == InGameState::InGame) && !ui.exit->IsActive()) {
 		return {};
 	}
 	
-	switch (state) {
-	case Connecting:
+	switch (connectionState) {
+	case ConnectionState::Connecting:
 		if (!server || server->IsDisconnected()) {
-			state = Disconnected;
+			connectionState = ConnectionState::Disconnected;
 			EnterDisconnected();
 		}
 		else if (server->IsConnected()) {
-			state = Connected;
+			connectionState = ConnectionState::Connected;
 			EnterConnected();
 		}
 		break;
 
-	case Disconnected:
+	case ConnectionState::Disconnected:
 		if (!ui.reconnect->IsActive()) {
-			state = Connecting;
+			connectionState = ConnectionState::Connecting;
 			EnterConnecting();
 		}
 		break;
 
-	case Connected:
+	case ConnectionState::Connected:
 		if (!server || server->IsDisconnected()) {
-			state = Disconnected;
+			connectionState = ConnectionState::Disconnected;
 			EnterDisconnected();
 		}
 		else {
@@ -284,25 +326,51 @@ std::optional<std::type_index> MTP_ClassicMode::Step() {
 }
 
 void MTP_ClassicMode::OnDrawFrontUI(Shader& uiShader) {
-	if (state == Connected) {
-		if (context.isReady) {
+	if (!(gameState == InGameState::InGame)) {
+		ui.exitText->DrawInNDC({ 0.5, -0.5 }, uiShader);
+	}
+
+	if (connectionState == ConnectionState::Connecting) {
+		ui.connectingText->DrawInNDC({0, 0}, uiShader);
+		return;
+	}
+
+	if (connectionState == ConnectionState::Disconnected) {
+		ui.disconnectedText->DrawInNDC({ 0, 0 }, uiShader);
+		ui.reconnectText->DrawInNDC({0, -0.5}, uiShader);
+		return;
+	}
+
+	if (gameState != InGameState::InGame) {
+		if (context1.isReady) {
 			ui.readyText->DrawInNDC({ -0.5, -0.5 }, uiShader);
 		}
 		else {
 			ui.onholdText->DrawInNDC({ -0.5, -0.5 }, uiShader);
 		}
 		ui.readyPrompt->DrawInNDC({ 0, 0 }, uiShader);
+		return;
 	}
-	else if (state == Connecting) {
-		ui.connectingText->DrawInNDC({0, 0}, uiShader);
+
+	ui.score1->DrawInNDC({-0.5f, 0.9f}, uiShader);
+	ui.score2->DrawInNDC({0.5f, 0.9f}, uiShader);
+
+	for (int i = 0; i < MultiplayerSetting.missTolerence; i++) {
+		if (i < context1.numMisses) {
+			ui.missFiller1[i]->DrawInNDC({-0.95f + i * 0.06, 0.8f + i * 0.04}, uiShader);
+			ui.missFiller2[i]->DrawInNDC({0.95f - i * 0.06, 0.8f + i * 0.04 }, uiShader);
+		}
+		else {
+			ui.missBase1[i]->DrawInNDC({ -0.95f + i * 0.06, 0.8f + i * 0.04 }, uiShader);
+			ui.missBase2[i]->DrawInNDC({ 0.95f - i * 0.06, 0.8f + i * 0.04 }, uiShader);
+		}
 	}
-	else if (state == Disconnected) {
-		ui.disconnectedText->DrawInNDC({ 0, 0 }, uiShader);
-		ui.reconnectText->DrawInNDC({0, -0.5}, uiShader);
-	}
-	ui.exitText->DrawInNDC({0.5, -0.5}, uiShader);
 }
 
 void MTP_ClassicMode::OnDrawBackUI(Shader& uiShader) {
 	ui.modeText->DrawInNDC({ 0, 0.75 }, uiShader);
+}
+
+bool MTP_ClassicMode::AllowParentFrontUI() {
+	return false;
 }

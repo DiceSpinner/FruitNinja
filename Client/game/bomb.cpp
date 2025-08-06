@@ -1,5 +1,5 @@
 #include "bomb.hpp"
-#include "util.hpp"
+#include "game/util.hpp"
 #include "infrastructure/object.hpp"
 
 using namespace std;

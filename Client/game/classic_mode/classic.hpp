@@ -7,7 +7,6 @@
 #include "infrastructure/state_machine.hpp"
 #include "infrastructure/ui.hpp"
 #include "infrastructure/object_pool.hpp"
-#include "game/fruit.hpp"
 #include "game/bomb.hpp"
 
 struct ClassicModeUI {

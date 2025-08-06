@@ -1,8 +1,8 @@
 #include "audio/audiolistener.hpp"
 #include "rendering/camera.hpp"
 #include "state_selection.hpp"
-#include "game/modes/classic.hpp"
-#include "game/modes/mtp_classic.hpp"
+#include "game/classic_mode/classic.hpp"
+#include "game/mtp_mode/mtp_classic.hpp"
 #include "physics/rigidbody.hpp"
 
 using namespace std;

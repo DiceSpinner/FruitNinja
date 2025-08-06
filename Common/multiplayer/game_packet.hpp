@@ -5,6 +5,7 @@
 #include <vector>
 #include <optional>
 #include <variant>
+#include <tuple>
 #include <bit>
 #include <glm/glm.hpp>
 #include <array>
@@ -13,20 +14,17 @@
 
 
 struct PlayerContext {
-	static constexpr size_t MinSize = sizeof(uint8_t) + sizeof(uint16_t) + sizeof(uint32_t) * 5 + sizeof(uint64_t) * 1;
+	static constexpr size_t MinSize = sizeof(uint8_t) + sizeof(uint16_t) + sizeof(uint32_t) * 2 + sizeof(uint64_t) * 1;
 	static constexpr size_t POS_SIZE = sizeof(uint32_t) * 4;
 	static constexpr uint8_t CONNECT_BIT = 1;
 	static constexpr uint8_t READY_BIT = 1 << 1;
 	static constexpr uint8_t BOMB_HIT_BIT = 1 << 2;
 
-	uint32_t index = 0;
 	bool isConnected = false;
 	bool isReady = false;
 	bool bombHit = false;
-	uint32_t maxMisses = 3;
 	uint32_t numMisses = 0;
 	uint32_t energy = 0;
-	uint32_t bombThrowCost = 10;
 	uint64_t score = 0;
 	std::vector<std::pair<glm::vec2, glm::vec2>> slices;
 
@@ -37,26 +35,20 @@ struct PlayerContext {
 		}
 		auto base = buffer.data();
 		uint8_t bitfield;
-		uint32_t index, maxMisses, numMisses, energy, bombThrowCost;
+		uint32_t numMisses, energy, bombThrowCost;
 		uint64_t score;
 
-		memcpy(&index, std::exchange(base, base + sizeof(uint32_t)), sizeof(uint32_t));
 		memcpy(&bitfield, std::exchange(base, base + sizeof(uint8_t)), sizeof(uint8_t));
-		memcpy(&maxMisses, std::exchange(base, base + sizeof(uint32_t)), sizeof(uint32_t));
 		memcpy(&numMisses, std::exchange(base, base + sizeof(uint32_t)), sizeof(uint32_t));
 		memcpy(&energy, std::exchange(base, base + sizeof(uint32_t)), sizeof(uint32_t));
-		memcpy(&bombThrowCost, std::exchange(base, base + sizeof(uint32_t)), sizeof(uint32_t));
 		memcpy(&score, std::exchange(base, base + sizeof(uint64_t)), sizeof(uint64_t));
 
 		PlayerContext context = {
-			.index = ntohl(index),
 			.isConnected = bool(bitfield & CONNECT_BIT),
 			.isReady = bool(bitfield & READY_BIT),
 			.bombHit = bool(bitfield & BOMB_HIT_BIT),
-			.maxMisses = ntohl(maxMisses),
 			.numMisses = ntohl(numMisses),
 			.energy = ntohl(energy),
-			.bombThrowCost = ntohl(bombThrowCost),
 			.score = ntohll(score)
 		};
 
@@ -85,11 +77,8 @@ struct PlayerContext {
 
 	static void AppendSerialize(const PlayerContext& context, std::vector<char>& buffer) {
 		auto originalSize = buffer.size();
-		buffer.resize(originalSize + MinSize + POS_SIZE * 4);
+		buffer.resize(originalSize + MinSize + context.slices.size() * POS_SIZE);
 		auto base = buffer.data() + originalSize;
-
-		uint32_t index = htonl(context.index);
-		memcpy(std::exchange(base, base + sizeof(uint32_t)), &index, sizeof(uint32_t));
 
 		uint8_t flags = 0;
 		if (context.isConnected) {
@@ -103,17 +92,11 @@ struct PlayerContext {
 		}
 		memcpy(std::exchange(base, base + 1), &flags, 1);
 
-		uint32_t maxMisses = htonl(context.maxMisses);
-		memcpy(std::exchange(base, base + sizeof(uint32_t)), &maxMisses, sizeof(uint32_t));
-
 		uint32_t numMisses = htonl(context.numMisses);
 		memcpy(std::exchange(base, base + sizeof(uint32_t)), &numMisses, sizeof(uint32_t));
 
 		uint32_t energy = htonl(context.energy);
 		memcpy(std::exchange(base, base + sizeof(uint32_t)), &energy, sizeof(uint32_t));
-
-		uint32_t bombThrowCost = htonl(context.bombThrowCost);
-		memcpy(std::exchange(base, base + sizeof(uint32_t)), &bombThrowCost, sizeof(uint32_t));
 
 		uint64_t score = htonll(context.score);
 		memcpy(std::exchange(base, base + sizeof(uint64_t)), &score, sizeof(uint64_t));
@@ -147,12 +130,12 @@ enum SlicableType : uint8_t {
 struct SpawnRequest {
 	static constexpr size_t Size =
 		sizeof(uint64_t) + // index
-		sizeof(uint32_t) * 6 + // position and velocity
+		sizeof(uint32_t) * 4 + // position and velocity
 		sizeof(uint8_t); // model
 		
 	uint64_t index;
-	glm::vec3 pos;
-	glm::vec3 vel;
+	glm::vec2 pos;
+	glm::vec2 vel;
 	uint8_t fruitType;
 
 	static void AppendSerialize(const SpawnRequest& slicable, std::vector<char>& buffer) {
@@ -167,17 +150,11 @@ struct SpawnRequest {
 		uint32_t posY = htonf(slicable.pos.y);
 		memcpy(std::exchange(base, base + sizeof(uint32_t)), &posY, sizeof(uint32_t));
 
-		uint32_t posZ = htonf(slicable.pos.z);
-		memcpy(std::exchange(base, base + sizeof(uint32_t)), &posZ, sizeof(uint32_t));
-
 		uint32_t vX = htonf(slicable.vel.x);
 		memcpy(std::exchange(base, base + sizeof(uint32_t)), &vX, sizeof(uint32_t));
 
 		uint32_t vY = htonf(slicable.vel.y);
 		memcpy(std::exchange(base, base + sizeof(uint32_t)), &vY, sizeof(uint32_t));
-
-		uint32_t vZ = htonf(slicable.vel.z);
-		memcpy(std::exchange(base, base + sizeof(uint32_t)), &vZ, sizeof(uint32_t));
 
 		memcpy(std::exchange(base, base + 1), &slicable.fruitType, 1);
 	}
@@ -195,25 +172,19 @@ struct SpawnRequest {
 		uint32_t posY;
 		memcpy(&posY, std::exchange(base, base + sizeof(uint32_t)), sizeof(uint32_t));
 
-		uint32_t posZ;
-		memcpy(&posZ, std::exchange(base, base + sizeof(uint32_t)), sizeof(uint32_t));
-
 		uint32_t vX;
 		memcpy(&vX, std::exchange(base, base + sizeof(uint32_t)), sizeof(uint32_t));
 
 		uint32_t vY;
 		memcpy(&vY, std::exchange(base, base + sizeof(uint32_t)), sizeof(uint32_t));
 
-		uint32_t vZ;
-		memcpy(&vZ, std::exchange(base, base + sizeof(uint32_t)), sizeof(uint32_t));
-
 		uint8_t fruitType;
 		memcpy(&fruitType, std::exchange(base, base + 1), 1);
 
 		return SpawnRequest{
 			.index = ntohll(index),
-			.pos = {ntohf(posX), ntohf(posY), ntohf(posZ)},
-			.vel = {ntohf(vX), ntohf(vY), ntohf(vZ)},
+			.pos = {ntohf(posX), ntohf(posY)},
+			.vel = {ntohf(vX), ntohf(vY)},
 			.fruitType = fruitType
  		};
 	}
@@ -229,45 +200,19 @@ namespace ServerPacket {
 
 	enum ServerCommand : uint8_t {
 		StartGame,
-		EndGame,
+		Disconnect,
+		GameDraw,
+		GameWon,
+		GameLost
 	};
 
-	static std::variant<std::pair<PlayerContext, PlayerContext>, ServerCommand, std::monostate> Deserialize(std::span<const char> buffer) {
-		if (buffer.size() < 1) return std::monostate{};
-		auto base = buffer.data();
-		ServerPacketType packetType;
-		memcpy(&packetType, std::exchange(base, base + 1), 1);
+	std::variant<std::tuple<uint64_t, PlayerContext, PlayerContext>, ServerCommand, SpawnRequest, std::monostate> Deserialize(std::span<const char> buffer);
 
-		if (packetType == ContextUpdate) {
-			std::span<const char> sub = buffer.subspan(1);
-			auto context = PlayerContext::Deserialize(sub);
-			if (!context) { 
-				Debug::LogError("Context 1 failed to deserialize");
-				return std::monostate{}; 
-			}
-			auto context2 = PlayerContext::Deserialize(sub);
-			if (!context2) {
-				Debug::LogError("Context 2 failed to deserialize");
-				return std::monostate{}; 
-			}
-			return std::pair<PlayerContext, PlayerContext> { std::move(context.value()), std::move(context2.value()) };
-		}
-		else if (packetType == Command) {
-			if (buffer.size() < 2) return std::monostate{};
-			ServerCommand cmd;
-			memcpy(&cmd, std::exchange(base, base + 1), 1);
-			return cmd;
-		}
-		return std::monostate{};
-	}
+	std::vector<char> SerializeGameState(const uint64_t index, const PlayerContext& context1, const PlayerContext& context2);
 
-	static std::vector<char> SerializeGameState(const PlayerContext& context1, const PlayerContext& context2) {
-		std::vector<char> payload;
-		payload.push_back(static_cast<char>(ServerPacketType::ContextUpdate));
-		PlayerContext::AppendSerialize(context1, payload);
-		PlayerContext::AppendSerialize(context2, payload);
-		return payload;
-	}
+	std::vector<char> SerializeCommand(const ServerCommand& cmd);
+
+	std::vector<char> SerializeSpawnRequest(const SpawnRequest& request);
 };
 
 class PlayerKeyPressed {
@@ -354,51 +299,10 @@ namespace ClientPacket {
 		SliceResult
 	};
 
-	static std::vector<char> Serialize(const PlayerInputState& inputState) {
-		std::vector<char> buffer;
-		buffer.resize(sizeof(ClientPacketType) + PlayerInputState::Size);
-		auto base = buffer.data();
-		memset(std::exchange(base, base + sizeof(ClientPacketType)), Input, sizeof(ClientPacketType));
-		PlayerInputState::Serialize(inputState, { base, PlayerInputState::Size });
-		return buffer;
-	}
+	std::vector<char> Serialize(const PlayerInputState& inputState);
 
-	static std::vector<char> Serialize(const std::pair<uint64_t, bool>& sliceResult) {
-		std::vector<char> buffer;
-		buffer.resize(2 + sizeof(uint64_t));
-		auto base = buffer.data();
-		memset(std::exchange(base, base + sizeof(ClientPacketType)), SliceResult, sizeof(ClientPacketType));
-		auto id = htonll(sliceResult.first);
-		memset(std::exchange(base, base + sizeof(uint64_t)), sliceResult.first, sizeof(uint64_t));
-		memset(std::exchange(base, base + 1), sliceResult.second, 1);
-		return buffer;
-	}
+	std::vector<char> Serialize(const std::pair<uint64_t, bool>& sliceResult);
 
-	static std::variant<PlayerInputState, std::pair<uint64_t, bool>, std::monostate> Deserialize(std::span<const char> buffer) {
-		if (buffer.size() < 1) return  std::monostate{};
-		ClientPacketType type;
-
-		auto base = buffer.data();
-		memcpy(&type, std::exchange(base, base + sizeof(ClientPacketType)), sizeof(ClientPacketType));
-		if (type == Input) {
-			auto input = PlayerInputState::Deserialize({ base, buffer.size() - 1 });
-			if (input) {
-				return input.value();
-			}
-			return std::monostate{};
-		}
-		if (type == SliceResult) {
-			if (buffer.size() - 1 < sizeof(uint64_t) + 1) {
-				return  std::monostate{};
-			}
-			uint64_t id;
-			bool isHit;
-			memcpy(&id, std::exchange(base, base + sizeof(uint64_t)), sizeof(uint64_t));
-			memcpy(&isHit, std::exchange(base, base + 1), 1);
-
-			return std::pair<uint64_t, bool>(ntohll(id) , isHit);
-		}
-		return  std::monostate{};
-	}
+	std::variant<PlayerInputState, std::pair<uint64_t, bool>, std::monostate> Deserialize(std::span<const char> buffer);
 };
 #endif

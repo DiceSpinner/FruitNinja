@@ -1,4 +1,4 @@
-#include "game/modes/classic.hpp"
+#include "classic.hpp"
 #include "physics/rigidbody.hpp"
 #include "audio/audiosource.hpp"
 #include "audio/audiolistener.hpp"

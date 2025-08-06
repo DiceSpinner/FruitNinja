@@ -1,6 +1,7 @@
 #ifndef MTP_CLASSIC_H
 #define MTP_CLASSIC_H
 #include <infrastructure/ui.hpp>
+#include "multiplayer/setting.hpp"
 #include "multiplayer/game_packet.hpp"
 #include "game/game.hpp"
 
@@ -22,18 +23,37 @@ struct MTP_ClassicUI {
 	std::unique_ptr<UI> readyPrompt;
 	std::unique_ptr<UI> disconnectedText;
 	std::unique_ptr<UI> connectingText;
+	
+	// Player Context
+	std::unique_ptr<UI> score1;
+	std::unique_ptr<UI> score2;
+	std::unique_ptr<UI> missBase1[MultiplayerSetting.missTolerence];
+	std::unique_ptr<UI> missFiller1[MultiplayerSetting.missTolerence];
+	std::unique_ptr<UI> missBase2[MultiplayerSetting.missTolerence];
+	std::unique_ptr<UI> missFiller2[MultiplayerSetting.missTolerence];
 };
 
 class MTP_ClassicMode : public GameState {
 	std::shared_ptr<LiteConnConnection> server;
 	MTP_ClassicUI ui;
-	enum {
+	enum class ConnectionState {
 		Connecting,
 		Disconnected,
 		Connected
-	} state;
+	} connectionState;
+
+	enum class InGameState {
+		InGame,
+		Wait,
+		PlayerDisconnect,
+		GameLost,
+		GameWon
+	} gameState;
+
 	PlayerInputState inputState = {.index = 0, .keys = 0, .mouseX = 0, .mouseY = 0};
-	PlayerContext context;
+	uint64_t currIndex = 0;
+	PlayerContext context1;
+	PlayerContext context2;
 
 	void EnterConnecting();
 	void EnterDisconnected();
@@ -53,5 +73,6 @@ public:
 	
 	void OnDrawBackUI(Shader& uiShader) override;
 	void OnDrawFrontUI(Shader& uiShader) override;
+	bool AllowParentFrontUI() override;
 };
 #endif

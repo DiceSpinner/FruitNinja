@@ -6,8 +6,8 @@
 #include "rendering/camera.hpp"
 #include "rendering/particle_system.hpp"
 #include "infrastructure/object.hpp"
-#include "util.hpp"
-#include "fruitslice.hpp"
+#include "game/util.hpp"
+#include "game/fruitslice.hpp"
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>

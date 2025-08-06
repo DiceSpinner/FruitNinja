@@ -34,6 +34,7 @@ constexpr struct {
 	float spawnCooldownMax = 3;
 	glm::vec3 spawnMinRotation = { 30, 30, 30 };
 	glm::vec3 spawnMaxRotation = { 90, 90, 90 };
-	unsigned int missTolerence = 3;
+	uint32_t missTolerence = 4;
+	uint32_t bombCost = 10;
 } MultiplayerSetting;
 #endif

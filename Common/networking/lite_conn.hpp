@@ -41,9 +41,10 @@ struct LiteConnMessage {
 class LiteConnResponse {
 private:
 	std::weak_ptr<LiteConnConnection> connection;
-	uint64_t requestID;
+	uint64_t requestID = 0;
 	std::future<std::optional<LiteConnMessage>> response;
 public:
+	LiteConnResponse();
 	LiteConnResponse(std::weak_ptr<LiteConnConnection>&& connection, const uint64_t& id, std::future<std::optional<LiteConnMessage>>&& value);
 	LiteConnResponse(const LiteConnResponse&) = delete;
 	LiteConnResponse(LiteConnResponse&&) noexcept = default;
@@ -52,6 +53,8 @@ public:
 	~LiteConnResponse();
 
 	void Cancel();
+
+	operator bool();
 
 	template<typename Rep, typename Period>
 	bool WaitForResponse(std::chrono::duration<Rep, Period> timeout = {}) const {

@@ -40,7 +40,8 @@ int main(int argc, char* args[]) {
         lastTicked = currTime;
         // Debug::Log("Tick Time: ", ms);
         game.ProcessInput();
-        game.Step();
+        game.AdvanceGameState();
+        game.SendUpdate();
         std::this_thread::sleep_until(nextFrame);
     }
 }

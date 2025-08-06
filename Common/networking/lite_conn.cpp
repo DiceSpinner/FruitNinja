@@ -2,12 +2,18 @@
 #include "debug/log.hpp"
 #include <cassert>
 
+LiteConnResponse::LiteConnResponse(){}
+
 LiteConnResponse::LiteConnResponse(
 	std::weak_ptr<LiteConnConnection>&& connection, 
 	const uint64_t& id, 
 	std::future<std::optional<LiteConnMessage>>&& value
 ) : connection(std::move(connection)), requestID(id), response(std::move(value))
 { }
+
+LiteConnResponse::operator bool() {
+	return response.valid();
+}
 
 LiteConnResponse::~LiteConnResponse() {
 	if (response.valid()) {

@@ -1,14 +1,16 @@
 #ifndef MULTIPLAYER_GAME_H
 #define MULTIPLAYER_GAME_H
+#include "infrastructure/coroutine.hpp"
 #include "infrastructure/object.hpp"
 #include "multiplayer/game_packet.hpp"
 #include "infrastructure/clock.hpp"
 #include "networking/lite_conn.hpp"
 
 struct SlicableAwaitResult {
-	bool isBomb;
-	uint32_t score;
-	LiteConnResponse result;
+	uint32_t index = 0;
+	bool isBomb = false;
+	LiteConnResponse result1;
+	LiteConnResponse result2;
 };
 
 class MultiplayerGame {
@@ -29,36 +31,37 @@ private:
 	static constexpr int packetQueueCapacity = 100;
 	static constexpr int maxPacketSize = 1500;
 
+	uint64_t contextIndex = 0;
 	PlayerContext context1 = {};
 	PlayerContext context2 = {};
 	std::shared_ptr<LiteConnConnection> player1;
 	std::shared_ptr<LiteConnConnection> player2;
-	
-	std::list<SlicableAwaitResult> slicableGroup1 = {};
-	std::list<SlicableAwaitResult> slicableGroup2 = {};
+
+	std::list<SlicableAwaitResult> pendingSlicables;
 
 	float spawnTimer = 0;
 	uint64_t spawnIndex = 0;
 
 	ObjectManager objManager = {};
 	LiteConnManager connectionManager;
+	CoroutineManager coroutineManager;
 	Clock gameClock;
 
 	GameState state = GameState::Wait;
 
-	void NotifyGameEnd();
-	void NotifyGameStart();
+	void Step();
+	void StartCoroutine(Coroutine&& coroutine);
+
+	Coroutine WaitForSeconds(float time);
+
+	void SendCommand(ServerPacket::ServerCommand cmd);
+	void SendCommand(ServerPacket::ServerCommand cmd, std::shared_ptr<LiteConnConnection>& player);
 	void CheckPlayerReadiness(const std::vector<PlayerInputState>& inputs, PlayerContext& context);
 	void ProcessMousePositions(const std::vector<PlayerInputState>& inputs, PlayerContext& context);
-	void SpawnFruit(
-		const std::shared_ptr<LiteConnConnection>& player,
-		const std::shared_ptr<LiteConnConnection>& otherPlayer,
-		std::list<SlicableAwaitResult>& playerSlicables,
-		uint64_t& spawnIndex
-	);
+	void SpawnFruit();
 public:
 	MultiplayerGame(int tickRate, USHORT port);
-	void Step();
+	void AdvanceGameState();
 	void ProcessInput();
 	void SendUpdate();
 };

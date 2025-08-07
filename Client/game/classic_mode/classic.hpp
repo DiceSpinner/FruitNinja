@@ -7,7 +7,7 @@
 #include "infrastructure/state_machine.hpp"
 #include "infrastructure/ui.hpp"
 #include "infrastructure/object_pool.hpp"
-#include "game/bomb.hpp"
+#include "game/slicable.hpp"
 
 struct ClassicModeUI {
 	// Fruit UI
@@ -76,11 +76,17 @@ struct ClassicModeContext {
 		Score
 	} current;
 
-	FruitChannel fruitChannel;
-	BombChannel bombChannel;
+	std::shared_ptr<SlicableControl> fruitChannel;
+	std::shared_ptr<SlicableControl> bombChannel;
+
+	int score = 0;
+	int miss = 0;
+	int recovery = 0;
+	bool recentlyRecovered = false;
+	bool bombHit = false;
+	glm::vec3 explosionPosition = {};
 
 	float explosionTimer = 0;
-
 	float spawnTimer = 0;
 	float spawnCooldown = 1;
 
@@ -94,6 +100,10 @@ private:
 	ClassicModeSetting setting;
 	ExplosionVFX vfx;
 	std::vector<std::function<void()>> fruitSpawners;
+
+	void OnFruitHit(Transform& fruit, int score);
+	void OnFruitMissed();
+	void OnBombHit(Transform& bomb);
 
 	void enterGame();
 	void enterExplosion();

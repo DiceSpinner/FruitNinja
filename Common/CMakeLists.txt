@@ -7,7 +7,6 @@ find_package(glfw3 CONFIG REQUIRED)
 find_package(assimp CONFIG REQUIRED)
 find_package(OpenAL CONFIG REQUIRED)
 find_package(AudioFile CONFIG REQUIRED)
-find_package(unofficial-enet CONFIG REQUIRED)
 
 target_include_directories(common PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(common PUBLIC ws2_32 glm::glm glad::glad glfw assimp::assimp Freetype::Freetype OpenAL::OpenAL AudioFile unofficial::enet::enet)
+target_link_libraries(common PUBLIC ws2_32 glm::glm glad::glad glfw assimp::assimp Freetype::Freetype OpenAL::OpenAL AudioFile)

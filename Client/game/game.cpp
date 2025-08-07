@@ -5,8 +5,6 @@
 #include "infrastructure/object.hpp"
 #include "infrastructure/object_pool.hpp"
 #include "game.hpp"
-#include "fruit.hpp"
-#include "bomb.hpp"
 #include "audio/audio_clip.hpp"
 #include "audio/audiosource_pool.hpp"
 #include "audio/audiolistener.hpp"
@@ -263,9 +261,9 @@ void Game::Init() {
 	LoadAudios();
 	LoadTextures();
 	LoadModels();
-
-	uiConfig.control.particleSystemPool = std::make_shared<ObjectPool<Object>>(50, std::bind(&Game::createFruitParticleSystem, this));
-	uiConfig.control.killHeight = uiConfig.fruitKillHeight;
+	uiConfig.control = std::make_shared<SlicableControl>();
+	uiConfig.control->particlePool = std::make_shared<ObjectPool<Object>>(50, std::bind(&Game::createFruitParticleSystem, this));
+	uiConfig.control->killHeight = uiConfig.fruitKillHeight;
 }
 
 void Game::LoadAudios() {

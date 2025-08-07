@@ -2,7 +2,6 @@
   "dependencies": [
     "assimp",
     "audiofile",
-    "enet",
     "freetype",
     "glad",
     "glfw3",

@@ -21,9 +21,23 @@ ClassicMode::ClassicMode(Game& game)
 {
 }
 
+void ClassicMode::OnFruitHit(Transform& fruit, int score) {
+	context.score += score;
+}
+
+void ClassicMode::OnFruitMissed() {
+	context.miss += 1;
+}
+
+void ClassicMode::OnBombHit(Transform& bomb) {
+	if (context.bombHit) return;
+	context.bombHit = true;
+	context.explosionPosition = bomb.position();
+}
+
 void ClassicMode::spawnFruit(shared_ptr<Model>& fruitModel, shared_ptr<Model>& slice1Model, shared_ptr<Model>& slice2Model, shared_ptr<AudioClip> sliceAudio, glm::vec4 color, float radius, int score) {
 	shared_ptr<Object> fruit = game.manager.CreateObject();
-	FruitAsset asset = {
+	SlicableAsset asset = {
 		slice1Model,
 		slice2Model,
 		sliceAudio,
@@ -32,9 +46,11 @@ void ClassicMode::spawnFruit(shared_ptr<Model>& fruitModel, shared_ptr<Model>& s
 
 	auto renderer = fruit->AddComponent<Renderer>(fruitModel);
 	renderer->drawOverlay = true;
-	Fruit* ft = fruit->AddComponent<Fruit>(radius, score, setting.fruitSliceForce, context.fruitChannel, asset);
-	ft->slicedParticleTexture = game.textures.sliceParticleTexture;
-	ft->color = color;
+	Slicable* ft = fruit->AddComponent<Slicable>(radius, setting.fruitSliceForce, context.fruitChannel, asset);
+	ft->onSliced = std::bind(&ClassicMode::OnFruitHit, this, std::placeholders::_1, score);
+	ft->onMissed = std::bind(&ClassicMode::OnFruitMissed, this);
+	ft->particleTexture = game.textures.sliceParticleTexture;
+	ft->particleColor = color;
 	Rigidbody* rb = fruit->AddComponent<Rigidbody>();
 	float upForce = randFloat(setting.fruitUpMin, setting.fruitUpMax);
 	float horizontalForce = randFloat(setting.fruitHorizontalMin, setting.fruitHorizontalMax);
@@ -96,7 +112,9 @@ void ClassicMode::spawnBomb() {
 	renderer->drawOverlay = true;
 	renderer->drawOutline = true;
 	renderer->outlineColor = glm::vec4(1, 0, 0, 1);
-	bomb->AddComponent<Bomb>(game.audios.explosionAudio, setting.sizeBomb, context.bombChannel);
+	auto slicable = bomb->AddComponent<Slicable>(setting.sizeBomb, 0, context.bombChannel, SlicableAsset{ .clipOnSliced = game.audios.explosionAudio });
+	slicable->onSliced = std::bind(&ClassicMode::OnBombHit, this, std::placeholders::_1);
+	slicable->destroyOnSliced = false;
 
 	AudioSource* audioSource = bomb->AddComponent<AudioSource>();
 	audioSource->SetAudioClip(game.audios.fuseAudio);
@@ -152,9 +170,12 @@ void ClassicMode::spawnBomb() {
 }
 
 void ClassicMode::Init() {
-	context.fruitChannel.killHeight = setting.fruitKillHeight;
-	context.fruitChannel.particleSystemPool = make_unique<ObjectPool<Object>>(50, std::bind(&Game::createFruitParticleSystem, &game));
-	context.bombChannel.killHeight = setting.bombKillHeight;
+	context.fruitChannel = std::make_shared<SlicableControl>();
+	context.fruitChannel->killHeight = setting.fruitKillHeight;
+	context.fruitChannel->particlePool = make_unique<ObjectPool<Object>>(50, std::bind(&Game::createFruitParticleSystem, &game));
+
+	context.bombChannel = std::make_shared<SlicableControl>();
+	context.bombChannel->killHeight = setting.bombKillHeight;
 
 	context.current = ClassicModeContext::Start;
 	// BackUI
@@ -163,34 +184,32 @@ void ClassicMode::Init() {
 	ui.backgroundText->textColor = glm::vec4(1, 1, 0, 1);
 
 	// Start Game Button
-	FruitAsset watermelonAsset = {
+	SlicableAsset watermelonAsset = {
 		game.models.watermelonTopModel,
 		game.models.watermelonBottomModel,
 		game.audios.fruitSliceAudio2,
-		game.audios.fruitMissAudio
 	};
 
 	ui.startGame = game.createUIObject(game.models.watermelonModel, glm::vec4(0, 1, 0, 1));
-	auto slicable = ui.startGame->AddComponent<Fruit>(setting.sizeWatermelon, 0, setting.fruitSliceForce, game.uiConfig.control, watermelonAsset);
-	slicable->color = glm::vec4(1, 0, 0, 1);
-	slicable->slicedParticleTexture = game.textures.sliceParticleTexture;
+	auto slicable = ui.startGame->AddComponent<Slicable>(setting.sizeWatermelon, setting.fruitSliceForce, game.uiConfig.control, watermelonAsset);
+	slicable->particleColor = glm::vec4(1, 0, 0, 1);
+	slicable->particleTexture = game.textures.sliceParticleTexture;
 
 	// Exit button
 	ui.back = game.createUIObject(game.models.bombModel, glm::vec4(1, 0, 0, 1));
-	ui.back->AddComponent<Fruit>(setting.sizeBomb, 0, setting.fruitSliceForce, game.uiConfig.control, FruitAsset{});
+	ui.back->AddComponent<Slicable>(setting.sizeBomb, setting.fruitSliceForce, game.uiConfig.control, SlicableAsset{});
 
 	// Reset Button
-	FruitAsset pineappleAsset = {
+	SlicableAsset pineappleAsset = {
 		game.models.pineappleTopModel,
 		game.models.pineappleBottomModel,
 		game.audios.fruitSliceAudio1,
-		game.audios.fruitMissAudio
 	};
 
 	ui.restart = game.createUIObject(game.models.pineappleModel);
-	slicable = ui.restart->AddComponent<Fruit>(setting.sizePineapple, 0, setting.fruitSliceForce, game.uiConfig.control, pineappleAsset);
-	slicable->color = glm::vec4(1, 1, 0, 1);
-	slicable->slicedParticleTexture = game.textures.sliceParticleTexture;
+	slicable = ui.restart->AddComponent<Slicable>(setting.sizePineapple, setting.fruitSliceForce, game.uiConfig.control, pineappleAsset);
+	slicable->particleColor = glm::vec4(1, 1, 0, 1);
+	slicable->particleTexture = game.textures.sliceParticleTexture;
 
 	// Front UI
 	ui.fadeOutEffect = make_unique<UI>(game.textures.fadeTexture);
@@ -226,7 +245,7 @@ void ClassicMode::Init() {
 
 void ClassicMode::OnDrawVFX(Shader& vfxShader) {
 	if (context.current == ClassicModeContext::Explosion) {
-		vfx.transform.SetPosition(context.bombChannel.explosionPosition);
+		vfx.transform.SetPosition(context.explosionPosition);
 		vfx.rayLength = 500 * context.explosionTimer / setting.explosionDuration;
 		vfx.rayOpacity = 2 * context.explosionTimer / setting.explosionDuration;
 		vfx.Draw(vfxShader);
@@ -271,11 +290,11 @@ void ClassicMode::OnDrawFrontUI(Shader& uiShader) {
 	else if (context.current == ClassicModeContext::Game) {
 		uiShader.SetVec4("textColor", setting.scoreColor);
 		ui.scoreBoard->transform.SetPosition(glm::vec3(-0.87 * halfWidth, 0.9 * halfHeight, 0));
-		ui.scoreBoard->UpdateText("Score: " + to_string(context.fruitChannel.score));
+		ui.scoreBoard->UpdateText("Score: " + to_string(context.score));
 		ui.scoreBoard->Draw(uiShader);
 
 		for (int i = 0; i < 3; i++) {
-			if (i < context.fruitChannel.miss) {
+			if (i < context.miss) {
 				ui.redCrosses[i]->transform.SetPosition(glm::vec3((0.95 - i * 0.06) * halfWidth, (0.8 + (i + 1) * 0.04) * halfHeight, 0));
 				ui.redCrosses[i]->Draw(uiShader);
 			}
@@ -293,7 +312,7 @@ void ClassicMode::OnDrawFrontUI(Shader& uiShader) {
 		ui.backButton->DrawInNDC(setting.exitButtonPos, uiShader);
 
 		uiShader.SetVec4("textColor", setting.scoreColor);
-		ui.largeScoreBoard->UpdateText("Score: " + to_string(context.fruitChannel.score));
+		ui.largeScoreBoard->UpdateText("Score: " + to_string(context.score));
 		ui.largeScoreBoard->Draw(uiShader);
 	}
 }
@@ -316,7 +335,7 @@ void ClassicMode::OnEnter() {
 	rb->velocity = {};
 	rb->useGravity = false;
 
-	game.uiConfig.control.enableSlicing = false;
+	game.uiConfig.control->disableSlicing = true;
 	StartCoroutine(FadeInUI(1.0f));
 }
 
@@ -329,15 +348,15 @@ void ClassicMode::OnExit() {
 
 void ClassicMode::enterGame() {
 	context.current = ClassicModeContext::Game;
-	context.fruitChannel.disableNonUI = false;
-	context.bombChannel.disableAll = false;
+	context.fruitChannel->disableAll = false;
+	context.bombChannel->disableAll = false;
 
 	ui.back->GetComponent<Rigidbody>()->useGravity = true;
-	context.fruitChannel.score = 0;
+	context.score = 0;
 	context.spawnTimer = 0;
-	context.fruitChannel.miss = 0;
-	context.fruitChannel.recovery = 0;
-	context.bombChannel.bombHit = false;
+	context.miss = 0;
+	context.recovery = 0;
+	context.bombHit = false;
 	game.player->GetComponent<AudioSource>()->Pause();
 	auto source = acquireAudioSource();
 	if (source) {
@@ -352,8 +371,8 @@ void ClassicMode::enterExplosion() {
 	context.current = ClassicModeContext::Explosion;
 	game.gameClock.timeScale = 0;
 	context.explosionTimer = 0;
-	context.fruitChannel.enableSlicing = false;
-	context.bombChannel.enableSlicing = false;
+	context.fruitChannel->disableSlicing = true;
+	context.bombChannel->disableSlicing = true;
 }
 
 void ClassicMode::enterScore() {
@@ -379,13 +398,13 @@ void ClassicMode::enterScore() {
 		audioSource->Play();
 	}
 
-	context.fruitChannel.disableNonUI = true;
-	context.bombChannel.disableAll = true;
+	context.fruitChannel->disableAll = true;
+	context.bombChannel->disableAll = true;
 }
 
 void ClassicMode::exitExplosion() {
-	context.fruitChannel.enableSlicing = true;
-	context.bombChannel.enableSlicing = true;
+	context.fruitChannel->disableSlicing = false;
+	context.bombChannel->disableSlicing = false;
 }
 
 void ClassicMode::exitScore() {
@@ -414,15 +433,15 @@ void ClassicMode::processGame() {
 			source->Play();
 		}
 	}
-	if (context.bombChannel.bombHit) {
+	if (context.bombHit) {
 		enterExplosion();
 	}
-	else if (context.fruitChannel.miss >= setting.missTolerence) {
+	else if (context.miss >= setting.missTolerence) {
 		enterScore();
 	}
 
-	if (context.fruitChannel.recentlyRecovered) {
-		context.fruitChannel.recentlyRecovered = false;
+	if (context.recentlyRecovered) {
+		context.recentlyRecovered = false;
 		auto source = acquireAudioSource();
 		if (source) {
 			auto audioSource = source->GetComponent<AudioSource>();
@@ -528,7 +547,7 @@ Coroutine ClassicMode::FadeInUI(float duration) {
 	ui.backButton->textColor.a = 1;
 	ui.startButton->textColor.a = 1;
 	ui.restartButton->textColor.a = 1;
-	game.uiConfig.control.enableSlicing = true;
+	game.uiConfig.control->disableSlicing = false;
 }
 
 Coroutine ClassicMode::FadeOutUI(float duration) {
@@ -547,5 +566,5 @@ Coroutine ClassicMode::FadeOutUI(float duration) {
 	ui.backButton->textColor.a = 0;
 	ui.startButton->textColor.a = 0;
 	ui.restartButton->textColor.a = 0;
-	game.uiConfig.control.enableSlicing = true;
+	game.uiConfig.control->disableSlicing = false;
 }

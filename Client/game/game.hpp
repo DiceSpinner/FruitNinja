@@ -14,7 +14,7 @@
 #include "networking/lite_conn.hpp"
 #include "rendering/model.hpp"
 #include "audio/audio_clip.hpp"
-#include "game/fruit.hpp"
+#include "game/slicable.hpp"
 
 struct GameModels {
 	std::shared_ptr<Model> appleModel;
@@ -165,7 +165,7 @@ public:
 		float fruitKillHeight = -15;
 		float fruitSliceForce = 10;
 
-		FruitChannel control;
+		std::shared_ptr<SlicableControl> control;
 		glm::vec3 spawnMinRotation = { 30, 30, 30 };
 		glm::vec3 spawnMaxRotation = { 90, 90, 90 };
 	} uiConfig;

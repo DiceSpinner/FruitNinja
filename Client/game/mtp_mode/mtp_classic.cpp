@@ -10,7 +10,8 @@ struct overload : T... {
 	using T::operator()...;
 };
 
-MTP_ClassicMode::MTP_ClassicMode(Game& game) : GameState(game), connectionState(ConnectionState::Connecting)
+MTP_ClassicMode::MTP_ClassicMode(Game& game) : 
+	GameState(game), connectionState(ConnectionState::Connecting), gameState(InGameState::Wait)
 { }
 
 void MTP_ClassicMode::Init() {
@@ -36,28 +37,25 @@ void MTP_ClassicMode::Init() {
 	
 	ui.exit = game.createUIObject(game.models.bombModel, { 1, 0, 0, 1 });
 	{
-		auto slicable = ui.exit->AddComponent<Fruit>(
+		auto slicable = ui.exit->AddComponent<Slicable>(
 			MultiplayerSetting.sizeBomb,
-			0,
 			MultiplayerSetting.fruitSliceForce,
 			game.uiConfig.control,
-			FruitAsset{}
+			SlicableAsset{}
 		);
 	}
 	ui.exitText = std::make_unique<UI>(0, "Exit");
 	ui.exitText->textColor = { 1, 0, 0, 1 };
 
 	ui.reconnect = game.createUIObject(game.models.pineappleModel, { 1, 1, 0, 1 });
-	FruitAsset pineappleAsset = {
+	SlicableAsset pineappleAsset = {
 		game.models.pineappleTopModel,
 		game.models.pineappleBottomModel,
-		game.audios.fruitSliceAudio1,
-		game.audios.fruitMissAudio
+		game.audios.fruitSliceAudio1
 	};
 	{
-		auto slicable = ui.reconnect->AddComponent<Fruit>(
+		auto slicable = ui.reconnect->AddComponent<Slicable>(
 			MultiplayerSetting.sizePineapple,
-			0,
 			MultiplayerSetting.fruitSliceForce,
 			game.uiConfig.control, 
 			pineappleAsset
@@ -109,8 +107,8 @@ void MTP_ClassicMode::PositionUI() {
 }
 
 Coroutine MTP_ClassicMode::FadeInUI(float duration) {
+	game.uiConfig.control->disableSlicing = true;
 	float time = 0;
-
 	{
 		auto rb = ui.exit->GetComponent<Rigidbody>();
 		rb->useGravity = false;
@@ -157,12 +155,12 @@ Coroutine MTP_ClassicMode::FadeInUI(float duration) {
 	ui.exitText->textColor.a = 1;
 	ui.reconnectText->textColor.a = 1;
 
-	game.uiConfig.control.enableSlicing = true;
+	game.uiConfig.control->disableSlicing = false;
 }
 
 Coroutine MTP_ClassicMode::FadeOutUI(float duration) {
+	game.uiConfig.control->disableSlicing = true;
 	float time = 0;
-
 	{
 		auto rb = ui.reconnect->GetComponent<Rigidbody>();
 		rb->useGravity = true;
@@ -191,7 +189,7 @@ Coroutine MTP_ClassicMode::FadeOutUI(float duration) {
 	ui.connectingText->textColor.a = 0;
 	ui.exitText->textColor.a = 0;
 	ui.reconnectText->textColor.a = 0;
-	game.uiConfig.control.enableSlicing = false;
+	game.uiConfig.control->disableSlicing = false;
 }
 
 void MTP_ClassicMode::OnEnter() {

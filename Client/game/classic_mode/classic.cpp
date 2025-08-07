@@ -206,7 +206,7 @@ void ClassicMode::Init() {
 		game.audios.fruitSliceAudio1,
 	};
 
-	ui.restart = game.createUIObject(game.models.pineappleModel);
+	ui.restart = game.createUIObject(game.models.pineappleModel, {1, 1, 0, 1});
 	slicable = ui.restart->AddComponent<Slicable>(setting.sizePineapple, setting.fruitSliceForce, game.uiConfig.control, pineappleAsset);
 	slicable->particleColor = glm::vec4(1, 1, 0, 1);
 	slicable->particleTexture = game.textures.sliceParticleTexture;

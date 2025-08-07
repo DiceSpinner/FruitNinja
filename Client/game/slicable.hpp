@@ -49,6 +49,8 @@ public:
 		std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& components, Transform& transform, Object* object,
 		float radius, float sliceForce, const std::shared_ptr<SlicableControl>& control, const SlicableAsset& assets
 	);
+	void OnEnabled() override;
+
 	void Update(const Clock& clock) override;
 
 	void Slice(const Clock& clock, glm::vec3 up);

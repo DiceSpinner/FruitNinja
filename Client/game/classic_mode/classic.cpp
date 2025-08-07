@@ -180,7 +180,7 @@ void ClassicMode::Init() {
 	context.current = ClassicModeContext::Start;
 	// BackUI
 	ui.background = make_unique<UI>(game.textures.backgroundTexture);
-	ui.backgroundText = make_unique<UI>(0, "Fruit Ninja", 100);
+	ui.backgroundText = make_unique<UI>(0, "Classic Mode", 100);
 	ui.backgroundText->textColor = glm::vec4(1, 1, 0, 1);
 
 	// Start Game Button
@@ -535,6 +535,7 @@ Coroutine ClassicMode::FadeInUI(float duration) {
 		ui.backButton->textColor.a = opacity;
 		ui.startButton->textColor.a = opacity;
 		ui.restartButton->textColor.a = opacity;
+		ui.backgroundText->textColor.a = opacity;
 		co_yield {};
 	}
 	back->color.a = 1;
@@ -547,6 +548,7 @@ Coroutine ClassicMode::FadeInUI(float duration) {
 	ui.backButton->textColor.a = 1;
 	ui.startButton->textColor.a = 1;
 	ui.restartButton->textColor.a = 1;
+	ui.backgroundText->textColor.a = 1;
 	game.uiConfig.control->disableSlicing = false;
 }
 
@@ -560,11 +562,13 @@ Coroutine ClassicMode::FadeOutUI(float duration) {
 		ui.backButton->textColor.a = opacity;
 		ui.startButton->textColor.a = opacity;
 		ui.restartButton->textColor.a = opacity;
+		ui.backgroundText->textColor.a = opacity;
 		co_yield{};
 	}
 
 	ui.backButton->textColor.a = 0;
 	ui.startButton->textColor.a = 0;
 	ui.restartButton->textColor.a = 0;
+	ui.backgroundText->textColor.a = 0;
 	game.uiConfig.control->disableSlicing = false;
 }

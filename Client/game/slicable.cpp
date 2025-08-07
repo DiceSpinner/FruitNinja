@@ -42,6 +42,10 @@ Slicable::Slicable
 	}
 }
 
+void Slicable::OnEnabled() {
+	sliced = false;
+}
+
 void Slicable::Slice(const Clock& clock, glm::vec3 up) {
 	sliced = true;
 	if (onSliced) {

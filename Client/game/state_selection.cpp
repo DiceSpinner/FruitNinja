@@ -181,6 +181,7 @@ Coroutine SelectionState::FadeInUI(float duration) {
 		ui.classicModeText->textColor.a = opacity;
 		ui.multiplayerText->textColor.a = opacity;
 		ui.exitText->textColor.a = opacity;
+		ui.titleText->textColor.a = opacity;
 
 		PositionUI();
 		classic->color.a = opacity;
@@ -197,6 +198,7 @@ Coroutine SelectionState::FadeInUI(float duration) {
 	ui.classicModeText->textColor.a = 1;
 	ui.multiplayerText->textColor.a = 1;
 	ui.exitText->textColor.a = 1;
+	ui.titleText->textColor.a = 1;
 	classic->color.a = 1;
 	multiplayer->color.a = 1;
 	exit->color.a = 1;
@@ -212,6 +214,7 @@ Coroutine SelectionState::FadeOutUI(float duration) {
 
 	while (timer < duration) {
 		float opacity = 1 - timer / duration;
+		ui.titleText->textColor.a = opacity;
 		ui.classicModeText->textColor.a = opacity;
 		ui.multiplayerText->textColor.a = opacity;
 		ui.exitText->textColor.a = opacity;
@@ -222,5 +225,6 @@ Coroutine SelectionState::FadeOutUI(float duration) {
 	ui.classicModeText->textColor.a = 0;
 	ui.multiplayerText->textColor.a = 0;
 	ui.exitText->textColor.a = 0;
+	ui.titleText->textColor.a = 0;
 	game.uiConfig.control->disableSlicing = false;
 }

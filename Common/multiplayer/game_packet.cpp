@@ -1,7 +1,7 @@
 #include "game_packet.hpp"
 
 namespace ClientPacket {
-	std::vector<char> Serialize(const PlayerInputState& inputState) {
+	std::vector<char> SerializeInput(const PlayerInputState& inputState) {
 		std::vector<char> buffer;
 		buffer.resize(sizeof(ClientPacketType) + PlayerInputState::Size);
 		auto base = buffer.data();
@@ -10,18 +10,7 @@ namespace ClientPacket {
 		return buffer;
 	}
 
-	std::vector<char> Serialize(const std::pair<uint64_t, bool>& sliceResult) {
-		std::vector<char> buffer;
-		buffer.resize(2 + sizeof(uint64_t));
-		auto base = buffer.data();
-		memset(std::exchange(base, base + sizeof(ClientPacketType)), SliceResult, sizeof(ClientPacketType));
-		auto id = htonll(sliceResult.first);
-		memset(std::exchange(base, base + sizeof(uint64_t)), sliceResult.first, sizeof(uint64_t));
-		memset(std::exchange(base, base + 1), sliceResult.second, 1);
-		return buffer;
-	}
-
-	std::variant<PlayerInputState, std::pair<uint64_t, bool>, std::monostate> Deserialize(std::span<const char> buffer) {
+	std::variant<PlayerInputState, std::monostate> Deserialize(std::span<const char> buffer) {
 		if (buffer.size() < 1) return  std::monostate{};
 		ClientPacketType type;
 
@@ -30,20 +19,9 @@ namespace ClientPacket {
 		if (type == Input) {
 			auto input = PlayerInputState::Deserialize({ base, buffer.size() - 1 });
 			if (input) {
-				return input.value();
+				return std::move(input.value());
 			}
 			return std::monostate{};
-		}
-		if (type == SliceResult) {
-			if (buffer.size() - 1 < sizeof(uint64_t) + 1) {
-				return  std::monostate{};
-			}
-			uint64_t id;
-			bool isHit;
-			memcpy(&id, std::exchange(base, base + sizeof(uint64_t)), sizeof(uint64_t));
-			memcpy(&isHit, std::exchange(base, base + 1), 1);
-
-			return std::pair<uint64_t, bool>(ntohll(id), isHit);
 		}
 		return  std::monostate{};
 	}

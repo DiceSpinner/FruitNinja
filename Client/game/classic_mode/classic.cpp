@@ -23,6 +23,15 @@ ClassicMode::ClassicMode(Game& game)
 
 void ClassicMode::OnFruitHit(Transform& fruit, int score) {
 	context.score += score;
+	int quotient = context.score / 50;
+	if (quotient > context.recovery) {
+		auto before = context.miss;
+		context.miss = glm::max(context.miss - (quotient - context.recovery), 0);
+		context.recovery = quotient;
+		if (before > context.miss) {
+			context.recentlyRecovered = true;
+		}
+	}
 }
 
 void ClassicMode::OnFruitMissed() {
@@ -47,7 +56,7 @@ void ClassicMode::spawnFruit(shared_ptr<Model>& fruitModel, shared_ptr<Model>& s
 	auto renderer = fruit->AddComponent<Renderer>(fruitModel);
 	renderer->drawOverlay = true;
 	Slicable* ft = fruit->AddComponent<Slicable>(radius, setting.fruitSliceForce, context.fruitChannel, asset);
-	ft->onSliced = std::bind(&ClassicMode::OnFruitHit, this, std::placeholders::_1, score);
+	ft->onSliced = [this, score](Transform& t, glm::vec3) {OnFruitHit(t, score); };
 	ft->onMissed = std::bind(&ClassicMode::OnFruitMissed, this);
 	ft->particleTexture = game.textures.sliceParticleTexture;
 	ft->particleColor = color;
@@ -113,7 +122,7 @@ void ClassicMode::spawnBomb() {
 	renderer->drawOutline = true;
 	renderer->outlineColor = glm::vec4(1, 0, 0, 1);
 	auto slicable = bomb->AddComponent<Slicable>(setting.sizeBomb, 0, context.bombChannel, SlicableAsset{ .clipOnSliced = game.audios.explosionAudio });
-	slicable->onSliced = std::bind(&ClassicMode::OnBombHit, this, std::placeholders::_1);
+	slicable->onSliced = [this](Transform& t, glm::vec3) { OnBombHit(t); };
 	slicable->destroyOnSliced = false;
 
 	AudioSource* audioSource = bomb->AddComponent<AudioSource>();

@@ -190,7 +190,7 @@ optional<type_index> GameState::Run() {
 			currSubState->OnEnter();
 		}
 		else {
-			cout << "State not found" << endl;
+			Debug::LogError("State not found");
 		}
 	}
 	return Self();

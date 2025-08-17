@@ -43,7 +43,7 @@ public:
 	GLuint particleTexture = 0;
 	glm::vec4 particleColor = { 1, 1, 1, 1 };
 	std::function<void()> onMissed;
-	std::function<void(Transform& transform)> onSliced;
+	std::function<void(Transform& transform, glm::vec3 up)> onSliced;
 
 	Slicable(
 		std::unordered_map<std::type_index, std::vector<std::unique_ptr<Component>>>& components, Transform& transform, Object* object,

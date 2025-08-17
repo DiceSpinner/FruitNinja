@@ -49,7 +49,7 @@ void Slicable::OnEnabled() {
 void Slicable::Slice(const Clock& clock, glm::vec3 up) {
 	sliced = true;
 	if (onSliced) {
-		onSliced(transform);
+		onSliced(transform, up);
 	}
 
 	if (asset.topSlice && asset.bottomSlice) {
@@ -114,15 +114,17 @@ void Slicable::Update(const Clock& clock) {
 
 	glm::vec2 cursorDirection = Cursor::getCursorPosDelta();
 	if (transform.position().y <= control->killHeight) {
-		if (onMissed) {
-			onMissed();
-		}
-		if (asset.clipOnMissed) {
-			auto audioSourceObj = acquireAudioSource();
-			if (audioSourceObj) {
-				auto source = audioSourceObj->GetComponent<AudioSource>();
-				source->SetAudioClip(asset.clipOnMissed);
-				source->Play();
+		if (!sliced) {
+			if (onMissed) {
+				onMissed();
+			}
+			if (asset.clipOnMissed) {
+				auto audioSourceObj = acquireAudioSource();
+				if (audioSourceObj) {
+					auto source = audioSourceObj->GetComponent<AudioSource>();
+					source->SetAudioClip(asset.clipOnMissed);
+					source->Play();
+				}
 			}
 		}
 

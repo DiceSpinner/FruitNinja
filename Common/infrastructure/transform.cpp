@@ -39,17 +39,17 @@ glm::mat4 Transform::rotation() const {
 	return result;
 }
 
-void Transform::LookAt(glm::vec3 position, glm::vec3 up) {
+void Transform::LookAt(const glm::vec3& position, const glm::vec3& up) {
 	glm::vec3 direction = position - this->position();
 	SetForward(direction);
 	SetRight(glm::cross(up, direction));
 }
 
-void Transform::SetPosition(glm::vec3 position) {
+void Transform::SetPosition(const glm::vec3& position) {
 	matrix[3] = glm::vec4(position, 1);
 }
 
-void Transform::SetForward(glm::vec3 direction) {
+void Transform::SetForward(const glm::vec3& direction) {
 	glm::vec3 currForward = forward();
 	glm::vec3 newDirection = glm::normalize(direction);
 
@@ -71,7 +71,7 @@ void Transform::SetForward(glm::vec3 direction) {
 	matrix = glm::rotate(matrix, angle, glm::vec3(localAxis));
 }
 
-void Transform::SetRight(glm::vec3 direction) {
+void Transform::SetRight(const glm::vec3& direction) {
 	glm::vec3 currRight = right();
 	glm::vec3 newDirection = glm::normalize(direction);
 
@@ -92,7 +92,7 @@ void Transform::SetRight(glm::vec3 direction) {
 	matrix = glm::rotate(matrix, angle, localAxis);
 }
 
-void Transform::SetUp(glm::vec3 direction) {
+void Transform::SetUp(const glm::vec3& direction) {
 	glm::vec3 currUp = up();
 	glm::vec3 newDirection = glm::normalize(direction);
 
@@ -112,14 +112,14 @@ void Transform::SetUp(glm::vec3 direction) {
 	matrix = glm::rotate(matrix, angle, localAxis);
 }
 
-void Transform::SetScale(glm::vec3 scaling) {
+void Transform::SetScale(const glm::vec3& scaling) {
 	matrix[0] = glm::normalize(matrix[0]);
 	matrix[1] = glm::normalize(matrix[1]);
 	matrix[2] = glm::normalize(matrix[2]);
 	matrix = glm::scale(matrix, scaling);
 }
 
-void Transform::SetRotation(glm::mat4 newRotation) {
+void Transform::SetRotation(const glm::mat4& newRotation) {
 	glm::vec3 currScale = scale();
 	matrix[0] = currScale.x * glm::normalize(newRotation[0]);
 	matrix[1] = currScale.y * glm::normalize(newRotation[1]);

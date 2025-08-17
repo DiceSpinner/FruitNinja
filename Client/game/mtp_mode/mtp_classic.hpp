@@ -27,10 +27,10 @@ struct MTP_ClassicUI {
 	// Player Context
 	std::unique_ptr<UI> score1;
 	std::unique_ptr<UI> score2;
-	std::unique_ptr<UI> missBase1[MultiplayerSetting.missTolerence];
-	std::unique_ptr<UI> missFiller1[MultiplayerSetting.missTolerence];
-	std::unique_ptr<UI> missBase2[MultiplayerSetting.missTolerence];
-	std::unique_ptr<UI> missFiller2[MultiplayerSetting.missTolerence];
+	std::unique_ptr<UI> missBase1[MTP_Setting::missTolerence];
+	std::unique_ptr<UI> missFiller1[MTP_Setting::missTolerence];
+	std::unique_ptr<UI> missBase2[MTP_Setting::missTolerence];
+	std::unique_ptr<UI> missFiller2[MTP_Setting::missTolerence];
 };
 
 class MTP_ClassicMode : public GameState {
@@ -55,6 +55,12 @@ class MTP_ClassicMode : public GameState {
 	PlayerContext context1;
 	PlayerContext context2;
 
+	std::shared_ptr<SlicableControl> localControl;
+	std::shared_ptr<SlicableControl> remoteControl;
+
+	std::unordered_map<uint64_t, std::weak_ptr<Object>> pendingRemoteSlicables;
+	std::unordered_map<uint64_t, LiteConnRequest> pendingSlicables;
+
 	void EnterConnecting();
 	void EnterDisconnected();
 	void EnterConnected();
@@ -63,6 +69,7 @@ class MTP_ClassicMode : public GameState {
 	void SendInput();
 	Coroutine FadeInUI(float duration);
 	Coroutine FadeOutUI(float duration);
+	void ClearPendingSlicables();
 public:
 	MTP_ClassicMode(Game& game);
 	void Init() override;

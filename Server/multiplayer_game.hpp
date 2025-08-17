@@ -9,8 +9,7 @@
 struct SlicableAwaitResult {
 	uint32_t index = 0;
 	bool isBomb = false;
-	LiteConnResponse result1;
-	LiteConnResponse result2;
+	LiteConnResponse results[2];
 };
 
 class MultiplayerGame {
@@ -32,10 +31,8 @@ private:
 	static constexpr int maxPacketSize = 1500;
 
 	uint64_t contextIndex = 0;
-	PlayerContext context1 = {};
-	PlayerContext context2 = {};
-	std::shared_ptr<LiteConnConnection> player1;
-	std::shared_ptr<LiteConnConnection> player2;
+	PlayerContext contexts[2] = {};
+	std::shared_ptr<LiteConnConnection> players[2];
 
 	std::list<SlicableAwaitResult> pendingSlicables;
 
@@ -56,8 +53,8 @@ private:
 
 	void SendCommand(ServerPacket::ServerCommand cmd);
 	void SendCommand(ServerPacket::ServerCommand cmd, std::shared_ptr<LiteConnConnection>& player);
-	void CheckPlayerReadiness(const std::vector<PlayerInputState>& inputs, PlayerContext& context);
-	void ProcessMousePositions(const std::vector<PlayerInputState>& inputs, PlayerContext& context);
+	void CheckPlayerReadiness(const std::vector<PlayerInputState>(&inputs)[2]);
+	void ProcessMousePositions(const std::vector<PlayerInputState> (&inputs)[2]);
 	void SpawnFruit();
 public:
 	MultiplayerGame(int tickRate, USHORT port);

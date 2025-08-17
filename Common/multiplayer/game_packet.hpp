@@ -35,7 +35,7 @@ struct PlayerContext {
 		}
 		auto base = buffer.data();
 		uint8_t bitfield;
-		uint32_t numMisses, energy, bombThrowCost;
+		uint32_t numMisses, energy;
 		uint64_t score;
 
 		memcpy(&bitfield, std::exchange(base, base + sizeof(uint8_t)), sizeof(uint8_t));
@@ -101,7 +101,7 @@ struct PlayerContext {
 		uint64_t score = htonll(context.score);
 		memcpy(std::exchange(base, base + sizeof(uint64_t)), &score, sizeof(uint64_t));
 
-		uint16_t numSlices = htons(context.slices.size());
+		uint16_t numSlices = htons(static_cast<uint16_t>(context.slices.size()));
 		memcpy(std::exchange(base, base + sizeof(uint16_t)), &numSlices, sizeof(uint16_t));
 
 		for (auto i = context.slices.begin(); i != context.slices.end();++i) {
@@ -187,6 +187,72 @@ struct SpawnRequest {
 			.vel = {ntohf(vX), ntohf(vY)},
 			.fruitType = fruitType
  		};
+	}
+};
+
+struct SliceResult {
+	static constexpr size_t Size = sizeof(uint64_t) + sizeof(float) * 2 + 1;
+
+	uint64_t id;
+	glm::vec2 upDirection;
+	bool isSliced;
+
+	static std::vector<char> Serialize(const SliceResult& result) {
+		std::vector<char> buffer;
+		buffer.resize(Size);
+		auto base = buffer.data();
+
+		uint64_t id = htonll(result.id);
+		memcpy(std::exchange(base, base + sizeof(uint64_t)), &id, sizeof(uint64_t));
+
+		uint32_t x = htonf(result.upDirection.x);
+		memcpy(std::exchange(base, base + sizeof(uint32_t)), &x, sizeof(uint32_t));
+
+		uint32_t y = htonf(result.upDirection.y);
+		memcpy(std::exchange(base, base + sizeof(uint32_t)), &y, sizeof(uint32_t));
+
+		memcpy(std::exchange(base, base + 1), &result.isSliced, 1);
+		return buffer;
+	}
+	static void AppendSerialize(const SliceResult& result, std::vector<char>& buffer) {
+		auto originalSize = buffer.size();
+		buffer.resize(originalSize + Size);
+		auto base = buffer.data() + originalSize;
+
+		uint64_t id = htonll(result.id);
+		memcpy(std::exchange(base, base + sizeof(uint64_t)), &id, sizeof(uint64_t));
+
+		uint32_t x = htonf(result.upDirection.x);
+		memcpy(std::exchange(base, base + sizeof(uint32_t)), &x, sizeof(uint32_t));
+
+		uint32_t y = htonf(result.upDirection.y);
+		memcpy(std::exchange(base, base + sizeof(uint32_t)), &y, sizeof(uint32_t));
+
+		memcpy(std::exchange(base, base + 1), &result.isSliced, 1);
+	}
+
+	static std::optional<SliceResult> Deserialize(std::span<const char> buffer) {
+		if (buffer.size() < Size) {
+			Debug::LogError("Cannot deserialize SliceResult: Buffer size too small!");
+			return {};
+		}
+
+		auto base = buffer.data();
+		uint64_t id;
+		memcpy(&id, std::exchange(base, base + sizeof(uint64_t)), sizeof(uint64_t));
+
+		uint32_t x, y;
+		memcpy(&x, std::exchange(base, base + sizeof(uint32_t)), sizeof(uint32_t));
+		memcpy(&y, std::exchange(base, base + sizeof(uint32_t)), sizeof(uint32_t));
+
+		bool sliceResult;
+		memcpy(&sliceResult, std::exchange(base, base + 1), 1);
+
+		return SliceResult{
+			.id = ntohll(id),
+			.upDirection = { ntohf(x), ntohf(y)},
+			.isSliced = sliceResult
+		};
 	}
 };
 
@@ -295,14 +361,11 @@ struct PlayerInputState {
 
 namespace ClientPacket {
 	enum ClientPacketType : uint8_t {
-		Input,
-		SliceResult
+		Input
 	};
 
-	std::vector<char> Serialize(const PlayerInputState& inputState);
+	std::vector<char> SerializeInput(const PlayerInputState& inputState);
 
-	std::vector<char> Serialize(const std::pair<uint64_t, bool>& sliceResult);
-
-	std::variant<PlayerInputState, std::pair<uint64_t, bool>, std::monostate> Deserialize(std::span<const char> buffer);
+	std::variant<PlayerInputState, std::monostate> Deserialize(std::span<const char> buffer);
 };
 #endif

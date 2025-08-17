@@ -14,13 +14,13 @@ public:
 	glm::mat4 rotation() const;
 	glm::vec3 scale() const;
 
-	void LookAt(glm::vec3 position, glm::vec3 up = glm::vec3(0, 1, 0));
-	void SetPosition(glm::vec3 position);
-	void SetRotation(glm::mat4 newRotation);
-	void SetScale(glm::vec3 scale);
-	void SetForward(glm::vec3 direction);
-	void SetRight(glm::vec3 direction);
-	void SetUp(glm::vec3 direction);
+	void LookAt(const glm::vec3& position, const glm::vec3& up = glm::vec3(0, 1, 0));
+	void SetPosition(const glm::vec3& position);
+	void SetRotation(const glm::mat4& newRotation);
+	void SetScale(const glm::vec3& scale);
+	void SetForward(const glm::vec3& direction);
+	void SetRight(const glm::vec3& direction);
+	void SetUp(const glm::vec3& direction);
 };
 
 #endif

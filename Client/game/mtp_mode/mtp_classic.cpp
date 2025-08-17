@@ -4,6 +4,7 @@
 #include "rendering/renderer.hpp"
 #include "rendering/camera.hpp"
 #include "input.hpp"
+#include "mtp_visual.hpp"
 
 template<typename... T>
 struct overload : T... {
@@ -11,8 +12,15 @@ struct overload : T... {
 };
 
 MTP_ClassicMode::MTP_ClassicMode(Game& game) : 
-	GameState(game), connectionState(ConnectionState::Connecting), gameState(InGameState::Wait)
-{ }
+	GameState(game), connectionState(ConnectionState::Connecting), gameState(InGameState::Wait), 
+	localControl(std::make_shared<SlicableControl>()),
+	remoteControl(std::make_shared<SlicableControl>())
+{ 
+	localControl->killHeight = MTP_Setting::fruitKillHeight;
+
+	remoteControl->killHeight = MTP_Setting::fruitKillHeight;
+	remoteControl->disableSlicing = true;
+}
 
 void MTP_ClassicMode::Init() {
 	ui.background = std::make_unique<UI>(game.textures.backgroundTexture);
@@ -38,8 +46,8 @@ void MTP_ClassicMode::Init() {
 	ui.exit = game.createUIObject(game.models.bombModel, { 1, 0, 0, 1 });
 	{
 		auto slicable = ui.exit->AddComponent<Slicable>(
-			MultiplayerSetting.sizeBomb,
-			MultiplayerSetting.fruitSliceForce,
+			MTP_Setting::sizeBomb,
+			MTP_Setting::fruitSliceForce,
 			game.uiConfig.control,
 			SlicableAsset{}
 		);
@@ -55,8 +63,8 @@ void MTP_ClassicMode::Init() {
 	};
 	{
 		auto slicable = ui.reconnect->AddComponent<Slicable>(
-			MultiplayerSetting.sizePineapple,
-			MultiplayerSetting.fruitSliceForce,
+			MTP_Setting::sizePineapple,
+			MTP_Setting::fruitSliceForce,
 			game.uiConfig.control, 
 			pineappleAsset
 		);
@@ -68,7 +76,7 @@ void MTP_ClassicMode::Init() {
 	ui.score1->textColor = { 0.271f, 0.482f, 0.616f, 1 };
 	ui.score2 = std::make_unique<UI>(0, "0");
 	ui.score2->textColor = { 0.902f, 0.224f, 0.275f, 1 };
-	for (auto i = 0; i < MultiplayerSetting.missTolerence; i++) {
+	for (auto i = 0; i < MTP_Setting::missTolerence; i++) {
 		ui.missFiller1[i] = std::make_unique<UI>(game.textures.redCross);
 		ui.missBase1[i] = std::make_unique<UI>(game.textures.emptyCross);
 		ui.missBase1[i]->textColor = { 0.271f, 0.482f, 0.616f, 1 };
@@ -217,6 +225,7 @@ void MTP_ClassicMode::EnterConnected() {
 
 void MTP_ClassicMode::EnterDisconnected() {
 	game.manager.Register(ui.reconnect);
+	pendingSlicables.clear();
 }
 
 void MTP_ClassicMode::EnterConnecting() {
@@ -227,6 +236,7 @@ void MTP_ClassicMode::ProcessServerData() {
 	if (server && server->IsConnected()) {
 		for (auto pkt = server->Receive(); pkt.has_value(); pkt = server->Receive()) {
 			auto serverData = ServerPacket::Deserialize(pkt->data);
+			
 			std::visit(
 				overload{
 					[](std::monostate) { Debug::LogError("Server data failed to deserialize!"); },
@@ -252,7 +262,134 @@ void MTP_ClassicMode::ProcessServerData() {
 							gameState = InGameState::PlayerDisconnect;
 						}
 					},
-					[](SpawnRequest request) {  }
+					[this, &pkt](SpawnRequest request) { 
+						if (request.fruitType >= SlicableType::Count) {
+							Debug::LogError("Cannot spawn slicable: Invalid slicable type id!");
+							return;
+						}
+						if (!pkt->requestHandle) {
+							Debug::LogError("Cannot spawn slicable: The request handle does not exist!");
+							return;
+						}
+						pendingSlicables.emplace(request.index, std::move(pkt->requestHandle.value()));
+
+						std::shared_ptr<Model> topSliceModels[] = {
+							this->game.models.appleTopModel,
+							this->game.models.pineappleTopModel,
+							this->game.models.watermelonTopModel,
+							this->game.models.coconutTopModel,
+						};
+
+						std::shared_ptr<Model> bottomSliceModels[] = {
+							this->game.models.appleBottomModel,
+							this->game.models.pineappleBottomModel,
+							this->game.models.watermelonBottomModel,
+							this->game.models.coconutBottomModel,
+						};
+
+						std::shared_ptr<Model> slicableModels[] = {
+							this->game.models.appleModel,
+							this->game.models.pineappleModel,
+							this->game.models.watermelonModel,
+							this->game.models.coconutModel,
+							this->game.models.bombModel
+						};
+
+						std::shared_ptr<AudioClip> sliceAudio[] = {
+							this->game.audios.fruitSliceAudio1,
+							this->game.audios.fruitSliceAudio1,
+							this->game.audios.fruitSliceAudio2,
+							this->game.audios.fruitSliceAudio2
+						};
+
+						auto asset = request.fruitType >= std::size(topSliceModels) ?
+							SlicableAsset{
+								.clipOnSliced = game.audios.explosionAudio
+							} : 
+							SlicableAsset{
+								.topSlice = topSliceModels[request.fruitType],
+								.bottomSlice = bottomSliceModels[request.fruitType],
+								.clipOnSliced = sliceAudio[request.fruitType],
+								.clipOnMissed = game.audios.fruitMissAudio
+							};
+
+						glm::vec3 spawnPos = request.fruitType == SlicableType::Bomb ?
+							glm::vec3{ request.pos.x, request.pos.y, MTP_Setting::bombPlaneZ } :
+							glm::vec3{ request.pos.x, request.pos.y, MTP_Setting::fruitPlaneZ };
+						Debug::Log("Spawn Slicable at ", spawnPos.x, " ", spawnPos.y, " ", spawnPos.z);
+
+						// Spawn local slicable
+						{
+							auto localSlicable = game.manager.CreateObject();
+							localSlicable->transform.SetPosition(spawnPos);
+							localSlicable->AddComponent<Renderer>(slicableModels[request.fruitType]);
+
+							auto rb = localSlicable->AddComponent<Rigidbody>();
+							rb->velocity = {request.vel.x, request.vel.y, 0};
+
+							auto slicable = localSlicable->AddComponent<Slicable>(
+								MTP_Setting::slicableSizes[request.fruitType],
+								MTP_Setting::fruitSliceForce,
+								localControl,
+								asset
+							);
+
+							slicable->onSliced = [this, id = request.index](Transform& slicableTransform, glm::vec3 up) {
+								pendingSlicables.at(id).Respond(
+									SliceResult::Serialize(
+										SliceResult{
+											.id = id,
+											.upDirection = { up.x, up.y },
+											.isSliced = true,
+										}
+									)
+								);
+								pendingSlicables.erase(id);
+							};
+
+							slicable->onMissed = [this, id = request.index]() {
+								pendingSlicables.at(id).Respond(
+									SliceResult::Serialize(
+										SliceResult{
+											.id = id,
+											.isSliced = false,
+										}
+									)
+								);
+								pendingSlicables.erase(id);
+							};
+						}
+
+						// Spawn remote slicable
+						{
+							auto remoteSlicable = game.manager.CreateObject();
+							pendingRemoteSlicables.emplace(request.index, remoteSlicable);
+
+							remoteSlicable->transform.SetPosition(spawnPos);
+
+							auto rb = remoteSlicable->AddComponent<Rigidbody>();
+							rb->velocity = { request.vel.x, request.vel.y, 0 };
+
+							auto renderer = remoteSlicable->AddComponent<Renderer>(slicableModels[request.fruitType]);
+							renderer->color = MTP_Visual::remoteSlicableColorTint;
+							renderer->outlineColor = MTP_Visual::remoteSlicableColorOutline;
+
+							auto slicable = remoteSlicable->AddComponent<Slicable>(
+								MTP_Setting::slicableSizes[request.fruitType],
+								MTP_Setting::fruitSliceForce,
+								remoteControl,
+								asset
+							);
+
+							slicable->onSliced = [this, id = request.index](Transform&, glm::vec3) {
+								pendingRemoteSlicables.erase(id);
+							};
+
+							slicable->onMissed = [this, id = request.index]() {
+								pendingRemoteSlicables.erase(id);
+							};
+						}
+					}
 				}, serverData
 			);
 		}
@@ -279,8 +416,19 @@ void MTP_ClassicMode::SendInput() {
 	inputState.index++;
 	inputState.mouseX = static_cast<float>(cursorX / dim.x);
 	inputState.mouseY= static_cast<float>(cursorY / dim.y);
-	server->SendData(ClientPacket::Serialize(inputState));
+	server->SendData(ClientPacket::SerializeInput(inputState));
 	inputState.keys = PlayerKeyPressed::None;
+}
+
+void MTP_ClassicMode::ClearPendingSlicables() {
+	for (auto i = pendingRemoteSlicables.begin(); i != pendingRemoteSlicables.end();) {
+		if (i->second.expired()) {
+			i = pendingRemoteSlicables.erase(i);
+		}
+		else {
+			++i;
+		}
+	}
 }
 
 std::optional<std::type_index> MTP_ClassicMode::Step() {
@@ -315,6 +463,7 @@ std::optional<std::type_index> MTP_ClassicMode::Step() {
 		}
 		else {
 			ProcessServerData();
+			ClearPendingSlicables();
 			SendInput();
 		}
 		break;
@@ -350,10 +499,12 @@ void MTP_ClassicMode::OnDrawFrontUI(Shader& uiShader) {
 		return;
 	}
 
+	ui.score1->UpdateText(std::to_string(context1.score));
 	ui.score1->DrawInNDC({-0.5f, 0.9f}, uiShader);
+	ui.score2->UpdateText(std::to_string(context2.score));
 	ui.score2->DrawInNDC({0.5f, 0.9f}, uiShader);
 
-	for (int i = 0; i < MultiplayerSetting.missTolerence; i++) {
+	for (uint32_t i = 0; i < MTP_Setting::missTolerence; i++) {
 		if (i < context1.numMisses) {
 			ui.missFiller1[i]->DrawInNDC({-0.95f + i * 0.06, 0.8f + i * 0.04}, uiShader);
 			ui.missFiller2[i]->DrawInNDC({0.95f - i * 0.06, 0.8f + i * 0.04 }, uiShader);

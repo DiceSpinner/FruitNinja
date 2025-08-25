@@ -168,7 +168,7 @@ void LiteConnConnection::CloseRequest(uint64_t index) {
 
 void LiteConnConnection::RejectRequest(uint64_t index) {
 	std::lock_guard<std::mutex> guard(lock);
-	if (!LiteConnResponses.erase(index)) return;
+	if (!pendingResponses.erase(index)) return;
 	
 	LiteConnHeader header = {
 		.sessionID = sessionID,
@@ -182,7 +182,7 @@ void LiteConnConnection::RejectRequest(uint64_t index) {
 
 void LiteConnConnection::Respond(uint64_t index, const std::span<const char>& data) {
 	std::lock_guard<std::mutex> guard(lock);
-	if (!LiteConnResponses.erase(index)) return;
+	if (!pendingResponses.erase(index)) return;
 
 	LiteConnHeader replyHeader = {
 		.flag = LiteConnHeaderFlag::DATA | LiteConnHeaderFlag::ACK,
@@ -193,7 +193,7 @@ void LiteConnConnection::Respond(uint64_t index, const std::span<const char>& da
 
 std::optional<LiteConnResponse> LiteConnConnection::Converse(uint64_t index, const std::span<const char>& data){
 	std::lock_guard<std::mutex> guard(lock);
-	if (!LiteConnResponses.erase(index)) return {};
+	if (!pendingResponses.erase(index)) return {};
 
 	LiteConnHeader replyHeader = {
 		.flag = LiteConnHeaderFlag::DATA | LiteConnHeaderFlag::ACK | LiteConnHeaderFlag::REQ,
@@ -290,7 +290,7 @@ bool LiteConnConnection::TryHandleAcknowledgement(const LiteConnHeader& header, 
 			id = ntohll(id);
 
 			AckReceival(header);
-			LiteConnResponses.emplace(id);
+			pendingResponses.emplace(id);
 			data.erase(data.begin(), data.begin() + sizeof(uint64_t));
 			result->second.set_value(LiteConnMessage{ std::move(data), LiteConnRequest{weak_from_this(), id} } );
 		}
@@ -312,7 +312,7 @@ bool LiteConnConnection::TryHandleData(const LiteConnHeader& header, std::vector
 			}
 			else if (header.flag & LiteConnHeaderFlag::REQ) {
 				AckReceival(header);
-				LiteConnResponses.emplace(header.id64);
+				pendingResponses.emplace(header.id64);
 				packetQueue.emplace_back(std::move(data), LiteConnRequest{ weak_from_this(), header.id64 });
 			}
 			else {
@@ -350,7 +350,7 @@ bool LiteConnConnection::TryHandleRequestCancellation(const LiteConnHeader& head
 			}
 		}
 		else { // Peer cancels their own request
-			LiteConnResponses.erase(header.id64);
+			pendingResponses.erase(header.id64);
 		}
 		AckReceival(header);
 		return true;
@@ -471,7 +471,13 @@ bool LiteConnConnection::UpdateTimeout() {
 		for (auto& promise : requestHandles) {
 			promise.second.set_value(std::nullopt);
 		}
-		LiteConnResponses.clear();
+		// Invalidate all existing request handles to prevent deadlock
+		for (auto& msg : packetQueue) {
+			if (msg.requestHandle) {
+				msg.requestHandle->isValid = false;
+			}
+		}
+		pendingResponses.clear();
 		requestHandles.clear();
 		autoResendEntries.clear();
 		packetQueue.clear();
@@ -614,6 +620,12 @@ void LiteConnConnection::Disconnect() {
 	for (auto i = requestHandles.begin(); i != requestHandles.end();) {
 		i->second.set_value(std::nullopt);
 		i = requestHandles.erase(i);
+	}
+	// Invalidate all existing request handles to prevent deadlock
+	for (auto& msg : packetQueue) {
+		if (msg.requestHandle) {
+			msg.requestHandle->isValid = false;
+		}
 	}
 	packetQueue.clear();
 	autoAcks.clear();

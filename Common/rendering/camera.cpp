@@ -9,7 +9,7 @@ Camera::Camera(unordered_map<type_index, vector<unique_ptr<Component>>>& compone
 	: Component(components, transform, object), nearClipPlane(nearClipPlane), farClipPlane(farClipPlane), isOrtho(false), width(RenderContext::Context->Dimension().x)
 {
 	auto size = RenderContext::Context->Dimension();
-	if (size.y > 0) {
+	if (size.x > 0 && size.y > 0) {
 		perspective = glm::perspective(glm::radians(45.0f), (float)size.x / (float)size.y, nearClipPlane, farClipPlane);
 		float halfWidth = width / 2.0f;
 		float halfHeight = (float)size.y / size.x * halfWidth;
@@ -21,10 +21,10 @@ Camera::Camera(unordered_map<type_index, vector<unique_ptr<Component>>>& compone
 }
 
 void Camera::SetPerspective(float nearClipPlane, float farClipPlane) {
-	this->nearClipPlane = nearClipPlane;
-	this->farClipPlane = farClipPlane;
 	auto size = RenderContext::Context->Dimension();
-	if (size.y > 0) {
+	if (size.x > 0 && size.y > 0) {
+		this->nearClipPlane = nearClipPlane;
+		this->farClipPlane = farClipPlane;
 		perspective = glm::perspective(glm::radians(45.0f), (float)size.x / (float)size.y, nearClipPlane, farClipPlane);
 		float halfWidth = width / 2.0f;
 		float halfHeight = (float)size.y / size.x * halfWidth;
@@ -33,6 +33,7 @@ void Camera::SetPerspective(float nearClipPlane, float farClipPlane) {
 }
 
 void Camera::SetOrthoWidth(float width) {
+	if (width <= 0) return;
 	auto size = RenderContext::Context->Dimension();
 	this->width = width;
 	float halfWidth = width / 2;

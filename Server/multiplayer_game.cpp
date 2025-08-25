@@ -14,7 +14,7 @@ static float randFloat(float min, float max) {
 static int randInt(int min, int max) {
 	static std::random_device rd;
 	static std::mt19937 gen(rd());
-	std::uniform_int_distribution<int> dist(0, max - 1);
+	std::uniform_int_distribution<int> dist(0, max);
 
 	return dist(gen);
 }
@@ -98,7 +98,7 @@ void MultiplayerGame::Step() {
 					}
 					else {
 						Debug::Log("Client ", (playerID + 1), " missed slicable");
-						contexts[playerID].numMisses++;
+						// contexts[playerID].numMisses++;
 					}
 				}
 				else {

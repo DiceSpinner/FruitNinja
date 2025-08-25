@@ -8,7 +8,7 @@ static TimeoutSetting ConnectionTimeOut {
 	.connectionTimeout = std::chrono::seconds(20),
 	.connectionRetryInterval = std::chrono::milliseconds(100),
 	.impRetryInterval = std::chrono::milliseconds(50),
-	.replyKeepDuration = std::chrono::seconds(5)
+	.replyKeepDuration = std::chrono::seconds(3)
 };
 
 namespace MTP_Setting {

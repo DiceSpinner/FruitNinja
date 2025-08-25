@@ -7,7 +7,7 @@ private:
 	std::shared_ptr<Model> model;
 public:
 	static GLuint white;
-
+	uint32_t renderOrder = 0;
 	bool drawOverlay;
 	bool drawOutline;
 	glm::vec4 color;

@@ -1,4 +1,5 @@
 #include <iostream>
+#include <AL/al.h>
 #include "rendering/render_context.hpp"
 #include "input.hpp"
 #include "rendering/camera.hpp"
@@ -24,6 +25,19 @@ void Input::onKeyPressed(GLFWwindow* window, int key, int scancode, int action, 
     }
     if (key == GLFW_KEY_F && action == GLFW_RELEASE) {
         gameClock->timeScale = !gameClock->timeScale;
+    }
+
+    if (key == GLFW_KEY_M && action == GLFW_RELEASE) {
+        ALfloat listenerGain;
+        alGetListenerf(AL_GAIN, &listenerGain);
+
+        if (listenerGain > 0) {
+            listenerGain = 0;
+        }
+        else {
+            listenerGain = 1;
+        }
+        alListenerf(AL_GAIN, listenerGain);
     }
 
     if (key == GLFW_KEY_R && action == GLFW_RELEASE) {

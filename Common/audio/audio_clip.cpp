@@ -1,5 +1,5 @@
+#include <AudioFile/AudioFile.h>
 #include "audio_clip.hpp"
-#include <AudioFile.h>
 
 AudioClip::AudioClip(const char* path) {
 	AudioFile<short> audioFile;

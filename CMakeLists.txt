@@ -10,10 +10,12 @@ add_compile_definitions(
 	SHADER_DIR="${CMAKE_SOURCE_DIR}/shaders/"
 	AUDIO_DIR="${CMAKE_SOURCE_DIR}/sounds/"
 	FONT_DIR="${CMAKE_SOURCE_DIR}/fonts/"
+	TRACY_ENABLE
 )
 
 add_subdirectory(Common)
 add_subdirectory(Client)
 add_subdirectory(Server)
 add_subdirectory(extern/Catch2)
+add_subdirectory(extern/tracy)
 add_subdirectory(Tests)

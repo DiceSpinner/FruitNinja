@@ -113,7 +113,8 @@ void Slicable::Update(const Clock& clock) {
 	}
 
 	glm::vec2 cursorDirection = Cursor::getCursorPosDelta();
-	if (transform.position().y <= control->killHeight) {
+	auto pos = transform.position();
+	if (pos.y <= control->killHeight) {
 		if (!sliced) {
 			if (onMissed) {
 				onMissed();

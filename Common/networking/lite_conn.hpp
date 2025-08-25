@@ -14,6 +14,7 @@ class LiteConnConnection;
 class LiteConnResponse;
 
 class LiteConnRequest {
+	friend class LiteConnConnection;
 private:
 	std::weak_ptr<LiteConnConnection> connection;
 	bool isValid;
@@ -203,7 +204,7 @@ private:
 	std::unordered_map<uint64_t, AutoResendEntry> autoResendEntries;
 	std::unordered_map<uint32_t, std::chrono::steady_clock::time_point> autoAcks;
 	std::unordered_map<uint64_t, std::promise<std::optional<LiteConnMessage>>> requestHandles;
-	std::unordered_set<uint64_t> LiteConnResponses;
+	std::unordered_set<uint64_t> pendingResponses;
 	std::list<LiteConnMessage> packetQueue;
 	sockaddr_in peerAddr;
 	ConnectionStatus status;

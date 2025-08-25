@@ -271,23 +271,24 @@ void MTP_ClassicMode::ProcessServerData() {
 							Debug::LogError("Cannot spawn slicable: The request handle does not exist!");
 							return;
 						}
+
 						pendingSlicables.emplace(request.index, std::move(pkt->requestHandle.value()));
 
-						std::shared_ptr<Model> topSliceModels[] = {
+						std::shared_ptr<Model> topSliceModels[SlicableType::Count] = {
 							this->game.models.appleTopModel,
 							this->game.models.pineappleTopModel,
 							this->game.models.watermelonTopModel,
-							this->game.models.coconutTopModel,
+							this->game.models.coconutTopModel
 						};
 
-						std::shared_ptr<Model> bottomSliceModels[] = {
+						std::shared_ptr<Model> bottomSliceModels[SlicableType::Count] = {
 							this->game.models.appleBottomModel,
 							this->game.models.pineappleBottomModel,
 							this->game.models.watermelonBottomModel,
-							this->game.models.coconutBottomModel,
+							this->game.models.coconutBottomModel
 						};
 
-						std::shared_ptr<Model> slicableModels[] = {
+						std::shared_ptr<Model> slicableModels[SlicableType::Count] = {
 							this->game.models.appleModel,
 							this->game.models.pineappleModel,
 							this->game.models.watermelonModel,
@@ -295,14 +296,14 @@ void MTP_ClassicMode::ProcessServerData() {
 							this->game.models.bombModel
 						};
 
-						std::shared_ptr<AudioClip> sliceAudio[] = {
+						std::shared_ptr<AudioClip> sliceAudio[SlicableType::Count] = {
 							this->game.audios.fruitSliceAudio1,
 							this->game.audios.fruitSliceAudio1,
 							this->game.audios.fruitSliceAudio2,
 							this->game.audios.fruitSliceAudio2
 						};
 
-						auto asset = request.fruitType >= std::size(topSliceModels) ?
+						auto asset = request.fruitType == SlicableType::Bomb ?
 							SlicableAsset{
 								.clipOnSliced = game.audios.explosionAudio
 							} : 
@@ -313,16 +314,30 @@ void MTP_ClassicMode::ProcessServerData() {
 								.clipOnMissed = game.audios.fruitMissAudio
 							};
 
+						auto remoteAsset = request.fruitType >= std::size(topSliceModels) ?
+							SlicableAsset{
+								.clipOnSliced = game.audios.explosionAudio
+							} :
+							SlicableAsset{
+								.topSlice = topSliceModels[request.fruitType],
+								.bottomSlice = bottomSliceModels[request.fruitType],
+								.clipOnSliced = sliceAudio[request.fruitType],
+							};
+
 						glm::vec3 spawnPos = request.fruitType == SlicableType::Bomb ?
 							glm::vec3{ request.pos.x, request.pos.y, MTP_Setting::bombPlaneZ } :
 							glm::vec3{ request.pos.x, request.pos.y, MTP_Setting::fruitPlaneZ };
-						Debug::Log("Spawn Slicable at ", spawnPos.x, " ", spawnPos.y, " ", spawnPos.z);
 
 						// Spawn local slicable
 						{
 							auto localSlicable = game.manager.CreateObject();
 							localSlicable->transform.SetPosition(spawnPos);
-							localSlicable->AddComponent<Renderer>(slicableModels[request.fruitType]);
+							auto renderer = localSlicable->AddComponent<Renderer>(slicableModels[request.fruitType]);
+							// renderer->color = MTP_Visual::localSlicableColorTint;
+							renderer->drawOutline = true;
+							renderer->outlineColor = MTP_Visual::localSlicableColorOutline;
+							renderer->drawOverlay = true;
+							renderer->renderOrder = 1;
 
 							auto rb = localSlicable->AddComponent<Rigidbody>();
 							rb->velocity = {request.vel.x, request.vel.y, 0};
@@ -372,13 +387,15 @@ void MTP_ClassicMode::ProcessServerData() {
 
 							auto renderer = remoteSlicable->AddComponent<Renderer>(slicableModels[request.fruitType]);
 							renderer->color = MTP_Visual::remoteSlicableColorTint;
+							renderer->drawOverlay = true;
+							renderer->drawOutline = true;
 							renderer->outlineColor = MTP_Visual::remoteSlicableColorOutline;
 
 							auto slicable = remoteSlicable->AddComponent<Slicable>(
 								MTP_Setting::slicableSizes[request.fruitType],
 								MTP_Setting::fruitSliceForce,
 								remoteControl,
-								asset
+								remoteAsset
 							);
 
 							slicable->onSliced = [this, id = request.index](Transform&, glm::vec3) {

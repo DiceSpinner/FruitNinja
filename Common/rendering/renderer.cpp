@@ -1,5 +1,6 @@
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
+#include <algorithm>
 #include "renderer.hpp"
 
 using namespace std;
@@ -8,6 +9,7 @@ static vector<Renderer*>* activeRenderers = new vector<Renderer*>();
 GLuint Renderer::white(0);
 
 void Renderer::DrawObjects(Shader& shader, Shader& outlineShader) {
+	std::sort(activeRenderers->begin(), activeRenderers->end(), [](Renderer* a, Renderer* b) { return a->renderOrder < b->renderOrder; });
 	for (auto renderer : *activeRenderers) {
 		renderer->Draw(shader, outlineShader);
 	}
@@ -21,6 +23,7 @@ Renderer::Renderer(unordered_map<type_index, vector<unique_ptr<Component>>>& com
 
 void Renderer::Draw(Shader& shader, Shader& outlineShader) const {
 	if (drawOutline) {
+		glClearStencil(0);
 		glClear(GL_STENCIL_BUFFER_BIT);
 		glStencilMask(0xFF);
 		glStencilFunc(GL_ALWAYS, 1, 0xFF);
@@ -34,7 +37,6 @@ void Renderer::Draw(Shader& shader, Shader& outlineShader) const {
 	model->Draw(shader);
 
 	if (drawOutline) {
-		glDepthMask(GL_FALSE);
 		outlineShader.Use();
 		outlineShader.SetVec4("color", outlineColor);
 		glStencilFunc(GL_NOTEQUAL, 1, 0xFF);
@@ -42,7 +44,6 @@ void Renderer::Draw(Shader& shader, Shader& outlineShader) const {
 		model->Draw(outlineShader);
 		shader.Use();
 		glStencilFunc(GL_ALWAYS, 0, 0xFF);
-		glDepthMask(GL_TRUE);
 	}
 }
 

@@ -1,5 +1,5 @@
 ﻿#include <boost/program_options.hpp>
-#include <iostream>
+#include "tracy/Tracy.hpp"
 #include "rendering/render_context.hpp"
 #include "audio/audio_context.hpp"
 #include "rendering/font.hpp"
@@ -33,6 +33,7 @@ namespace po = boost::program_options;
 
 
 int main(int argc, char* argv[]) {
+    TracyNoop;
     std::string serverIP;
     USHORT serverPort;
     USHORT localPort;
@@ -40,9 +41,9 @@ int main(int argc, char* argv[]) {
     po::options_description cmdOptions("Options:");
     cmdOptions.add_options()
         ("help,h", "show help message")
-        ("ip_server,ips", po::value<std::string>(&serverIP)->required(), "Public IP for the server")
-        ("port_server,ps", po::value<USHORT>(&serverPort)->required(), "Port number used by the server")
-        ("port,p", po::value<USHORT>(&localPort)->required(), "Port number used by the client");
+        ("ip_server,ips", po::value<std::string>(&serverIP)->default_value("127.0.0.1"), "Public IP for the server")
+        ("port_server,ps", po::value<USHORT>(&serverPort)->default_value(30000), "Port number used by the server")
+        ("port,p", po::value<USHORT>(&localPort)->default_value(35000), "Port number used by the client");
     po::variables_map vm;
     po::store(po::parse_command_line(argc, argv, cmdOptions), vm);
     po::notify(vm);
